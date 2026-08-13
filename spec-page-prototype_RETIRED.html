@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2001 Honda CR125 — Stock Specs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14120f;
+    --panel: #1c1a16;
+    --panel-2: #221f1a;
+    --line: #34302a;
+    --amber: #d99a2b;
+    --amber-dim: #8a691f;
+    --text: #e8e2d4;
+    --text-dim: #9c9484;
+    --text-faint: #6b6558;
+    --danger: #b5502e;
+    --good: #6f8a4e;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(217,154,43,0.05), transparent 45%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 3px);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 0 0 80px 0;
+  }
+
+  header{
+    border-bottom: 1px solid var(--line);
+    padding: 28px 20px 22px;
+    background: linear-gradient(180deg, var(--panel), var(--bg));
+  }
+
+  .eyebrow{
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  h1{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: 0.01em;
+    margin: 0 0 4px;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .bike-select{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    background: var(--bg);
+    color: var(--amber);
+    border: 1px solid var(--line);
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    width: 100%;
+    background-image: linear-gradient(45deg, transparent 50%, var(--amber) 50%), linear-gradient(135deg, var(--amber) 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  .bike-select:focus{ outline: 1px solid var(--amber); }
+
+  .subhead{
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  main{
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 18px 16px 0;
+  }
+
+  .search-note{
+    font-size: 12px;
+    color: var(--text-faint);
+    margin: 4px 0 20px;
+    padding-left: 2px;
+  }
+
+  /* ---- Category ---- */
+  .category{
+    border: 1px solid var(--line);
+    margin-bottom: 10px;
+    background: var(--panel);
+  }
+
+  .category-toggle{
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: 'Oswald', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 15px 16px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .category-toggle:hover{ background: var(--panel-2); }
+
+  .category-toggle .count{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 10px;
+    font-weight: 400;
+  }
+
+  .category-toggle .name-wrap{ display:flex; align-items:baseline; }
+
+  .chevron{
+    color: var(--amber);
+    font-size: 12px;
+    transition: transform 0.18s ease;
+    flex-shrink: 0;
+  }
+
+  .category.open .chevron{ transform: rotate(90deg); }
+
+  .category-body{
+    display: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .category.open .category-body{ display: block; }
+
+  /* ---- Spec row ---- */
+  .spec{
+    padding: 14px 16px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .spec:last-child{ border-bottom: none; }
+
+  .spec-label-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .spec-label{
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .exception-tag{
+    font-size: 9.5px;
+    color: var(--amber-dim);
+    border: 1px solid var(--amber-dim);
+    padding: 1px 5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-left: 8px;
+  }
+
+  .value-line{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 10px;
+    background: var(--panel-2);
+    border-left: 2px solid var(--line);
+  }
+
+  .value-line.stock{ border-left-color: var(--amber); }
+  .value-line.alt{ border-left-color: var(--text-faint); margin-top: 6px; }
+  .value-line.hidden-row{ display:none; }
+
+  .value-main{
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .value-source{
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    flex-shrink: 0;
+  }
+  .value-line.alt .value-source{ color: var(--text-faint); }
+
+  .value-text{
+    font-size: 13.5px;
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+
+  .fit-check{
+    color: var(--good);
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-left: 2px;
+  }
+
+  .value-actions{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .icon-btn .badge{
+    position: absolute;
+    top: -9px;
+    right: -10px;
+    font-size: 9.5px;
+    color: var(--amber);
+    background: var(--bg);
+    padding: 0 3px;
+    line-height: 1.4;
+  }
+
+  .icon-btn.flag .badge{ color: var(--danger); }
+
+  .icon-btn svg{ width: 17px; height: 17px; }
+  .icon-btn:hover{ color: var(--amber); }
+  .icon-btn.flag:hover{ color: var(--danger); }
+
+  .show-more{
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--amber-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 8px 2px 2px;
+    cursor: pointer;
+  }
+  .show-more:hover{ color: var(--amber); }
+  .show-more .arrow{ display:inline-block; transition: transform 0.15s ease; margin-left: 4px; }
+  .show-more.expanded .arrow{ transform: rotate(180deg); }
+
+  .propose-row{
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .propose-row input{
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 9px;
+  }
+  .propose-row input:focus{ outline: 1px solid var(--amber); border-color: var(--amber); }
+  .propose-row input::placeholder{ color: var(--text-faint); }
+
+  .propose-row button{
+    background: var(--amber);
+    color: #1a1710;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .propose-row button:hover{ background: #e8ac47; }
+
+  footer{
+    max-width: 620px;
+    margin: 26px auto 0;
+    padding: 0 16px;
+    color: var(--text-faint);
+    font-size: 11px;
+  }
+
+  :focus-visible{ outline: 2px solid var(--amber); outline-offset: 1px; }
+
+  @media (max-width: 420px){
+    .value-line{ flex-direction: column; align-items: flex-start; gap: 8px; }
+    .value-actions{ align-self: flex-end; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Stock Spec Database — Trial Build</div>
+  <select id="bike-select" class="bike-select">
+    <option value="cr125">2001 Honda CR125</option>
+    <option value="cb919">2005 Honda CB900F / 919</option>
+  </select>
+  <div class="subhead" id="cat-count">Generated from questionnaire run · tap a category to expand</div>
+</header>
+
+<main>
+  <div class="search-note">All categories collapsed by default. Order within a category reflects search/view popularity — you can override.</div>
+
+  <div id="categories"></div>
+</main>
+
+<footer>
+  Prototype build — data shown is for layout testing only. "Confirmed fit" checkmark and vote/flag counts are placeholder values.
+</footer>
+
+<script>
+const THUMB_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h.5a2.5 2.5 0 0 1 2.5 2.5v1.38Z"/></svg>`;
+const FLAG_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c2.5 0 4 1.5 6 1.5s3-.5 4.5-1.5a.5.5 0 0 1 .8.4v10.6a.5.5 0 0 1-.8.4c-1.5 1-3 1.5-4.5 1.5-2 0-3.5-1.5-6-1.5a6 6 0 0 0-3.6.7"/></svg>`;
+
+// ---- CR125 (2001) — generated from questionnaire run ----
+const DATA_CR125 = [
+  {
+    name: "Engine",
+    specs: [
+      {
+        label: "Cylinder Configuration",
+        stock: { text: "1 cylinder", votes: 6, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Premix Fuel:Oil Ratio",
+        stock: { text: "32:1", votes: 88, flags: 0 },
+        alternates: [
+          { text: "Motul 800 2T Factory Line — 40:1 (per bottle spec)", votes: 41, flags: 0, confirmedFit: true },
+          { text: "Maxima Castor 927 — 32:1", votes: 19, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Recommended 2-Stroke Oil",
+        stock: { text: "Honda HP2 or equivalent premix oil", votes: 22, flags: 0 },
+        alternates: [
+          { text: "Motul 800 2T Factory Line", votes: 41, flags: 0, confirmedFit: true },
+          { text: "Maxima Castor 927", votes: 19, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Transmission Oil Weight",
+        stock: { text: "10W-30 (non-synthetic, no friction modifiers)", votes: 27, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Transmission Oil Volume",
+        stock: { text: "700 ml", votes: 20, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Carb 1 Pilot Jet",
+        stock: { text: "#42", votes: 14, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Carb 1 Main Jet",
+        stock: { text: "#178", votes: 14, flags: 0 },
+        alternates: [
+          { text: "#175 (sea-level jetting, popular alt)", votes: 23, flags: 0, confirmedFit: true },
+          { text: "#180 (high-altitude jetting)", votes: 8, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Ignition Timing",
+        stock: { text: "Fixed — CDI controlled, non-adjustable", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Coolant Type",
+        stock: { text: "Honda HP Coolant (or equivalent silicate-free ethylene glycol)", votes: 11, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Coolant Capacity",
+        stock: { text: "1.0 L (total system)", votes: 9, flags: 0 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "Drive",
+    specs: [
+      {
+        label: "Chain",
+        stock: { text: "520, 114 links", votes: 24, flags: 0 },
+        alternates: [
+          { text: "DID 520MX Racing Chain", votes: 33, flags: 0, confirmedFit: true, brand: "DID" }
+        ]
+      },
+      {
+        label: "Front Sprocket",
+        stock: { text: "13T, 520 pitch", votes: 18, flags: 0, confirmedFit: true },
+        alternates: []
+      },
+      {
+        label: "Rear Sprocket",
+        stock: { text: "50T, 520 pitch", votes: 16, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "Renthal 51T (taller gearing, popular MX alt)", votes: 14, flags: 0, confirmedFit: true, brand: "Renthal" }
+        ]
+      },
+      {
+        label: "Front Left Caliper",
+        stock: { text: "OEM Honda — Nissin 2-piston", votes: 4, flags: 0, confirmedFit: true },
+        alternates: []
+      },
+      {
+        label: "Front Left Brake Pads",
+        stock: { text: "OEM Honda 06455-KZ3-D02", votes: 12, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "EBC FA131 — Organic", votes: 28, flags: 0, confirmedFit: true, brand: "EBC" },
+          { text: "DP Brakes DP221 — Sintered", votes: 9, flags: 0, confirmedFit: true, brand: "DP Brakes" }
+        ]
+      },
+      {
+        label: "Rear Brake Pads",
+        stock: { text: "OEM Honda 43105-KZ3-D02", votes: 10, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "EBC FA131R — Organic", votes: 15, flags: 0, confirmedFit: true, brand: "EBC" }
+        ]
+      },
+      {
+        label: "Front Inner Tube",
+        stock: { text: "80/100-21", votes: 7, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Front Valve Stem Type",
+        stock: { text: "TR4 (rubber)", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Rear Inner Tube",
+        stock: { text: "100/90-19", votes: 6, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Rear Valve Stem Type",
+        stock: { text: "TR4 (rubber)", votes: 5, flags: 0 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "Suspension",
+    specs: [
+      {
+        label: "Front Shock Air Pressure",
+        stock: { text: "0 PSI (spring fork, no air-assist on std. Showa)", votes: 3, flags: 1 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "Controls",
+    specs: [
+      {
+        label: "Front Brake Fluid",
+        stock: { text: "DOT 4", votes: 19, flags: 0 },
+        exception: true,
+        alternates: []
+      },
+      {
+        label: "Rear Brake Fluid",
+        stock: { text: "DOT 4", votes: 14, flags: 0 },
+        exception: true,
+        alternates: []
+      }
+    ]
+  }
+];
+
+// ---- CB919 (2005) — generated from questionnaire run ----
+const DATA_CB919 = [
+  {
+    name: "Engine",
+    specs: [
+      {
+        label: "Cylinder Configuration",
+        stock: { text: "Inline-4 — Outer Pair (1&4) / Inner Pair (2&3) grouping applies", votes: 12, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Engine Oil Weight",
+        stock: { text: "10W-40", votes: 302, flags: 1 },
+        alternates: [
+          { text: "Motul 7100 10W-40 (synthetic ester)", votes: 84, flags: 0, confirmedFit: true },
+          { text: "Castrol Power1 10W-40", votes: 51, flags: 0, confirmedFit: true },
+          { text: "Rotella T6 5W-40 (diesel-rated, popular budget alt)", votes: 37, flags: 2, confirmedFit: false }
+        ]
+      },
+      {
+        label: "Engine Oil Volume",
+        stock: { text: "3.8 L w/ filter change", votes: 118, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Intake Valve Clearance",
+        stock: { text: "0.16 mm (cold)", votes: 210, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Exhaust Valve Clearance",
+        stock: { text: "0.25 mm (cold)", votes: 198, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Ignition Timing",
+        stock: { text: "ECU-controlled, non-adjustable (reference: 10° BTDC idle)", votes: 14, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Oil Filter Part Number",
+        stock: { text: "OEM Honda 15410-MFJ-D01", votes: 40, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "K&N KN-303", votes: 61, flags: 0, confirmedFit: true },
+          { text: "Hiflofiltro HF303", votes: 45, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Coolant Type",
+        stock: { text: "Honda HP Coolant (or equivalent silicate-free ethylene glycol)", votes: 33, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Coolant Capacity",
+        stock: { text: "2.8 L (total system)", votes: 21, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Temperature Sensor Location",
+        stock: { text: "Left side of cylinder head, below thermostat housing", votes: 6, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fan Relay Location",
+        stock: { text: "Under seat, relay box", votes: 4, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fan Fuse Location",
+        stock: { text: "Fuse box, under seat", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fan Fuse Type",
+        stock: { text: "Blade (mini)", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fan Fuse Amp Rating",
+        stock: { text: "15A", votes: 5, flags: 0 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "Drive",
+    specs: [
+      {
+        label: "Chain",
+        stock: { text: "530, 108 links (O-ring)", votes: 58, flags: 0 },
+        alternates: [
+          { text: "DID 530VX3 X-Ring", votes: 71, flags: 0, confirmedFit: true, brand: "DID" },
+          { text: "RK 530GXW X-Ring", votes: 39, flags: 0, confirmedFit: true, brand: "RK" }
+        ]
+      },
+      {
+        label: "Front Sprocket",
+        stock: { text: "16T, 530 pitch", votes: 58, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "JT Sprockets JTF569 (16T, 530)", votes: 12, flags: 0, confirmedFit: true, brand: "JT Sprockets" }
+        ]
+      },
+      {
+        label: "Rear Sprocket",
+        stock: { text: "43T, 530 pitch", votes: 34, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "JT Sprockets JTR1489 (43T, 530)", votes: 9, flags: 0, confirmedFit: true, brand: "JT Sprockets" }
+        ]
+      },
+      {
+        label: "Front Left Caliper",
+        stock: { text: "OEM Honda — Nissin 2-piston", votes: 8, flags: 0, confirmedFit: true },
+        alternates: []
+      },
+      {
+        label: "Front Right Caliper",
+        stock: { text: "OEM Honda — Nissin 2-piston", votes: 8, flags: 0, confirmedFit: true },
+        alternates: []
+      },
+      {
+        label: "Front Brake Pads",
+        stock: { text: "(Qty: 2 required) OEM Honda 06455-MCJ-D01", votes: 44, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "EBC FA187HH — Double-H Sintered", votes: 489, flags: 0, confirmedFit: true, brand: "EBC" },
+          { text: "EBC FA187 — Organic", votes: 63, flags: 0, confirmedFit: true, brand: "EBC" },
+          { text: "DP Brakes DP121 — Sintered", votes: 2, flags: 0, confirmedFit: true, brand: "DP Brakes" },
+          { text: "SBS 657HF — Ceramic", votes: 1, flags: 0, confirmedFit: false, brand: "SBS" }
+        ]
+      },
+      {
+        label: "Rear Brake Pads",
+        stock: { text: "OEM Honda 43105-MCJ-D01", votes: 31, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "EBC FA174HH — Double-H Sintered", votes: 255, flags: 0, confirmedFit: true, brand: "EBC" },
+          { text: "EBC FA174 — Organic", votes: 27, flags: 0, confirmedFit: true, brand: "EBC" },
+          { text: "DP Brakes DP121R — Sintered", votes: 4, flags: 0, confirmedFit: true, brand: "DP Brakes" }
+        ]
+      }
+    ]
+  },
+  {
+    name: "Fuel",
+    specs: [
+      {
+        label: "Fuel System",
+        stock: { text: "PGM-FI Electronic Fuel Injection", votes: 20, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuel Pump Relay",
+        stock: { text: "Under seat, relay box, position 2", votes: 4, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuel Pump Fuse Location",
+        stock: { text: "Fuse box, under seat", votes: 4, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuel Pump Fuse Type",
+        stock: { text: "Blade (mini)", votes: 4, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuel Pump Fuse Amp Rating",
+        stock: { text: "10A", votes: 4, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Tip-Over Sensor",
+        stock: { text: "Under fuel tank, front-left mount", votes: 3, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuel Tank Capacity",
+        stock: { text: "19 L (incl. reserve)", votes: 40, flags: 0 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "Controls",
+    specs: [
+      {
+        label: "Front Brake Fluid",
+        stock: { text: "DOT 4", votes: 91, flags: 0 },
+        exception: true,
+        alternates: [
+          { text: "Motul RBF 600 (racing DOT 4)", votes: 34, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Rear Brake Fluid",
+        stock: { text: "DOT 4", votes: 58, flags: 0 },
+        exception: true,
+        alternates: [
+          { text: "Motul RBF 600 (racing DOT 4)", votes: 19, flags: 0, confirmedFit: true }
+        ]
+      }
+    ]
+  },
+  {
+    name: "Electrical",
+    specs: [
+      {
+        label: "Battery",
+        stock: { text: "YTX14-BS, 12V 12Ah", votes: 66, flags: 0, confirmedFit: true },
+        alternates: [
+          { text: "Duraboost DBL14 Lithium-Ion", votes: 18, flags: 0, confirmedFit: true },
+          { text: "BikeMaster Lithium Ion 2.0 (BMP14B-FP)", votes: 9, flags: 0, confirmedFit: true }
+        ]
+      },
+      {
+        label: "Fuse Box Location",
+        stock: { text: "Under seat, left side", votes: 11, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Fuse Type",
+        stock: { text: "Blade (standard + mini mixed)", votes: 11, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Starter Part Number",
+        stock: { text: "OEM Honda 31200-MFJ-D01", votes: 9, flags: 0, confirmedFit: true },
+        alternates: []
+      },
+      {
+        label: "Starter Relay Location",
+        stock: { text: "Under seat, next to fuse box", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Starter Fuse Location",
+        stock: { text: "Fuse box, under seat", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Starter Fuse Type",
+        stock: { text: "Blade (standard)", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Starter Fuse Amp Rating",
+        stock: { text: "30A", votes: 5, flags: 0 },
+        alternates: []
+      },
+      {
+        label: "Starter Switch Wire Color",
+        stock: { text: "Yellow/Red", votes: 3, flags: 0 },
+        alternates: []
+      }
+    ]
+  },
+  {
+    name: "General",
+    specs: [
+      {
+        label: "Curb Weight",
+        stock: { text: "223 kg", votes: 5, flags: 0 },
+        alternates: []
+      }
+    ]
+  }
+];
+
+const BIKES = {
+  cr125: { label: "2001 Honda CR125", data: DATA_CR125 },
+  cb919: { label: "2005 Honda CB900F / 919", data: DATA_CB919 }
+};
+let currentBike = "cr125";
+
+function valueLineHTML(entry, isStock, sourceLabel, hidden){
+  const cls = `value-line ${isStock ? "stock" : "alt"}${hidden ? " hidden-row" : ""}`;
+  const fitMark = entry.confirmedFit ? `<span class="fit-check" title="Confirmed fit">✓</span>` : "";
+  return `
+    <div class="${cls}">
+      <div class="value-main">
+        <span class="value-source">${sourceLabel}</span>
+        <span class="value-text">${entry.text}</span>
+        ${fitMark}
+      </div>
+      <div class="value-actions">
+        <button class="icon-btn thumb" title="Upvote">
+          ${THUMB_SVG}
+          <span class="badge">${entry.votes}</span>
+        </button>
+        <button class="icon-btn flag" title="Flag">
+          ${FLAG_SVG}
+          <span class="badge">${entry.flags}</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+function specHTML(spec){
+  const [top, ...rest] = spec.alternates.sort((a,b) => b.votes - a.votes);
+  let html = `<div class="spec">
+    <div class="spec-label-row">
+      <span class="spec-label">${spec.label}</span>
+      ${spec.exception ? '<span class="exception-tag">Also in Drive</span>' : ''}
+    </div>
+    ${valueLineHTML(spec.stock, true, "Stock", false)}`;
+
+  if(top){
+    html += valueLineHTML(top, false, "Alt", false);
+  }
+  if(rest.length){
+    rest.forEach(alt => { html += valueLineHTML(alt, false, "Alt", true); });
+    html += `<button class="show-more" data-role="toggle">+${rest.length} more submitted <span class="arrow">▾</span></button>`;
+  }
+
+  html += `
+    <div class="propose-row">
+      <input type="text" placeholder="Propose a value or part number...">
+      <button type="button">Submit</button>
+    </div>
+  </div>`;
+  return html;
+}
+
+function categoryHTML(cat, idx){
+  return `
+    <div class="category" data-idx="${idx}">
+      <button class="category-toggle" data-role="cat-toggle">
+        <span class="name-wrap">${cat.name} <span class="count">${cat.specs.length} spec${cat.specs.length !== 1 ? "s" : ""}</span></span>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="category-body">
+        ${cat.specs.map(specHTML).join("")}
+      </div>
+    </div>`;
+}
+
+function render(){
+  const bike = BIKES[currentBike];
+  document.getElementById("categories").innerHTML = bike.data.map(categoryHTML).join("");
+  document.getElementById("cat-count").textContent =
+    `Generated from questionnaire run · ${bike.data.length} categories · tap to expand`;
+}
+render();
+
+document.getElementById("bike-select").addEventListener("change", (e) => {
+  currentBike = e.target.value;
+  render();
+});
+
+document.addEventListener("click", (e) => {
+  const catBtn = e.target.closest('[data-role="cat-toggle"]');
+  if(catBtn){
+    catBtn.closest(".category").classList.toggle("open");
+    return;
+  }
+  const moreBtn = e.target.closest('[data-role="toggle"]');
+  if(moreBtn){
+    const spec = moreBtn.closest(".spec");
+    const hiddenRows = spec.querySelectorAll(".value-line.hidden-row");
+    const expanding = !moreBtn.classList.contains("expanded");
+    hiddenRows.forEach(r => r.classList.toggle("hidden-row", !expanding));
+    moreBtn.classList.toggle("expanded", expanding);
+    moreBtn.innerHTML = expanding
+      ? `Show fewer <span class="arrow">▾</span>`
+      : `+${hiddenRows.length} more submitted <span class="arrow">▾</span>`;
+    return;
+  }
+});
+</script>
+
+</body>
+</html>

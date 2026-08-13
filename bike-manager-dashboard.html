@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bike Manager Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14120f;
+    --panel: #1c1a16;
+    --panel-2: #221f1a;
+    --line: #34302a;
+    --amber: #d99a2b;
+    --amber-dim: #8a691f;
+    --text: #e8e2d4;
+    --text-dim: #9c9484;
+    --text-faint: #6b6558;
+    --danger: #b5502e;
+    --good: #6f8a4e;
+    --blue: #4a8fd9;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(217,154,43,0.05), transparent 45%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 3px);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  header{
+    border-bottom: 1px solid var(--line);
+    padding: 20px 20px 18px;
+    background: linear-gradient(180deg, var(--panel), var(--bg));
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .eyebrow{
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  h1{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  .manager-tag{
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .manager-tag strong{ color: var(--text); }
+
+  main{ max-width: 900px; margin: 0 auto; padding: 24px 20px 0; }
+
+  .stat-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+  .stat-card{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 15px 15px 13px;
+  }
+  .stat-card .num{
+    font-family: 'Oswald', sans-serif;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-card.alert .num{ color: var(--danger); }
+  .stat-card .lbl{
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+
+  .panel{ border: 1px solid var(--line); background: var(--panel); margin-bottom: 22px; }
+  .panel-head{
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .panel-head h3{
+    font-family: 'Oswald', sans-serif;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+  }
+  .panel-head p{ margin: 4px 0 0; font-size: 11.5px; color: var(--text-dim); }
+  .panel-head .count-tag{ font-size: 10.5px; color: var(--text-faint); }
+
+  .bike-card{
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .bike-card:last-child{ border-bottom: none; }
+  .bike-card .bike-name{ font-size: 14px; color: var(--text); }
+  .bike-card .bike-meta{ font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+  .needed-count{ color: var(--danger); }
+  .bike-progress{
+    width: 140px;
+    height: 6px;
+    background: var(--panel-2);
+    position: relative;
+  }
+  .bike-progress-fill{ height: 100%; background: var(--amber); }
+  .bike-card-right{ display: flex; align-items: center; gap: 14px; }
+  .bike-status-tag{
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border: 1px solid var(--good);
+    color: var(--good);
+  }
+  .bike-status-tag.progress{ border-color: var(--amber-dim); color: var(--amber); }
+
+  table{ width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th{
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 500;
+  }
+  td{ padding: 12px 18px; border-bottom: 1px solid var(--line); color: var(--text); vertical-align: top; }
+  tr:last-child td{ border-bottom: none; }
+  tr:hover td{ background: rgba(255,255,255,0.015); }
+  .cell-dim{ color: var(--text-faint); font-size: 11.5px; }
+  .cell-comment{ color: var(--text-dim); font-style: italic; font-size: 11.5px; max-width: 260px; }
+
+  .badge{
+    display: inline-block;
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+  }
+  .badge.reason-irrelevant{ border-color: var(--blue); color: var(--blue); }
+  .badge.reason-incorrect{ border-color: var(--danger); color: var(--danger); }
+  .badge.reason-inappropriate{ border-color: var(--danger); color: var(--danger); }
+  .badge.reason-other{ border-color: var(--text-dim); color: var(--text-dim); }
+
+  .badge.status-pending{ border-color: var(--amber-dim); color: var(--amber); }
+  .badge.status-approved{ border-color: var(--good); color: var(--good); }
+  .badge.status-rejected{ border-color: var(--danger); color: var(--danger); }
+  .badge.status-confirmed{ border-color: var(--good); color: var(--good); }
+
+  .btn-row{ display: flex; gap: 8px; flex-wrap: wrap; }
+  .action-btn{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 6px 11px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .action-btn:hover{ color: var(--text); border-color: var(--text-dim); }
+  .action-btn.approve{ border-color: var(--good); color: var(--good); }
+  .action-btn.approve:hover{ background: rgba(111,138,78,0.12); }
+  .action-btn.contact{ border-color: var(--blue); color: var(--blue); }
+  .action-btn.contact:hover{ background: rgba(74,143,217,0.12); }
+  .action-btn.dismiss-btn{ border-color: var(--text-dim); color: var(--text-dim); }
+  .action-btn.dismiss-btn:hover{ background: rgba(255,255,255,0.05); color: var(--text); }
+
+  .current-value{ font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
+
+  .fix-row td{ padding: 0; border-bottom: 1px solid var(--line); }
+  .fix-box{ padding: 14px 18px; background: var(--panel-2); border-left: 2px solid var(--good); }
+  .fix-box-title{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--good);
+    margin-bottom: 6px;
+  }
+  .fix-box-sub{ font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.4; }
+  .fix-input{
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 9px;
+  }
+  .fix-input:focus{ outline: 1px solid var(--good); border-color: var(--good); }
+  .fix-full-page-link{
+    font-size: 11px;
+    color: var(--blue);
+    text-decoration: underline;
+  }
+  .fix-full-page-link:hover{ color: #6ba8e8; }
+  .dismiss-confirm-btn{ background: var(--text-dim); border-color: var(--text-dim); color: #1a1710; }
+  .dismiss-confirm-btn:hover{ background: #b5ad9e; }
+
+  .badge.outcome-fixed{ border-color: var(--good); color: var(--good); }
+  .badge.outcome-dismissed{ border-color: var(--text-dim); color: var(--text-dim); }
+  .action-btn.flag-user-btn{ border-color: var(--danger); color: var(--danger); }
+  .action-btn.flag-user-btn:hover{ background: rgba(181,80,46,0.12); }
+
+  .flag-user-row td{ padding: 0; border-bottom: 1px solid var(--line); }
+  .flag-user-box{ padding: 14px 18px; background: var(--panel-2); border-left: 2px solid var(--danger); }
+  .flag-user-title{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--danger);
+    margin-bottom: 10px;
+  }
+  .flag-user-reason-btn{
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 9px 11px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .flag-user-reason-btn:hover{ border-color: var(--danger); color: var(--danger); }
+  .flag-user-detail{
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 9px;
+    min-height: 56px;
+    resize: vertical;
+  }
+  .flag-user-detail:focus{ outline: 1px solid var(--danger); border-color: var(--danger); }
+  .flag-user-confirm{
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .submit-btn.danger{ background: var(--danger); border-color: var(--danger); color: #fff; }
+  .submit-btn.danger:hover{ background: #c85f38; }
+
+  .flagger-name{
+    background: none;
+    border: none;
+    color: var(--blue);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .flagger-name:hover{ color: #6ba8e8; }
+  .flagger-name::before{ content: "@"; color: var(--text-faint); text-decoration: none; }
+
+  .profile-row td{ padding: 0; border-bottom: 1px solid var(--line); }
+  .profile-box{ padding: 14px 18px; background: var(--panel-2); }
+  .profile-box-title{
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .profile-stat-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .profile-stat{
+    border: 1px solid var(--line);
+    background: var(--bg);
+    padding: 10px 12px;
+  }
+  .profile-stat.alert{ border-color: var(--danger); }
+  .profile-stat.alert .profile-stat-num{ color: var(--danger); }
+  .profile-flag-btn{ margin-top: 12px; }
+  .profile-stat-num{
+    font-family: 'Oswald', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--amber);
+    line-height: 1;
+  }
+  .profile-stat-lbl{
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+    margin-top: 5px;
+  }
+
+  .contact-row td{ padding: 0; border-bottom: 1px solid var(--line); }
+  .contact-box{ padding: 14px 18px; background: var(--panel-2); }
+  .contact-box-title{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .contact-input{
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 9px;
+    min-height: 56px;
+    resize: vertical;
+  }
+  .contact-input:focus{ outline: 1px solid var(--blue); border-color: var(--blue); }
+  .contact-sent{
+    font-size: 11.5px;
+    color: var(--good);
+    padding: 8px 0 2px;
+  }
+
+  .empty-row td{ text-align: center; color: var(--text-faint); font-style: italic; padding: 24px; }
+
+  .propose-btn{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 14px;
+    cursor: pointer;
+    border: 1px solid var(--amber-dim);
+    background: none;
+    color: var(--amber);
+  }
+  .propose-btn:hover{ background: rgba(217,154,43,0.08); }
+
+  .propose-form{
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    display: none;
+  }
+  .propose-form.open{ display: block; }
+  .form-row{ margin-bottom: 10px; }
+  .form-row label{
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    margin-bottom: 5px;
+  }
+  .form-row input, .form-row select, .form-row textarea{
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 9px;
+  }
+  .form-row textarea{ min-height: 60px; resize: vertical; }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus{
+    outline: 1px solid var(--amber); border-color: var(--amber);
+  }
+  .form-actions{ display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .form-actions button{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 16px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text-dim);
+  }
+  .form-actions .submit-btn{ background: var(--amber); border-color: var(--amber); color: #1a1710; font-weight: 600; }
+  .form-actions .submit-btn:hover{ background: #e8ac47; }
+
+  @media (max-width: 700px){
+    table, thead, tbody, tr{ display: block; }
+    th{ display: none; }
+    td{ display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    td::before{ content: attr(data-label); color: var(--text-faint); font-size: 10px; text-transform: uppercase; flex-shrink: 0; }
+    tr{ border-bottom: 1px solid var(--amber-dim); padding: 8px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Bike Manager Dashboard</h1>
+  </div>
+  <div class="manager-tag">Signed in as <strong>M. Alvarez</strong> · Street / Sport specialty</div>
+</header>
+
+<main>
+  <div class="stat-grid">
+    <div class="stat-card"><div class="num">1</div><div class="lbl">Bikes Managed</div></div>
+    <div class="stat-card"><div class="num" id="stat-specs-filled">28</div><div class="lbl">Specs Filled</div></div>
+    <div class="stat-card alert"><div class="num" id="stat-specs-needed">13</div><div class="lbl">Specs Needing Values</div></div>
+    <div class="stat-card alert"><div class="num" id="stat-open-flags">3</div><div class="lbl">Flags on My Specs</div></div>
+    <div class="stat-card"><div class="num">1</div><div class="lbl">"Not Sure" Pending Admin</div></div>
+    <div class="stat-card"><div class="num" id="stat-proposals">1</div><div class="lbl">My Branch Proposals</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>My Bikes</h3></div>
+    <div id="my-bikes"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Flags on My Specs</h3>
+        <p>When someone flags a spec as irrelevant, incorrect, or inappropriate, it comes here first — you're the one closest to the bike.</p>
+      </div>
+      <span class="count-tag" id="flags-count-tag"></span>
+    </div>
+    <table>
+      <thead><tr><th>Spec</th><th>Entered By</th><th>Reason</th><th>Detail</th><th>Flagged By</th><th>When</th><th>Action</th></tr></thead>
+      <tbody id="flags-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>Recently Resolved</h3>
+        <p>Tracked separately so it's clear which flags led to a real fix versus ones that turned out invalid.</p>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Spec</th><th>Outcome</th><th>Change</th><th>When</th></tr></thead>
+      <tbody id="resolved-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>My "Not Sure" Answers</h3>
+        <p>Questions you couldn't confidently answer during setup — sent to admin to help confirm.</p>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Question</th><th>Submitted</th><th>Status</th></tr></thead>
+      <tbody id="notsure-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>My Branch Proposals</h3>
+        <p>Think a spec is missing from the tree entirely? Propose it — admin reviews since an approved field becomes available for every bike, not just yours.</p>
+      </div>
+      <button class="propose-btn" id="propose-toggle">+ Propose New Field</button>
+    </div>
+    <div class="propose-form" id="propose-form">
+      <div class="form-row">
+        <label>Field Name</label>
+        <input type="text" id="pf-name" placeholder="e.g. Steering Damper Preload">
+      </div>
+      <div class="form-row">
+        <label>Category</label>
+        <select id="pf-category">
+          <option>General</option><option>Engine</option><option>Drive</option>
+          <option>Suspension</option><option>Fuel</option><option>Electrical</option><option>Controls</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Reasoning</label>
+        <textarea id="pf-reason" placeholder="Why does this need its own field?"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" id="pf-cancel">Cancel</button>
+        <button type="button" class="submit-btn" id="pf-submit">Submit to Admin</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Field</th><th>Category</th><th>Submitted</th><th>Status</th></tr></thead>
+      <tbody id="proposals-tbody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+let FLAGS = [
+  { spec: "Front Brake Pads (Qty: 2 required)", currentValue: "OEM Honda 06455-MCJ-D01", reason: "incorrect", detail: "Left and right pads actually wear differently on my bike — shouldn't be one shared value.", when: "2 hours ago", flaggedBy: "rider_kestrel99", enteredBy: "M. Alvarez" },
+  { spec: "Coolant Capacity", currentValue: "2.8 L (total system)", reason: "irrelevant", detail: "This value looks like it's for the wrong sub-model.", when: "1 day ago", flaggedBy: "t.moreno", enteredBy: "cb919_dave" },
+  { spec: "Starter Switch Wire Color", currentValue: "Yellow/Red", reason: "other", detail: "Wire color changed on later production runs — worth a note?", when: "3 days ago", flaggedBy: "cb919_dave", enteredBy: "rider_kestrel99" }
+];
+
+let RESOLVED_LOG = [];
+
+const USER_PROFILES = {
+  "rider_kestrel99": { specsEntered: 14, specsFlagged: 2, flagsSubmitted: 6, thumbsUp: 82, garage: 2 },
+  "t.moreno": { specsEntered: 2, specsFlagged: 0, flagsSubmitted: 1, thumbsUp: 9, garage: 1 },
+  "cb919_dave": { specsEntered: 37, specsFlagged: 4, flagsSubmitted: 11, thumbsUp: 211, garage: 3 },
+  "M. Alvarez": { specsEntered: 41, specsFlagged: 1, flagsSubmitted: 0, thumbsUp: 3, garage: 1 }
+};
+
+const USER_FLAG_REASONS = [
+  { value: "spam", label: "Spam / repeated low-quality submissions" },
+  { value: "harassment", label: "Abusive or harassing messages" },
+  { value: "bad-faith", label: "Bad-faith flagging (griefing the page)" },
+  { value: "fraud", label: "Submitting deliberately false/fraudulent specs" },
+  { value: "inappropriate", label: "Inappropriate content" },
+  { value: "other", label: "Other" }
+];
+
+let NOT_SURE = [
+  { question: "What ignition system does this bike have?", submitted: "Aug 3, 2026", status: "pending" }
+];
+
+let PROPOSALS = [
+  { field: "Fork Preload Adjuster Type", category: "Suspension", submitted: "Aug 5, 2026", status: "pending" }
+];
+
+const MY_BIKE = { name: "2005 Honda CB919", type: "Street / Sport", fieldsTriggered: 41, specsFilled: 28, specsNeeded: 13, status: "In progress", progress: 68 };
+
+function renderMyBikes(){
+  document.getElementById("my-bikes").innerHTML = `
+    <div class="bike-card">
+      <div>
+        <div class="bike-name">${MY_BIKE.name}</div>
+        <div class="bike-meta">${MY_BIKE.type} · ${MY_BIKE.fieldsTriggered} fields triggered · ${MY_BIKE.specsFilled} filled · <span class="needed-count">${MY_BIKE.specsNeeded} still need a value</span></div>
+      </div>
+      <div class="bike-card-right">
+        <div class="bike-progress"><div class="bike-progress-fill" style="width:${MY_BIKE.progress}%"></div></div>
+        <span class="bike-status-tag progress">${MY_BIKE.status}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderResolvedLog(){
+  document.getElementById("resolved-tbody").innerHTML = RESOLVED_LOG.length ? RESOLVED_LOG.map(r => `
+    <tr>
+      <td data-label="Spec"><strong>${r.spec}</strong></td>
+      <td data-label="Outcome"><span class="badge outcome-${r.outcome}">${r.outcome === "fixed" ? "Fixed" : "Dismissed"}</span></td>
+      <td data-label="Change" class="cell-comment">${r.outcome === "fixed" ? `"${r.oldValue}" → "${r.newValue}"` : `Kept "${r.oldValue}" — flag was not valid`}</td>
+      <td data-label="When" class="cell-dim">${r.when}</td>
+    </tr>
+  `).join("") : `<tr class="empty-row"><td colspan="4">Nothing resolved yet.</td></tr>`;
+}
+
+function renderFlags(){
+  document.getElementById("stat-open-flags").textContent = FLAGS.length;
+  document.getElementById("flags-count-tag").textContent = `${FLAGS.length} open`;
+  const reasonLabel = { irrelevant: "Irrelevant", incorrect: "Incorrect", inappropriate: "Inappropriate", other: "Other" };
+  document.getElementById("flags-tbody").innerHTML = FLAGS.length ? FLAGS.map((f, i) => `
+    <tr>
+      <td data-label="Spec">
+        <strong>${f.spec}</strong>
+        <div class="current-value">Current: ${f.currentValue}</div>
+      </td>
+      <td data-label="Entered By"><button class="flagger-name entered-by-btn" data-action="view-profile" data-rowid="entered-${i}" data-username="${f.enteredBy}">${f.enteredBy}</button></td>
+      <td data-label="Reason"><span class="badge reason-${f.reason}">${reasonLabel[f.reason]}</span></td>
+      <td data-label="Detail" class="cell-comment">${f.detail ? `"${f.detail}"` : "—"}</td>
+      <td data-label="Flagged By"><button class="flagger-name" data-action="view-profile" data-rowid="flagged-${i}" data-username="${f.flaggedBy}">${f.flaggedBy}</button></td>
+      <td data-label="When" class="cell-dim">${f.when}</td>
+      <td data-label="Action"><div class="btn-row">
+        <button class="action-btn approve" data-action="open-fix" data-idx="${i}">Fix Value</button>
+        <button class="action-btn dismiss-btn" data-action="open-dismiss" data-idx="${i}">Dismiss</button>
+        <button class="action-btn contact" data-action="contact-flagger" data-idx="${i}">Contact</button>
+      </div></td>
+    </tr>
+    <tr class="fix-row" id="fix-row-${i}" style="display:none;">
+      <td colspan="7">
+        <div class="fix-box" id="fix-box-${i}"></div>
+      </td>
+    </tr>
+    <tr class="profile-row" id="profile-row-entered-${i}" style="display:none;">
+      <td colspan="7">
+        <div class="profile-box" id="profile-box-entered-${i}"></div>
+      </td>
+    </tr>
+    <tr class="profile-row" id="profile-row-flagged-${i}" style="display:none;">
+      <td colspan="7">
+        <div class="profile-box" id="profile-box-flagged-${i}"></div>
+      </td>
+    </tr>
+    <tr class="contact-row" id="contact-row-${i}" style="display:none;">
+      <td colspan="7">
+        <div class="contact-box">
+          <div class="contact-box-title">Message ${f.flaggedBy} about this flag</div>
+          <textarea class="contact-input" id="contact-input-${i}" placeholder="Ask a question or ask for more detail..."></textarea>
+          <div class="form-actions">
+            <button type="button" data-action="contact-cancel" data-idx="${i}">Cancel</button>
+            <button type="button" class="submit-btn" data-action="contact-send" data-idx="${i}">Send Message</button>
+          </div>
+          <div class="contact-sent" id="contact-sent-${i}" style="display:none;">Message sent to ${f.flaggedBy}.</div>
+        </div>
+      </td>
+    </tr>
+  `).join("") : `<tr class="empty-row"><td colspan="7">No open flags on your specs right now.</td></tr>`;
+}
+
+function renderNotSure(){
+  document.getElementById("notsure-tbody").innerHTML = NOT_SURE.length ? NOT_SURE.map(n => `
+    <tr>
+      <td data-label="Question">${n.question}</td>
+      <td data-label="Submitted" class="cell-dim">${n.submitted}</td>
+      <td data-label="Status"><span class="badge status-${n.status}">${n.status === "pending" ? "Pending Admin" : "Confirmed"}</span></td>
+    </tr>
+  `).join("") : `<tr class="empty-row"><td colspan="3">Nothing pending — every question was answered confidently.</td></tr>`;
+}
+
+function renderProposals(){
+  document.getElementById("stat-proposals").textContent = PROPOSALS.length;
+  document.getElementById("proposals-tbody").innerHTML = PROPOSALS.length ? PROPOSALS.map(p => `
+    <tr>
+      <td data-label="Field"><strong>${p.field}</strong></td>
+      <td data-label="Category"><span class="badge">${p.category}</span></td>
+      <td data-label="Submitted" class="cell-dim">${p.submitted}</td>
+      <td data-label="Status"><span class="badge status-${p.status}">${p.status[0].toUpperCase() + p.status.slice(1)}</span></td>
+    </tr>
+  `).join("") : `<tr class="empty-row"><td colspan="4">No branch proposals submitted yet.</td></tr>`;
+}
+
+function renderProfileCard(rowId, username){
+  const p = USER_PROFILES[username] || { specsEntered: 0, specsFlagged: 0, flagsSubmitted: 0, thumbsUp: 0, garage: 0 };
+  document.getElementById(`profile-box-${rowId}`).innerHTML = `
+    <div class="profile-box-title">@${username}</div>
+    <div class="profile-stat-grid">
+      <div class="profile-stat"><div class="profile-stat-num">${p.specsEntered}</div><div class="profile-stat-lbl">Specs Entered</div></div>
+      <div class="profile-stat alert"><div class="profile-stat-num">${p.specsFlagged}</div><div class="profile-stat-lbl">Their Specs Flagged</div></div>
+      <div class="profile-stat"><div class="profile-stat-num">${p.flagsSubmitted}</div><div class="profile-stat-lbl">Flags Submitted</div></div>
+      <div class="profile-stat"><div class="profile-stat-num">${p.thumbsUp}</div><div class="profile-stat-lbl">Thumbs Up Given</div></div>
+      <div class="profile-stat"><div class="profile-stat-num">${p.garage}</div><div class="profile-stat-lbl">Bikes in Garage</div></div>
+    </div>
+    <button type="button" class="action-btn flag-user-btn profile-flag-btn" data-action="flag-user" data-rowid="${rowId}" data-username="${username}">Flag This User</button>
+  `;
+}
+
+document.addEventListener("click", (e) => {
+  const openFixBtn = e.target.closest('[data-action="open-fix"]');
+  if(openFixBtn){
+    const idx = openFixBtn.dataset.idx;
+    const f = FLAGS[idx];
+    document.getElementById(`fix-box-${idx}`).innerHTML = `
+      <div class="fix-box-title">Fix Value — ${f.spec}</div>
+      <div class="fix-box-sub">You're setting this directly as the stock value.</div>
+      <input type="text" class="fix-input" id="fix-input-${idx}" value="${f.currentValue.replace(/"/g, '&quot;')}">
+      <div class="form-actions">
+        <a class="fix-full-page-link" href="honda-browser.html" target="_blank">Edit on full spec page instead →</a>
+      </div>
+      <div class="form-actions">
+        <button type="button" data-action="fix-cancel" data-idx="${idx}">Cancel</button>
+        <button type="button" class="submit-btn" data-action="fix-save" data-idx="${idx}">Save Fix</button>
+      </div>
+    `;
+    document.getElementById(`fix-row-${idx}`).style.display = "table-row";
+    document.getElementById(`fix-input-${idx}`).focus();
+    return;
+  }
+  const fixCancel = e.target.closest('[data-action="fix-cancel"]');
+  if(fixCancel){
+    document.getElementById(`fix-row-${fixCancel.dataset.idx}`).style.display = "none";
+    return;
+  }
+  const fixSave = e.target.closest('[data-action="fix-save"]');
+  if(fixSave){
+    const idx = parseInt(fixSave.dataset.idx, 10);
+    const f = FLAGS[idx];
+    const newValue = document.getElementById(`fix-input-${idx}`).value.trim();
+    if(!newValue) return;
+    RESOLVED_LOG.unshift({ spec: f.spec, outcome: "fixed", oldValue: f.currentValue, newValue, when: "Just now" });
+    FLAGS.splice(idx, 1);
+    renderFlags();
+    renderResolvedLog();
+    return;
+  }
+  const openDismissBtn = e.target.closest('[data-action="open-dismiss"]');
+  if(openDismissBtn){
+    const idx = openDismissBtn.dataset.idx;
+    const f = FLAGS[idx];
+    document.getElementById(`fix-box-${idx}`).innerHTML = `
+      <div class="fix-box-title">Dismiss Flag — ${f.spec}</div>
+      <div class="fix-box-sub">This marks the flag as not valid — the current value stays as-is. This is tracked separately from a fix, so the flagger's history reflects it.</div>
+      <div class="form-actions">
+        <button type="button" data-action="fix-cancel" data-idx="${idx}">Cancel</button>
+        <button type="button" class="submit-btn dismiss-confirm-btn" data-action="dismiss-save" data-idx="${idx}">Confirm Dismiss</button>
+      </div>
+    `;
+    document.getElementById(`fix-row-${idx}`).style.display = "table-row";
+    return;
+  }
+  const dismissSave = e.target.closest('[data-action="dismiss-save"]');
+  if(dismissSave){
+    const idx = parseInt(dismissSave.dataset.idx, 10);
+    const f = FLAGS[idx];
+    RESOLVED_LOG.unshift({ spec: f.spec, outcome: "dismissed", oldValue: f.currentValue, newValue: null, when: "Just now" });
+    FLAGS.splice(idx, 1);
+    renderFlags();
+    renderResolvedLog();
+    return;
+  }
+  const profileBtn = e.target.closest('[data-action="view-profile"]');
+  if(profileBtn){
+    const rowId = profileBtn.dataset.rowid;
+    const username = profileBtn.dataset.username;
+    const row = document.getElementById(`profile-row-${rowId}`);
+    const isOpen = row.style.display !== "none";
+    if(isOpen){
+      row.style.display = "none";
+      return;
+    }
+    renderProfileCard(rowId, username);
+    row.style.display = "table-row";
+    return;
+  }
+  const contactBtn = e.target.closest('[data-action="contact-flagger"]');
+  if(contactBtn){
+    const idx = contactBtn.dataset.idx;
+    const row = document.getElementById(`contact-row-${idx}`);
+    row.style.display = row.style.display === "none" ? "table-row" : "none";
+    if(row.style.display === "table-row") document.getElementById(`contact-input-${idx}`).focus();
+    return;
+  }
+  const contactCancel = e.target.closest('[data-action="contact-cancel"]');
+  if(contactCancel){
+    const idx = contactCancel.dataset.idx;
+    document.getElementById(`contact-row-${idx}`).style.display = "none";
+    return;
+  }
+  const contactSend = e.target.closest('[data-action="contact-send"]');
+  if(contactSend){
+    const idx = contactSend.dataset.idx;
+    const input = document.getElementById(`contact-input-${idx}`);
+    if(!input.value.trim()) return;
+    input.style.display = "none";
+    contactSend.closest(".form-actions").style.display = "none";
+    document.getElementById(`contact-sent-${idx}`).style.display = "block";
+    return;
+  }
+
+  const flagUserBtn = e.target.closest('[data-action="flag-user"]');
+  if(flagUserBtn){
+    const rowId = flagUserBtn.dataset.rowid;
+    const username = flagUserBtn.dataset.username;
+    document.getElementById(`profile-box-${rowId}`).innerHTML = `
+      <div class="flag-user-title">Flag @${username} — reason?</div>
+      ${USER_FLAG_REASONS.map(r => `
+        <button type="button" class="flag-user-reason-btn" data-action="flag-user-reason-pick" data-rowid="${rowId}" data-username="${username}" data-reason="${r.value}">${r.label}</button>
+      `).join("")}
+      <div class="form-actions">
+        <button type="button" data-action="flag-user-back" data-rowid="${rowId}" data-username="${username}">← Back to profile</button>
+      </div>
+    `;
+    return;
+  }
+  const reasonPickBtn = e.target.closest('[data-action="flag-user-reason-pick"]');
+  if(reasonPickBtn){
+    const rowId = reasonPickBtn.dataset.rowid;
+    const username = reasonPickBtn.dataset.username;
+    const reasonLabel = reasonPickBtn.textContent;
+    document.getElementById(`profile-box-${rowId}`).innerHTML = `
+      <div class="flag-user-title">Flag @${username} — ${reasonLabel}</div>
+      <textarea class="flag-user-detail" id="flag-user-detail-${rowId}" maxlength="150" placeholder="Add detail (optional, 150 char max)"></textarea>
+      <div class="form-actions">
+        <button type="button" data-action="flag-user-back" data-rowid="${rowId}" data-username="${username}">Cancel</button>
+        <button type="button" class="submit-btn danger" data-action="flag-user-submit" data-rowid="${rowId}" data-username="${username}" data-reason="${reasonLabel}">Submit Flag</button>
+      </div>
+    `;
+    return;
+  }
+  const flagUserBack = e.target.closest('[data-action="flag-user-back"]');
+  if(flagUserBack){
+    renderProfileCard(flagUserBack.dataset.rowid, flagUserBack.dataset.username);
+    return;
+  }
+  const flagUserSubmit = e.target.closest('[data-action="flag-user-submit"]');
+  if(flagUserSubmit){
+    const rowId = flagUserSubmit.dataset.rowid;
+    const username = flagUserSubmit.dataset.username;
+    const detail = document.getElementById(`flag-user-detail-${rowId}`).value.trim();
+    document.getElementById(`profile-box-${rowId}`).innerHTML = `
+      <div class="flag-user-confirm">User @${username} has been flagged for "${flagUserSubmit.dataset.reason}"${detail ? ` — "${detail}"` : ""}.<br>Admin has been notified for review.</div>
+    `;
+    return;
+  }
+});
+
+const proposeToggle = document.getElementById("propose-toggle");
+const proposeForm = document.getElementById("propose-form");
+proposeToggle.addEventListener("click", () => proposeForm.classList.toggle("open"));
+document.getElementById("pf-cancel").addEventListener("click", () => {
+  proposeForm.classList.remove("open");
+  document.getElementById("pf-name").value = "";
+  document.getElementById("pf-reason").value = "";
+});
+document.getElementById("pf-submit").addEventListener("click", () => {
+  const name = document.getElementById("pf-name").value.trim();
+  const category = document.getElementById("pf-category").value;
+  const reason = document.getElementById("pf-reason").value.trim();
+  if(!name || !reason) return;
+  PROPOSALS.unshift({ field: name, category, submitted: "Just now", status: "pending" });
+  renderProposals();
+  proposeForm.classList.remove("open");
+  document.getElementById("pf-name").value = "";
+  document.getElementById("pf-reason").value = "";
+});
+
+renderMyBikes();
+renderFlags();
+renderResolvedLog();
+renderNotSure();
+renderProposals();
+</script>
+
+</body>
+</html>

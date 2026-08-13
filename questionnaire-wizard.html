@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bike Manager Questionnaire — Spec Tree Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14120f;
+    --panel: #1c1a16;
+    --panel-2: #221f1a;
+    --line: #34302a;
+    --amber: #d99a2b;
+    --amber-dim: #8a691f;
+    --text: #e8e2d4;
+    --text-dim: #9c9484;
+    --text-faint: #6b6558;
+    --danger: #b5502e;
+    --good: #6f8a4e;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(217,154,43,0.05), transparent 45%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 3px);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 0 0 60px 0;
+    min-height: 100vh;
+  }
+  header{
+    border-bottom: 1px solid var(--line);
+    padding: 22px 20px 18px;
+    background: linear-gradient(180deg, var(--panel), var(--bg));
+  }
+  .eyebrow{
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  h1{
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    margin: 0;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  main{ max-width: 620px; margin: 0 auto; padding: 20px 16px 0; }
+
+  /* ---- Progress ---- */
+  .progress-track{
+    height: 3px;
+    background: var(--line);
+    margin-bottom: 22px;
+    position: relative;
+  }
+  .progress-fill{
+    height: 100%;
+    background: var(--amber);
+    transition: width 0.25s ease;
+  }
+  .progress-label{
+    font-size: 10.5px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ---- Question card ---- */
+  .q-card{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 22px 20px;
+  }
+  .q-section-tag{
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--amber-dim);
+    margin-bottom: 8px;
+  }
+  .q-text{
+    font-family: 'Oswald', sans-serif;
+    font-size: 19px;
+    line-height: 1.35;
+    color: var(--text);
+    margin-bottom: 18px;
+  }
+  .q-followup-tag{
+    display: inline-block;
+    font-size: 9.5px;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 2px 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  .q-followup-tag.internal{
+    color: var(--text-faint);
+    border-color: var(--line);
+  }
+
+  .options{ display: flex; flex-direction: column; gap: 8px; }
+  .option-btn{
+    text-align: left;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    padding: 12px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .option-btn:hover{ border-color: var(--amber-dim); background: #26221c; }
+  .option-btn.selected{ border-color: var(--amber); background: rgba(217,154,43,0.08); }
+  .option-letter{
+    color: var(--amber);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .nav-row{
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+  }
+  .nav-btn{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 18px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text-dim);
+  }
+  .nav-btn:hover{ color: var(--text); border-color: var(--text-dim); }
+  .nav-btn.primary{
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #1a1710;
+    font-weight: 600;
+  }
+  .nav-btn.primary:hover{ background: #e8ac47; }
+  .nav-btn:disabled{ opacity: 0.35; cursor: not-allowed; }
+  .nav-btn:disabled:hover{ color: var(--text-dim); border-color: var(--line); }
+
+  /* ---- Results ---- */
+  .results-header{
+    text-align: center;
+    padding: 10px 0 22px;
+  }
+  .results-header .big-check{
+    color: var(--good);
+    font-size: 34px;
+    margin-bottom: 6px;
+  }
+  .results-header h2{
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .results-header p{ color: var(--text-dim); font-size: 12.5px; margin: 0; }
+  .results-header p.results-caveat{
+    color: var(--text-faint);
+    font-size: 11px;
+    font-style: italic;
+    margin-top: 6px;
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .results-header p.internal-note{
+    color: var(--text-faint);
+    font-size: 10px;
+    margin-top: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cat-section{ border: 1px solid var(--line); border-top: none; background: var(--panel); }
+  .cat-section:first-of-type{ border-top: 1px solid var(--line); }
+  .cat-toggle{
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel-2);
+    border: none;
+    border-left: 3px solid var(--amber);
+    cursor: pointer;
+    padding: 14px 16px;
+    text-align: left;
+  }
+  .cat-toggle:hover{ background: #26221c; }
+  .cat-section.open .cat-toggle{ background: #2a251d; }
+  .cat-title-r{
+    font-family: 'Oswald', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .cat-count-r{ font-size: 10.5px; color: var(--text-faint); margin-left: 8px; text-transform: none; letter-spacing: 0; }
+  .cat-chevron-r{ color: var(--amber); font-size: 13px; font-weight: 700; transition: transform 0.18s ease; }
+  .cat-section.open .cat-chevron-r{ transform: rotate(90deg); }
+  .cat-body-r{ display: none; border-top: 1px solid var(--line); }
+  .cat-section.open .cat-body-r{ display: block; }
+  .field-row{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--line);
+  }
+  .field-row:last-child{ border-bottom: none; }
+  .field-row:nth-child(even){ background: rgba(255,255,255,0.015); }
+  .field-name{ color: var(--text); }
+  .field-placeholder{ color: var(--text-faint); font-style: italic; }
+  .field-right{ display: flex; align-items: center; gap: 10px; }
+  .field-flag-btn{
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+  }
+  .field-flag-btn svg{ width: 14px; height: 14px; }
+  .field-flag-btn:hover{ color: var(--danger); }
+  .field-row.row-expanded{ display: block; }
+  .field-row.row-expanded .field-name{ display: inline-block; margin-bottom: 6px; }
+
+  .field-comment-box{
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    background: var(--bg);
+    border: 1px solid var(--danger);
+  }
+  .field-comment-input{
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 7px 8px;
+    resize: vertical;
+    min-height: 50px;
+  }
+  .field-comment-input:focus{ outline: 1px solid var(--danger); border-color: var(--danger); }
+  .field-comment-actions{
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .field-comment-actions button{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--text-dim);
+  }
+  .field-comment-actions button:hover{ color: var(--text); }
+  .field-comment-actions .field-comment-submit{
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+  }
+  .field-comment-actions .field-comment-submit:hover{ background: #c85f38; }
+
+  .field-flag-confirm{
+    width: 100%;
+    margin-top: 8px;
+    padding: 9px 10px;
+    background: rgba(111,138,78,0.12);
+    border-left: 2px solid var(--good);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .field-admin-note{
+    width: 100%;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--text-faint);
+    font-style: italic;
+  }
+
+  .restart-btn{
+    display: block;
+    margin: 22px auto 0;
+    background: none;
+    border: 1px solid var(--amber-dim);
+    color: var(--amber);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 20px;
+    cursor: pointer;
+  }
+  .restart-btn:hover{ background: rgba(217,154,43,0.08); }
+
+  .summary-total{
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-faint);
+    margin: 16px 0 14px;
+  }
+
+  .not-sure-banner{
+    border: 1px solid var(--danger);
+    background: rgba(181,80,46,0.08);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .not-sure-banner-title{
+    font-family: 'Oswald', sans-serif;
+    font-size: 13.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--danger);
+    margin-bottom: 4px;
+  }
+  .not-sure-banner-sub{
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .not-sure-list{
+    margin: 0;
+    padding-left: 18px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .not-sure-list li{ margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Bike Manager Setup</div>
+  <h1>Spec Tree Questionnaire</h1>
+</header>
+
+<main>
+  <div id="quiz-view">
+    <div class="progress-label">
+      <span id="progress-text">Question 1</span>
+      <span id="progress-section"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+    <div class="q-card">
+      <div id="followup-tag-wrap"></div>
+      <div class="q-section-tag" id="q-section-tag"></div>
+      <div class="q-text" id="q-text"></div>
+      <div class="options" id="q-options"></div>
+    </div>
+
+    <div class="nav-row">
+      <button class="nav-btn" id="back-btn">← Back</button>
+      <button class="nav-btn primary" id="next-btn" disabled>Next →</button>
+    </div>
+  </div>
+
+  <div id="results-view" style="display:none;"></div>
+</main>
+
+<script>
+/* ============ QUESTION GRAPH ============ */
+const QUESTIONS = {
+  q0: { section: "Internal — Not shown to public users", text: "What type of bike is this? (internal use only — helps route to type-specific expert admins)",
+    internalOnly: true,
+    options: [
+      { l:"A", t:"Dirt bike / Off-road" },
+      { l:"B", t:"Cruiser" },
+      { l:"C", t:"Street bike / Sport bike" },
+      { l:"D", t:"Touring" },
+      { l:"E", t:"Dual-sport / Adventure" },
+      { l:"F", t:"Scooter" },
+      { l:"G", t:"Standard / Naked" },
+      { l:"H", t:"Harley-Davidson" }
+    ], next: () => "q1" },
+
+  q1: { section: "Electrical", text: "Does this bike have a battery?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Electrical: ["Battery","Fuse Box Location","Fuse Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => {
+      if(ans.q1 === "B"){
+        // No battery means an electric starter isn't physically possible — auto-answer Q2 as No.
+        answers.q2 = "B";
+        pendingFields.q2 = {};
+        return "q2b";
+      }
+      delete answers.q2;
+      delete pendingFields.q2;
+      return "q2";
+    } },
+
+  q2: { section: "Electrical", text: "Does this bike have an electric starter?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Electrical: ["Starter Part Number","Starter Relay Location","Starter Fuse Location","Starter Fuse Type","Starter Fuse Amp Rating","Starter Switch Wire Color"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q2b" },
+
+  q2b: { section: "Electrical", text: "Does this bike have turn signals?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Electrical: ["Turn Signal Light Bulb","Left Turn Signal Wire Color","Right Turn Signal Wire Color"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q3" },
+
+  q3: { section: "Drive System", text: "What drive system does this bike have?",
+    options: [
+      { l:"A", t:"Chain and sprockets", fields:{ Drive: ["Chain","Chain Pitch","Chain Length","Master Link Type","Front Sprocket","Rear Sprocket"] } },
+      { l:"B", t:"Belt drive", fields:{ Drive: ["Drive Belt"] } },
+      { l:"C", t:"Driveshaft", fields:{ Drive: ["Drive Shaft Oil Weight","Drive Shaft Oil Volume"] } },
+      { l:"D", t:"Not 100% sure", notSure:true }
+    ], next: () => "q4" },
+
+  q4: { section: "Engine — Cylinders", text: "How many cylinders does this bike have?",
+    options: [
+      { l:"A", t:"1" }, { l:"B", t:"2" },
+      { l:"C", t:"3", fields:{ Engine: ["Ignition Order"], Electrical: ["Ignition Order"] } },
+      { l:"D", t:"4", fields:{ Engine: ["Ignition Order"], Electrical: ["Ignition Order"] } },
+      { l:"E", t:"5", fields:{ Engine: ["Ignition Order"], Electrical: ["Ignition Order"] } },
+      { l:"F", t:"6", fields:{ Engine: ["Ignition Order"], Electrical: ["Ignition Order"] } },
+      { l:"G", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => (["B","D","F"].includes(ans.q4)) ? "q4a" : "q5" },
+
+  q4a: { section: "Engine — Cylinders", followUp: true,
+    text: "Is this engine Front-and-Rear, Inline, or Boxer?",
+    options: [
+      { l:"A", t:"Front-and-Rear", fields:{ Engine: ["Front/Rear Cylinder Config: Front-and-Rear grouping"] } },
+      { l:"B", t:"Inline", fields:{ Engine: ["Cylinder Config: Inline — shared/grouped field per cylinder count"] } },
+      { l:"C", t:"Boxer", fields:{ Engine: ["Left/Right Cylinder Config: Boxer grouping"] } }
+    ], next: () => "q5" },
+
+  q5: { section: "Engine — Type", text: "What engine does this bike have?",
+    options: [
+      { l:"A", t:"2-stroke auto-lube", fields:{ Engine: ["Auto-lube Oil Type","Auto-lube Oil Tank Capacity"] } },
+      { l:"B", t:"2-stroke premix", fields:{ Engine: ["Premix Fuel:Oil Ratio","Recommended 2-Stroke Oil"] } },
+      { l:"C", t:"4-stroke with valve clearance adjustment", fields:{ Engine: ["Intake Valve Clearance","Exhaust Valve Clearance"] } },
+      { l:"D", t:"4-stroke with valve shims", fields:{ Engine: ["Intake Shim Size","Exhaust Shim Size"] } },
+      { l:"E", t:"4-stroke with no valve clearance adjustment (hydraulic)" },
+      { l:"F", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => {
+      if(["A","B"].includes(ans.q5)){
+        // 2-stroke: auto-trigger Transmission Oil fields, skip the 4-stroke oil question and any filler screen.
+        pendingFields.q5a = { Engine: ["Transmission Oil Weight","Transmission Oil Volume"] };
+        return "q7";
+      }
+      delete pendingFields.q5a;
+      return "q6";
+    } },
+
+  q6: { section: "Engine — Oil (4-Stroke)", text: "How is this bike's transmission/primary/engine oil arranged?",
+    options: [
+      { l:"A", t:"Primary and transmission oil are separated", fields:{ Engine: ["Primary Oil Weight","Primary Oil Volume","Transmission Oil Weight","Transmission Oil Volume"] } },
+      { l:"B", t:"Combined primary/transmission oil (engine separate)", fields:{ Engine: ["Primary/Transmission Oil Weight","Primary/Transmission Oil Volume"] } },
+      { l:"C", t:"Combined engine/clutch/transmission oil", fields:{ Engine: ["Engine Oil Weight","Engine Oil Volume"] } },
+      { l:"D", t:"Not 100% sure", notSure:true }
+    ], next: () => "q7" },
+
+  q7: { section: "Fuel System", text: "How many carburetors does this bike have?",
+    options: [
+      { l:"A", t:"This bike has fuel injection, not a carburetor", fields:{ "Fuel and Air": ["Fuel System: Fuel Injection (noted — fields TBD)"] } },
+      { l:"B", t:"1", fields:{ "Fuel and Air": ["Carb 1 Pilot Jet","Carb 1 Main Jet"] } },
+      { l:"C", t:"2", fields:{ "Fuel and Air": ["Carb 1 Pilot Jet","Carb 1 Main Jet","Carb 2 Pilot Jet","Carb 2 Main Jet"] } },
+      { l:"D", t:"3", fields:{ "Fuel and Air": ["Carb 1 Pilot Jet","Carb 1 Main Jet","Carb 2 Pilot Jet","Carb 2 Main Jet","Carb 3 Pilot Jet","Carb 3 Main Jet"] } },
+      { l:"E", t:"4", fields:{ "Fuel and Air": ["Carb 1 Pilot Jet","Carb 1 Main Jet","Carb 2 Pilot Jet","Carb 2 Main Jet","Carb 3 Pilot Jet","Carb 3 Main Jet","Carb 4 Pilot Jet","Carb 4 Main Jet"] } },
+      { l:"F", t:"5", fields:{ "Fuel and Air": ["Carb 1–5 Pilot Jet","Carb 1–5 Main Jet"] } },
+      { l:"G", t:"6", fields:{ "Fuel and Air": ["Carb 1–6 Pilot Jet","Carb 1–6 Main Jet"] } },
+      { l:"H", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => {
+      if(ans.q7 === "A"){
+        // Fuel injection implies electronic ignition — auto-answer Q8, skip asking it.
+        answers.q8 = "A";
+        pendingFields.q8 = QUESTIONS.q8.options.find(o => o.l === "A").fields;
+        return "q9";
+      }
+      return "q8";
+    } },
+
+  q8: { section: "Ignition", text: "What ignition system does this bike have?",
+    options: [
+      { l:"A", t:"Electronic Ignition", fields:{ Engine: ["Ignition Timing"] } },
+      { l:"B", t:"Points", fields:{ Engine: ["Points Gap","Ignition Timing","Condenser Part Number"] } },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q9" },
+
+  q9: { section: "Fuel System", text: "Does this bike have a fuel pump?",
+    options: [
+      { l:"A", t:"Yes" },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => {
+      if(ans.q9 !== "A") return "q10";
+      const hasECU = ans.q7 === "A"; // fuel injection selected
+      return hasECU ? "q10" : "q9a";
+    } },
+
+  q9a: { section: "Fuel System", followUp: true, text: "Is this a mechanical fuel pump?",
+    options: [
+      { l:"A", t:"Mechanical", fields:{ "Fuel and Air": ["Fuel Pump Location"] } },
+      { l:"B", t:"Electric", fields:{ "Fuel and Air": ["Fuel Pump Relay","Fuel Pump Fuse Location","Fuel Pump Fuse Type","Fuel Pump Fuse Amp Rating","Tip-Over Sensor"] } }
+    ], next: () => "q10" },
+
+  q10: { section: "Suspension", text: "Does this bike have a Front shock air pressure?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Suspension: ["Front Shock Air Pressure (PSI)"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q11" },
+
+  q11: { section: "Suspension", text: "Does this bike have a Rear shock air pressure?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Suspension: ["Rear Shock Air Pressure (PSI)"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q12" },
+
+  q12: { section: "Controls", text: "Does this bike have a hydraulic clutch?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Controls: ["Hydraulic Clutch Fluid Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q13" },
+
+  q13: { section: "Oil Filtration", text: "Does this bike have oil filter?",
+    options: [
+      { l:"A", t:"No oil filter" },
+      { l:"B", t:"Oil filter (single)", fields:{ General: ["Oil Filter Part Number"] } },
+      { l:"C", t:"Two oil filters", fields:{ General: ["Oil Filter 1 Part Number","Oil Filter 2 Part Number"] } },
+      { l:"D", t:"Oil Screen", fields:{ General: ["Oil Screen Location"] } },
+      { l:"E", t:"Not 100% sure", notSure:true }
+    ], next: () => "q14" },
+
+  q14: { section: "Brakes — Hydraulics", text: "Does this bike have a Front hydraulic brake?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Controls: ["Front Brake Fluid Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q15" },
+
+  q15: { section: "Brakes — Hydraulics", text: "Does this bike have a Rear hydraulic brake?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Controls: ["Rear Brake Fluid Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q16" },
+
+  q16: { section: "Wheels", text: "Does this bike have a Front wheel inner tube?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Drive: ["Front Inner Tube Size/Part Number","Front Valve Stem Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q17" },
+
+  q17: { section: "Wheels", text: "Does this bike have a Rear wheel inner tube?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Drive: ["Rear Inner Tube Size/Part Number","Rear Valve Stem Type"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q18" },
+
+  q18: { section: "Cooling", text: "The cooling system for this bike is:",
+    options: [
+      { l:"A", t:"Air cool" },
+      { l:"B", t:"Oil cool" },
+      { l:"C", t:"Coolant system (antifreeze)", fields:{ Engine: ["Coolant Type","Coolant Capacity"] } },
+      { l:"D", t:"Not 100% sure", notSure:true }
+    ], next: () => "q19" },
+
+  q19: { section: "Cooling", text: "Does this bike have a radiator fan?",
+    options: [
+      { l:"A", t:"Yes", fields:{ Engine: ["Temperature Sensor Location","Fan Relay Location","Fan Fuse Location","Fan Fuse Type","Fan Fuse Amp Rating"] } },
+      { l:"B", t:"No" },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "q20" },
+
+  q20: { section: "Brakes — Front", text: "This bike have:",
+    options: [
+      { l:"A", t:"Front left brake caliper", fields:{ Drive: ["Front Left Caliper","Front Left Brake Pads"] } },
+      { l:"B", t:"Front right brake caliper", fields:{ Drive: ["Front Right Caliper","Front Right Brake Pads"] } },
+      { l:"C", t:"Front left and right", fields:{ Drive: ["Front Left Caliper","Front Right Caliper"] } },
+      { l:"D", t:"Front brake shoes", fields:{ Drive: ["Front Brake Shoes"] } },
+      { l:"E", t:"Not 100% sure", notSure:true }
+    ], next: (ans) => ans.q20 === "C" ? "q20a" : "q21" },
+
+  q20a: { section: "Brakes — Front", followUp: true, text: "Are the left and right brake pads the same?",
+    options: [
+      { l:"A", t:"Yes — same pads", fields:{ Drive: ["Front Brake Pads (Qty: 2 required)"] } },
+      { l:"B", t:"No — different pads", fields:{ Drive: ["Front Brake Pad Left","Front Brake Pad Right"] } }
+    ], next: () => "q21" },
+
+  q21: { section: "Brakes — Rear", text: "Does this bike have:",
+    options: [
+      { l:"A", t:"Rear brake pads", fields:{ Drive: ["Rear Brake Pads"] } },
+      { l:"B", t:"Rear brake shoes", fields:{ Drive: ["Rear Brake Shoes"] } },
+      { l:"C", t:"Not 100% sure", notSure:true }
+    ], next: () => "done" }
+};
+
+const PRIMARY_ORDER = ["q0","q1","q2","q2b","q3","q4","q5","q6","q7","q8","q9",
+  "q10","q11","q12","q13","q14","q15","q16","q17","q18","q19","q20","q21"];
+const FOLLOWUP_PARENT = { q4a:"q4", q9a:"q9", q20a:"q20" };
+const TOTAL_ESTIMATE = PRIMARY_ORDER.length;
+
+/* ============ STATE ============ */
+let currentQ = "q0";
+let answers = {};       // { q1: "A", q2: "B", ... }
+let history = [];       // stack of question ids visited, for Back
+let pendingFields = {}; // { q1: {Electrical:[...]}, ... } keyed by question id
+let notSureQuestions = {}; // { q1: "question text" } for any question answered "Not 100% sure"
+
+function baseQNumber(qid){
+  const parentId = FOLLOWUP_PARENT[qid] || qid;
+  const idx = PRIMARY_ORDER.indexOf(parentId);
+  return idx === -1 ? 1 : idx + 1;
+}
+
+function renderQuestion(){
+  const q = QUESTIONS[currentQ];
+  document.getElementById("q-section-tag").textContent = q.section;
+  document.getElementById("q-text").textContent = q.text;
+  document.getElementById("followup-tag-wrap").innerHTML = q.followUp
+    ? `<div class="q-followup-tag">Follow-up</div>`
+    : q.internalOnly
+      ? `<div class="q-followup-tag internal">Internal — not shown to public users</div>`
+      : "";
+
+  const optWrap = document.getElementById("q-options");
+  optWrap.innerHTML = q.options.map(o => `
+    <button class="option-btn ${answers[currentQ] === o.l ? "selected" : ""}" data-letter="${o.l}">
+      <span class="option-letter">${o.l}.</span> ${o.t}
+    </button>
+  `).join("");
+
+  document.getElementById("next-btn").disabled = !answers[currentQ];
+  document.getElementById("back-btn").disabled = history.length === 0;
+
+  const num = baseQNumber(currentQ);
+  document.getElementById("progress-text").textContent = q.followUp
+    ? `Question ${num} — follow-up` : `Question ${num}`;
+  document.getElementById("progress-section").textContent = q.section;
+  document.getElementById("progress-fill").style.width =
+    `${Math.min(100, (num / TOTAL_ESTIMATE) * 100)}%`;
+}
+
+document.getElementById("q-options").addEventListener("click", (e) => {
+  const btn = e.target.closest(".option-btn");
+  if(!btn) return;
+  answers[currentQ] = btn.dataset.letter;
+  const q = QUESTIONS[currentQ];
+  const chosen = q.options.find(o => o.l === btn.dataset.letter);
+  pendingFields[currentQ] = chosen.fields || {};
+  if(chosen.notSure){
+    notSureQuestions[currentQ] = q.text;
+  } else {
+    delete notSureQuestions[currentQ];
+  }
+  renderQuestion();
+});
+
+document.getElementById("next-btn").addEventListener("click", () => {
+  const q = QUESTIONS[currentQ];
+  const nextId = q.next(answers);
+  history.push(currentQ);
+  if(nextId === "done"){
+    showResults();
+    return;
+  }
+  currentQ = nextId;
+  renderQuestion();
+});
+
+document.getElementById("back-btn").addEventListener("click", () => {
+  if(history.length === 0) return;
+  currentQ = history.pop();
+  renderQuestion();
+});
+
+const FLAG_SVG_SMALL = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c2.5 0 4 1.5 6 1.5s3-.5 4.5-1.5a.5.5 0 0 1 .8.4v10.6a.5.5 0 0 1-.8.4c-1.5 1-3 1.5-4.5 1.5-2 0-3.5-1.5-6-1.5a6 6 0 0 0-3.6.7"/></svg>`;
+
+function showResults(){
+  document.getElementById("quiz-view").style.display = "none";
+  const view = document.getElementById("results-view");
+  view.style.display = "block";
+
+  // Aggregate all triggered fields by category
+  const categories = {};
+  Object.values(pendingFields).forEach(fieldsByCategory => {
+    Object.entries(fieldsByCategory).forEach(([cat, fields]) => {
+      if(!categories[cat]) categories[cat] = [];
+      categories[cat].push(...fields);
+    });
+  });
+
+  const catOrder = ["General","Engine","Drive","Suspension","Fuel and Air","Electrical","Controls"];
+  const totalFields = Object.values(categories).reduce((s, arr) => s + arr.length, 0);
+
+  const sectionsHTML = catOrder
+    .filter(cat => categories[cat] && categories[cat].length)
+    .map(cat => `
+      <div class="cat-section">
+        <button class="cat-toggle" data-role="cat-toggle-r">
+          <span class="cat-title-r">${cat}<span class="cat-count-r">${categories[cat].length} field${categories[cat].length !== 1 ? "s" : ""}</span></span>
+          <span class="cat-chevron-r">▸</span>
+        </button>
+        <div class="cat-body-r">
+          ${categories[cat].map((f, i) => `
+            <div class="field-row" data-field-id="${cat}-${i}">
+              <span class="field-name">${f}</span>
+              <div class="field-right">
+                <span class="field-placeholder">not yet sourced</span>
+                <button class="field-flag-btn" data-role="field-flag" title="Flag this spec">${FLAG_SVG_SMALL}</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `).join("");
+
+  const notSureList = Object.values(notSureQuestions);
+  const notSureBannerHTML = notSureList.length ? `
+    <div class="not-sure-banner">
+      <div class="not-sure-banner-title">⚠ ${notSureList.length} question${notSureList.length !== 1 ? "s" : ""} answered "Not 100% sure"</div>
+      <div class="not-sure-banner-sub">Admin has been notified to help confirm ${notSureList.length !== 1 ? "these specs" : "this spec"}.</div>
+      <ul class="not-sure-list">
+        ${notSureList.map(t => `<li>${t}</li>`).join("")}
+      </ul>
+    </div>
+  ` : "";
+
+  const bikeTypeLabel = (() => {
+    const letter = answers.q0;
+    const opt = QUESTIONS.q0.options.find(o => o.l === letter);
+    return opt ? opt.t : "Not recorded";
+  })();
+
+  view.innerHTML = `
+    <div class="results-header">
+      <div class="big-check">✓</div>
+      <h2>Spec Tree Generated</h2>
+      <p>Questionnaire complete — here's what this bike's spec page will show.</p>
+      <p class="results-caveat">This list reflects only the specs your answers triggered for this specific bike — not every bike has the same fields, and this is not the full list.</p>
+      <p class="internal-note">Internal only — Bike Type: ${bikeTypeLabel} (not shown to public users)</p>
+    </div>
+    <div class="summary-total">${totalFields} fields triggered across ${Object.keys(categories).length} categories</div>
+    ${notSureBannerHTML}
+    ${sectionsHTML}
+    <button class="restart-btn" id="restart-btn">↺ Start Over</button>
+  `;
+
+  view.querySelectorAll('[data-role="cat-toggle-r"]').forEach(btn => {
+    btn.addEventListener("click", () => btn.closest(".cat-section").classList.toggle("open"));
+  });
+  document.getElementById("restart-btn").addEventListener("click", () => {
+    currentQ = "q0"; answers = {}; history = []; pendingFields = {}; notSureQuestions = {};
+    view.style.display = "none";
+    document.getElementById("quiz-view").style.display = "block";
+    renderQuestion();
+  });
+
+  view.addEventListener("click", (e) => {
+    const flagBtn = e.target.closest('[data-role="field-flag"]');
+    if(flagBtn){
+      const row = flagBtn.closest(".field-row");
+      if(row.querySelector(".field-comment-box") || row.querySelector(".field-flag-confirm")) return;
+      const box = document.createElement("div");
+      box.className = "field-comment-box";
+      box.innerHTML = `
+        <textarea class="field-comment-input" placeholder="Tell us what's wrong or missing about this spec..."></textarea>
+        <div class="field-comment-actions">
+          <button type="button" data-role="field-comment-cancel">Cancel</button>
+          <button type="button" class="field-comment-submit" data-role="field-comment-submit">Submit</button>
+        </div>
+      `;
+      row.appendChild(box);
+      row.classList.add("row-expanded");
+      box.querySelector("textarea").focus();
+      return;
+    }
+    const cancelBtn = e.target.closest('[data-role="field-comment-cancel"]');
+    if(cancelBtn){
+      const row = cancelBtn.closest(".field-row");
+      row.querySelector(".field-comment-box").remove();
+      row.classList.remove("row-expanded");
+      return;
+    }
+    const submitBtn = e.target.closest('[data-role="field-comment-submit"]');
+    if(submitBtn){
+      const row = submitBtn.closest(".field-row");
+      row.querySelector(".field-comment-box").remove();
+      const confirm = document.createElement("div");
+      confirm.className = "field-flag-confirm";
+      confirm.innerHTML = `Thank you for flagging this spec.<br>We will look into this ASAP.`;
+      row.appendChild(confirm);
+      const note = document.createElement("div");
+      note.className = "field-admin-note";
+      note.textContent = "Notified admin — this spec is flagged for Spec Tree review.";
+      row.appendChild(note);
+      return;
+    }
+  });
+}
+
+renderQuestion();
+</script>
+
+</body>
+</html>
