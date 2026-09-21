@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Tree Questionnaire — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .qbar{ height: 4px; background: var(--panel-2); margin-bottom: 20px; }
+  .qbar-fill{ height: 100%; background: var(--amber); transition: width 0.2s; }
+  .qsection{
+    font-size: 10.5px; letter-spacing: 0.02em;
+    color: var(--amber); margin-bottom: 8px;
+  }
+  .qtext{ font-family: var(--display); font-size: 20px; line-height: 1.35; margin-bottom: 18px; }
+  .qopt{
+    display: block; width: 100%; text-align: left; background: var(--bg);
+    border: 1px solid var(--line); color: var(--text); font-family: var(--mono);
+    font-size: 13px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer;
+  }
+  .qopt:hover{ border-color: var(--amber); color: var(--amber); }
+  .qopt .l{ color: var(--text-faint); margin-right: 10px; }
+  .qopt.notsure{ border-style: dashed; color: var(--text-dim); }
+  .qopt.notsure:hover{ border-color: var(--text-dim); color: var(--text); }
+
+  /* The option currently answered — going back, or reviewing a questionnaire
+     answered before. Marked with colour AND a tick, so it does not rely on
+     colour alone. */
+  .qopt.chosen{
+    border-color: var(--amber); color: var(--amber);
+    background: rgba(217,154,43,0.08);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .qopt.chosen .qopt-tick{ margin-left: auto; font-size: 14px; }
+  .answered-note{
+    font-size: 11px; color: var(--text-dim);
+    border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px;
+    margin-bottom: 12px;
+  }
+  .internal-note{
+    border-left: 2px solid var(--blue); padding: 8px 12px; background: var(--panel-2);
+    font-size: 11px; color: var(--text-dim); margin-bottom: 16px;
+  }
+  .gap-row{ padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .gap-row:last-child{ border-bottom: none; }
+  .gap-top{ display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .gap-label{ flex: 1 1 200px; font-size: 13px; }
+  .gap-cat{ font-size: 10px; color: var(--text-faint); letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Spec Tree Questionnaire</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main>
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const EXISTING_BIKE = Number(params.get("bike")) || null;
+// ?tree=1 runs the branching questionnaire against a bike that already exists,
+// deciding WHICH specs it has. Without it the page fills in the values of the
+// specs it already has — two different jobs on the same bike.
+const TREE_MODE = params.get("tree") === "1";
+
+let DEF = null;          // questionnaire definition from the server
+let answers = {};
+// The answers this bike already had, so a question can say whether what is
+// marked was recorded last time or chosen just now.
+let SAVED_ANSWERS = {};
+const CHANGED = new Set();
+let currentQ = "q0";
+let history = [];
+let newBikeId = null;
+
+/* ---------------------------------------------------------------------------
+   The same branching walk as questionnaire.py, mirrored here for the UI.
+   The server re-runs it on submit; this copy only decides what to show next.
+   --------------------------------------------------------------------------- */
+function matches(rule, qid){
+  const w = rule.when;
+  if(!w) return true;
+  if(w.answer && !w.answer.includes(answers[qid])) return false;
+  if(w.answer_of){
+    for(const [other, allowed] of Object.entries(w.answer_of)){
+      if(!allowed.includes(answers[other])) return false;
+    }
+  }
+  return true;
+}
+
+function advance(qid){
+  const nxt = DEF.questions[qid].next;
+  if(typeof nxt === "string") return nxt;
+  for(const rule of nxt){
+    if(!matches(rule, qid)) continue;
+    for(const [autoQ, autoA] of Object.entries(rule.auto || {})) answers[autoQ] = autoA;
+    return rule.goto;
+  }
+  return "done";
+}
+
+/* ------------------------------------------------------------ new bike ----
+   Make and model are pick-from-the-list OR type-your-own.
+
+   The dropdown is not just convenience. (make, model_code) is the lineage key:
+   the uniqueness constraint, the model-year overlap trigger and the sibling
+   divergence queue all match on it. Typing "CB750 K" when the catalog says
+   "CB750K" silently creates a second lineage, and the two never get compared
+   again. Picking from the list makes that impossible; the free-text box is
+   still there for a model the database has genuinely never seen.
+   --------------------------------------------------------------------------- */
+const NEW_VALUE = "__new__";
+
+const renderNewBikeForm = guard(async () => {
+  const filters = await API.get("/api/catalog/filters");
+
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Add a Bike</h3>
+          <p>Identify the machine first. The questionnaire then decides which
+             specs it actually has — a shaft-drive bike is never asked about
+             chain slack.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row"><label for="nb-make-select">Make</label>
+          <select id="nb-make-select" autocomplete="off">
+            ${filters.makes.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("")}
+            <option value="${NEW_VALUE}">+ Add a make not listed…</option>
+          </select>
+          <input type="text" id="nb-make-new" autocomplete="off" style="display:none;margin-top:8px"
+                 placeholder="New make, e.g. Yamaha"></div>
+
+        <div class="form-row"><label for="nb-model-select">Model code</label>
+          <select id="nb-model-select" autocomplete="off"></select>
+          <input type="text" id="nb-model-new" autocomplete="off" style="display:none;margin-top:8px"
+                 placeholder="New model code, e.g. CB750K">
+          <div class="field-hint" id="nb-model-hint"></div></div>
+
+        <div class="form-row"><label for="nb-name">Display name (optional)</label>
+          <input type="text" id="nb-name" autocomplete="off" placeholder="e.g. Honda CB750 Four"></div>
+
+        <div class="form-row" style="display:flex;gap:12px">
+          <div style="flex:1"><label for="nb-start">First model year</label>
+            <input type="number" id="nb-start" autocomplete="off" placeholder="1978"></div>
+          <div style="flex:1"><label for="nb-end">Last model year</label>
+            <input type="number" id="nb-end" autocomplete="off" placeholder="1979"></div>
+        </div>
+
+        <div class="field-hint">One bike covers however many model years share
+          its specs. If a later year genuinely differs, add it as its own bike
+          under the same model code — that's a split, not an override.</div>
+        <div class="form-actions">
+          <button class="primary-btn" id="nb-create">Create &amp; start questionnaire</button>
+        </div>
+      </div>
+    </div>`;
+
+  const makeSel  = document.getElementById("nb-make-select");
+  const makeNew  = document.getElementById("nb-make-new");
+  const modelSel = document.getElementById("nb-model-select");
+  const modelNew = document.getElementById("nb-model-new");
+
+  function chosenMake(){
+    return makeSel.value === NEW_VALUE ? makeNew.value.trim() : makeSel.value;
+  }
+
+  const loadModels = guard(async () => {
+    const make = chosenMake();
+    // A make nobody has typed yet has no models to offer, so go straight to
+    // free text rather than showing an empty dropdown.
+    if(!make || makeSel.value === NEW_VALUE){
+      modelSel.innerHTML = `<option value="${NEW_VALUE}">+ New model…</option>`;
+      modelSel.value = NEW_VALUE;
+      return onModelChange();
+    }
+    const f = await API.get("/api/catalog/filters?make=" + encodeURIComponent(make));
+    // /api/catalog/filters returns {model_code, cc} so the browse page can
+    // order by engine size; here the cc is just a useful disambiguator.
+    modelSel.innerHTML =
+      `<option value="${NEW_VALUE}">+ New model…</option>` +
+      f.models.map(m => `<option value="${esc(m.model_code)}">${esc(m.model_code)}${
+        m.cc ? ` · ${m.cc}cc` : ""}</option>`).join("");
+    onModelChange();
+  });
+
+  const onModelChange = guard(async () => {
+    const isNew = modelSel.value === NEW_VALUE;
+    modelNew.style.display = isNew ? "" : "none";
+    const hint = document.getElementById("nb-model-hint");
+    if(isNew){
+      hint.textContent = "A model code the database has not seen before.";
+      return;
+    }
+    // An existing model already owns some years. Showing which ones turns a
+    // 409 on submit into something the user knew before they typed.
+    const data = await API.get("/api/bikes?make=" + encodeURIComponent(chosenMake()) +
+                               "&model=" + encodeURIComponent(modelSel.value));
+    hint.innerHTML = data.bikes.length
+      ? `Already recorded under this model code: ${data.bikes.map(b =>
+          `<strong>${esc(b.year_range || "?")}</strong>`).join(", ")}.
+         Pick years outside those — a model year can belong to only one bike.`
+      : "No years recorded under this model code yet.";
+  });
+
+  makeSel.addEventListener("change", () => {
+    makeNew.style.display = makeSel.value === NEW_VALUE ? "" : "none";
+    if(makeSel.value === NEW_VALUE) makeNew.focus();
+    loadModels();
+  });
+  makeNew.addEventListener("input", () => {
+    const hint = document.getElementById("nb-model-hint");
+    hint.textContent = "A model code the database has not seen before.";
+  });
+  modelSel.addEventListener("change", onModelChange);
+
+  await loadModels();
+
+  document.getElementById("nb-create").addEventListener("click", guard(async () => {
+    const make = chosenMake();
+    const model = modelSel.value === NEW_VALUE
+      ? modelNew.value.trim()
+      : modelSel.value;
+    const start = Number(document.getElementById("nb-start").value);
+    const end = Number(document.getElementById("nb-end").value) || start;
+    if(!make){ toast("Pick a make, or type a new one.", "error"); return; }
+    if(!model){ toast("Pick a model code, or type a new one.", "error"); return; }
+    if(!start){ toast("A first model year is required.", "error"); return; }
+    if(end < start){ toast("The last year cannot be before the first.", "error"); return; }
+
+    const r = await API.post("/api/bikes", {
+      make, model_code: model, year_start: start, year_end: end,
+      name: document.getElementById("nb-name").value.trim() || null,
+    });
+    newBikeId = r.bike_id;
+    answers = {}; SAVED_ANSWERS = {}; CHANGED.clear();
+    currentQ = "q0"; history = [];
+    renderQuestion();
+  }));
+});
+
+/* ----------------------------------------------------------- the wizard --- */
+function renderQuestion(){
+  if(currentQ === "done") return renderSubmit();
+  const q = DEF.questions[currentQ];
+  // What this question is currently answered as — either from a previous run
+  // of the questionnaire, or from earlier in this one before going back.
+  const chosen = answers[currentQ];
+  const answeredCount = Object.keys(answers).length;
+  const idx = DEF.primary_order.indexOf(currentQ);
+  const pct = Math.round(100 * (idx >= 0 ? idx : history.length) / DEF.primary_order.length);
+
+  document.getElementById("content").innerHTML = `
+    <div class="qbar"><div class="qbar-fill" style="width:${pct}%"></div></div>
+    <div class="panel">
+      <div class="panel-body">
+        ${q.internal_only ? `<div class="internal-note">Internal only — this
+          answer routes the bike to the right expert admin and is not shown on
+          the public spec page.</div>` : ""}
+        <div class="qsection">${esc(q.section)}${q.follow_up ? " · follow-up" : ""}</div>
+        <div class="qtext">${esc(q.text)}</div>
+        ${chosen ? `<div class="answered-note">${
+          SAVED_ANSWERS[currentQ] === chosen && !CHANGED.has(currentQ)
+            ? "Answered previously — shown below. Pick a different option to change it."
+            : "Your answer, marked below."}</div>` : ""}
+        ${q.options.map(o => `
+          <button class="qopt${o.not_sure ? " notsure" : ""}${
+            o.l === chosen ? " chosen" : ""}" data-opt="${esc(o.l)}"
+            ${o.l === chosen ? 'aria-current="true"' : ""}>
+            <span class="l">${esc(o.l)}</span>${esc(o.t)}
+            ${o.l === chosen ? `<span class="qopt-tick">✓</span>` : ""}
+          </button>`).join("")}
+        <div class="form-actions" style="justify-content:space-between">
+          <button class="ghost-btn" id="q-back" ${history.length ? "" : "disabled"}>← Back</button>
+          <span class="cell-dim">${history.length + 1} of about ${DEF.primary_order.length}${
+            answeredCount ? ` · ${answeredCount} answered` : ""}</span>
+          ${chosen
+            ? `<button class="primary-btn" id="q-next">Keep this →</button>`
+            : `<span></span>`}
+        </div>
+      </div>
+    </div>`;
+
+  document.querySelectorAll("[data-opt]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if(btn.dataset.opt !== answers[currentQ]) CHANGED.add(currentQ);
+      answers[currentQ] = btn.dataset.opt;
+      history.push(currentQ);
+      currentQ = advance(currentQ);
+      renderQuestion();
+    });
+  });
+
+  // Moving on without touching the answer. Without this, reviewing a
+  // questionnaire that is already answered means clicking the same option
+  // twenty-two times, and every click looks like a change.
+  const next = document.getElementById("q-next");
+  if(next) next.addEventListener("click", () => {
+    history.push(currentQ);
+    currentQ = advance(currentQ);
+    renderQuestion();
+  });
+
+  const back = document.getElementById("q-back");
+  if(back) back.addEventListener("click", () => {
+    // The answer is deliberately kept. Deleting it is what left nothing to
+    // highlight on the way back, and answers the walk no longer reaches are
+    // discarded server-side anyway.
+    currentQ = history.pop();
+    renderQuestion();
+  });
+}
+
+function renderSubmit(){
+  const notSure = Object.entries(answers).filter(([qid, a]) => {
+    const q = DEF.questions[qid];
+    const o = q && q.options.find(x => x.l === a);
+    return o && o.not_sure;
+  });
+
+  document.getElementById("content").innerHTML = `
+    <div class="qbar"><div class="qbar-fill" style="width:100%"></div></div>
+    <div class="panel">
+      <div class="panel-head"><h3>Ready to build the Spec Tree</h3></div>
+      <div class="panel-body">
+        <p style="font-size:12.5px;color:var(--text-dim);line-height:1.6">
+          ${Object.keys(answers).length} answers recorded.
+          ${notSure.length ? `<br><strong style="color:var(--amber)">${notSure.length}
+            answered "not sure"</strong> — those go to admin as questions rather
+            than being guessed at.` : ""}
+        </p>
+        <div class="form-actions">
+          <button class="ghost-btn" id="q-restart">Start over</button>
+          <button class="primary-btn" id="q-submit">Build the Spec Tree</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("q-restart").addEventListener("click", () => {
+    answers = {}; CHANGED.clear(); history = []; currentQ = "q0"; renderQuestion();
+  });
+
+  document.getElementById("q-submit").addEventListener("click", guard(async () => {
+    const r = await API.post(`/api/questionnaire/${newBikeId}/build`, { answers });
+    document.getElementById("content").innerHTML = `
+      <div class="panel">
+        <div class="panel-head"><h3>Spec Tree Generated</h3></div>
+        <div class="panel-body">
+          <div class="stat-grid" style="margin-bottom:16px">
+            <div class="stat-card"><div class="num">${r.questions_asked}</div><div class="lbl">Questions Asked</div></div>
+            <div class="stat-card"><div class="num">${r.fields_triggered}</div><div class="lbl">Fields Triggered</div></div>
+            <div class="stat-card"><div class="num">${r.specs_created}</div><div class="lbl">Spec Rows Created</div></div>
+            <div class="stat-card${r.not_sure ? " alert" : ""}"><div class="num">${r.not_sure}</div><div class="lbl">Sent to Admin</div></div>
+          </div>
+          <p style="font-size:12.5px;color:var(--text-dim);line-height:1.6">
+            Every new field starts empty. That's the point — the tree says which
+            questions this bike has, not what the answers are. Filling them in
+            is the next step.</p>
+          ${(r.no_longer_applies || []).length ? `
+            <div class="inline-box danger" style="margin-bottom:14px">
+              <div class="inline-title">${r.no_longer_applies.length} spec(s) your
+                answers no longer call for</div>
+              <div class="inline-sub">These were left in place rather than
+                deleted — removing them would destroy any value already
+                recorded. Ask an admin to take them off if they truly do not
+                belong.</div>
+              ${r.no_longer_applies.map(f => `<div class="svc-spec">${esc(f.label)}${
+                f.has_value ? ` — <span style="color:var(--danger)">holds a value</span>` : ""}</div>`).join("")}
+            </div>` : ""}
+          <div class="form-actions">
+            <a class="ghost-btn" style="text-decoration:none" href="/manager.html">My Bikes</a>
+            <a class="primary-btn" style="text-decoration:none;padding:9px 18px"
+               href="/questionnaire.html?bike=${newBikeId}">Fill in the values →</a>
+          </div>
+        </div>
+      </div>`;
+  }));
+}
+
+/* ------------------------------------------------------- fill-gaps mode --- */
+const loadGaps = guard(async () => {
+  const data = await API.get(`/api/questionnaire/${EXISTING_BIKE}`);
+  const total = data.answered + data.questions.length;
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>${esc(data.bike.display_name)} — fill the gaps</h3>
+          <p>${data.answered} of ${total} fields have a value. A field left empty
+             is shown to riders as a gap, never as a guess — so leaving it blank
+             is an honest answer.</p></div>
+        <span class="count-tag">${data.questions.length} unfilled</span>
+      </div>
+      ${data.questions.length ? data.questions.map(q => `
+        <div class="gap-row" id="gap-${esc(q.field_key)}">
+          <div class="gap-cat">${esc(q.category)}</div>
+          <div class="gap-top">
+            <div class="gap-label">${esc(q.label)} ${typeBadge(q.spec_type)}</div>
+            <input type="text" style="flex:2 1 220px" id="v-${esc(q.field_key)}" placeholder="Value">
+            <select style="width:150px" id="c-${esc(q.field_key)}">
+              <option value="confirmed">From the manual</option>
+              <option value="mfr">Manufacturer spec</option>
+              <option value="pending" selected>Unconfirmed source</option>
+            </select>
+            <button class="action-btn approve" data-save="${esc(q.field_key)}">Save</button>
+            <button class="action-btn" data-notsure="${esc(q.field_key)}">Not sure</button>
+          </div>
+        </div>`).join("")
+      : `<div class="empty">Every field on this bike has a value.</div>`}
+    </div>`;
+});
+
+document.addEventListener("click", guard(async (e) => {
+  const save = e.target.closest("[data-save]");
+  if(save){
+    const key = save.dataset.save;
+    const value = document.getElementById(`v-${key}`).value.trim();
+    if(!value){ toast("Enter a value, or use \"Not sure\".", "error"); return; }
+    await API.post(`/api/questionnaire/${EXISTING_BIKE}/answer`, {
+      field_key: key, value, confidence: document.getElementById(`c-${key}`).value });
+    toast("Saved.", "ok");
+    await loadGaps();
+    return;
+  }
+  const ns = e.target.closest("[data-notsure]");
+  if(ns){
+    await API.post(`/api/questionnaire/${EXISTING_BIKE}/answer`, {
+      field_key: ns.dataset.notsure, not_sure: true });
+    toast("Sent to admin as a question. The gap stays open.", "ok");
+    await loadGaps();
+    return;
+  }
+}));
+
+const renderManagerLanding = guard(async () => {
+  const { bikes } = await API.get("/api/manager/bikes");
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Your assigned bikes</h3>
+          <p>Bikes are assigned to you by an admin — you don't pick them up
+             yourself. Adding a bike and deciding which specs it has is an admin
+             job; filling in the values is yours.</p></div>
+      </div>
+      ${bikes.length ? bikes.map(b => `
+        <div class="gap-row">
+          <div class="gap-top">
+            <div class="gap-label"><strong>${esc(b.display_name)}</strong>
+              <div class="gap-cat">${esc(b.year_range || "")}
+                ${b.specialty ? " · " + esc(b.specialty) : ""}</div></div>
+            <span class="badge ${b.specs_needed ? "amber" : "good"}">${
+              b.specs_filled} of ${b.fields_triggered} filled</span>
+            <a class="action-btn approve" href="/questionnaire.html?bike=${b.bike_id}">Fill in values</a>
+          </div>
+        </div>`).join("")
+      : `<div class="empty">No bikes assigned to you yet. An admin assigns them.</div>`}
+    </div>`;
+});
+
+/* ------------------------------------------------------------------ boot -- */
+(async function(){
+  await initChrome("/questionnaire.html");
+  document.getElementById("who").innerHTML = ME.user
+    ? `Signed in as <strong>${esc(ME.user.display_name || ME.user.username)}</strong>` : "";
+  if(!requireRole("manager")) return;
+
+  if(EXISTING_BIKE && TREE_MODE) return startTreeForExistingBike();
+  if(EXISTING_BIKE) return loadGaps();
+
+  // Creating a bike is still admin's — a manager does not pick up bikes.
+  // Answering the questionnaire for a bike they already manage is theirs.
+  if(!canSee("admin")) return renderManagerLanding();
+
+  DEF = await API.get("/api/questionnaire/definition");
+  renderNewBikeForm();
+})();
+
+/* Re-answering an existing bike. Starts from the answers it gave last time so
+   this is a correction, not a from-scratch re-run — most of the twenty-odd
+   questions will not have changed. */
+const startTreeForExistingBike = guard(async () => {
+  const [def, state] = await Promise.all([
+    API.get("/api/questionnaire/definition"),
+    API.get(`/api/questionnaire/${EXISTING_BIKE}`),
+  ]);
+  DEF = def;
+  newBikeId = EXISTING_BIKE;
+  answers = { ...(state.answers || {}) };
+  SAVED_ANSWERS = { ...(state.answers || {}) };
+  CHANGED.clear();
+  history = [];
+  currentQ = "q0";
+  const previously = Object.keys(answers).length;
+
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>${esc(state.bike.display_name)} — which specs does it have?</h3>
+          <p>${previously
+            ? `This bike was last answered with ${previously} answers, and they are
+               filled in below — change only what is wrong.`
+            : `This bike has never been through the questionnaire. Its specs came
+               from the bulk catalogue import.`}
+             Answering adds the specs your answers call for. It never removes
+             specs already on the bike — anything that no longer applies is
+             listed at the end for an admin to take off, so a mis-click cannot
+             destroy a value somebody sourced.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="form-actions" style="justify-content:flex-start">
+          <button class="primary-btn" id="tree-start">${previously ? "Review the answers" : "Start"}</button>
+          <a class="ghost-btn" style="text-decoration:none" href="/manager.html">Back to My Bikes</a>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("tree-start").addEventListener("click", () => renderQuestion());
+});
+</script>
+</body>
+</html>

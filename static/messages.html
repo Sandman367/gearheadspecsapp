@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Messages — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .dm{ display: grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 800px){
+    .dm{ grid-template-columns: 1fr; }
+    .dm.reading .list-col{ display: none; }
+    .dm:not(.reading) .thread-col{ display: none; }
+  }
+  .back-link{ display: none; font-size: 11.5px; margin-bottom: 8px; }
+  @media (max-width: 800px){ .back-link{ display: inline-block; } }
+
+  .list-head{ display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .list-head input{ flex: 1; min-width: 0; }
+  .convs{ max-height: 70vh; overflow-y: auto; }
+  .conv{
+    display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: 0;
+    border-bottom: 1px solid var(--line); padding: 10px 14px; color: var(--text); cursor: pointer;
+  }
+  .conv:hover{ background: rgba(255,255,255,0.02); }
+  .conv.on{ background: rgba(217,154,43,0.08); border-left: 2px solid var(--amber); padding-left: 12px; }
+  .conv .av{ width: 30px; height: 30px; border-radius: 50%; background: var(--panel-2, #222); border: 1px solid var(--line);
+    display: grid; place-items: center; font-family: var(--display); font-size: 13px; color: var(--text-dim); flex: none; }
+  .conv .c{ flex: 1; min-width: 0; }
+  .conv .n{ font-size: 13px; display: flex; gap: 6px; align-items: baseline; }
+  .conv .n .role{ font-family: var(--mono); font-size: 9.5px; color: var(--amber); }
+  .conv .n .when{ margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .conv .p{ font-size: 11.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .conv.unread .n{ font-weight: 600; }
+  .conv.unread .p{ color: var(--text-dim); }
+  .conv .cnt{ font-family: var(--mono); font-size: 9.5px; line-height: 15px; min-width: 14px; text-align: center; padding: 0 5px; color: var(--bg); background: var(--amber); border-radius: 8px; flex: none; }
+  .convs .none{ padding: 18px 14px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+  .people{ border-top: 1px solid var(--line); }
+  .people .h{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); padding: 8px 14px 4px; }
+  .people .conv .p{ white-space: normal; }
+
+  .thread-head{ padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: baseline; }
+  .thread-head h2{ margin: 0; font-family: var(--display); font-size: 19px; }
+  .thread-head .m{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .msgs{ padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; min-height: 240px; max-height: 60vh; overflow-y: auto; }
+  .msg{ max-width: 78%; padding: 8px 12px; border: 1px solid var(--line); font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+  .msg a{ color: var(--amber); }
+  .msg.theirs{ align-self: flex-start; background: rgba(255,255,255,0.02); }
+  .msg.mine{ align-self: flex-end; background: rgba(217,154,43,0.08); border-color: var(--amber-dim); }
+  .msg .w{ display: block; font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); margin-top: 4px; }
+  .msg.mine .w{ text-align: right; }
+  .day{ align-self: center; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em; color: var(--text-faint); padding: 4px 0; }
+  .compose{ padding: 12px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end; }
+  .compose textarea{ flex: 1; min-height: 44px; max-height: 160px; }
+  .msgs .none{ color: var(--text-faint); font-size: 12px; align-self: center; margin: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Messages</h1>
+    <div class="subhead">Direct messages between managers and admin.</div>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main class="wide">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let CONVS = [];
+let PEOPLE = [];
+let OPEN = null;           // { other, messages }
+let FILTER = "";
+let pollTimer = null;
+let lastCount = 0;
+const draft = {};          // per other_id
+
+function fmt(ts){
+  if(!ts) return "";
+  const d = new Date(ts.replace(" ", "T") + "Z");
+  const now = new Date();
+  return d.toDateString() === now.toDateString()
+    ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString([], { month: "short", day: "numeric" }) + (d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : "");
+}
+function dayOf(ts){ return new Date(ts.replace(" ", "T") + "Z").toDateString(); }
+function richText(s){
+  return esc(s).replace(/(https?:\/\/[^\s<]+)/g, m => {
+    const trail = m.match(/[.,;:!?)]+$/); const url = trail ? m.slice(0, -trail[0].length) : m;
+    return `<a href="${url}" target="_blank" rel="noopener">${url}</a>${trail ? trail[0] : ""}`;
+  });
+}
+function withId(){ return Number(new URLSearchParams(location.search).get("with")) || null; }
+function setUrl(id){
+  const url = new URL(location.href);
+  if(id) url.searchParams.set("with", id); else url.searchParams.delete("with");
+  history.replaceState(null, "", url);
+}
+function initials(name){ return (name || "?").slice(0, 2).toUpperCase(); }
+
+async function loadConvs(){
+  CONVS = (await API.get("/api/messages")).conversations;
+  setNavCount("/messages.html", CONVS.reduce((n, c) => n + c.unread, 0));
+}
+
+async function openWith(id, quiet){
+  try {
+    OPEN = await API.get(`/api/messages/with/${id}`);
+  } catch(err){ OPEN = null; setUrl(null); throw err; }
+  setUrl(id);
+  await loadConvs();
+  if(!quiet){ render(); scrollMsgs(); }
+}
+
+function scrollMsgs(){
+  const m = document.querySelector(".msgs");
+  if(m) m.scrollTop = m.scrollHeight;
+}
+
+function listHTML(){
+  const f = FILTER.trim().toLowerCase();
+  const convIds = new Set(CONVS.map(c => c.other_id));
+  const others = PEOPLE.filter(p => !p.me && !convIds.has(p.id)
+    && (!f || p.username.toLowerCase().includes(f) || p.bikes.some(b => b.toLowerCase().includes(f))));
+  const convs = CONVS.filter(c => !f || c.other.toLowerCase().includes(f));
+  return `
+    <div class="list-head">
+      <input type="text" id="dm-q" placeholder="Find a person or a bike…" value="${esc(FILTER)}" autocomplete="off">
+    </div>
+    <div class="convs">
+      ${convs.length ? convs.map(c => `
+        <button class="conv${c.unread ? " unread" : ""}${OPEN && OPEN.other.id === c.other_id ? " on" : ""}" data-with="${c.other_id}">
+          <span class="av">${esc(initials(c.other))}</span>
+          <span class="c">
+            <span class="n">${esc(c.other)}${c.other_role === "admin" ? `<span class="role">admin</span>` : ""}<span class="when">${esc(fmt(c.last_message_at))}</span></span>
+            <span class="p">${c.last_mine ? "You: " : ""}${esc(c.preview)}</span>
+          </span>
+          ${c.unread ? `<span class="cnt">${c.unread}</span>` : ""}
+        </button>`).join("")
+      : `<div class="none">${f ? "" : "No conversations yet. Pick someone below to start one."}</div>`}
+      ${others.length ? `<div class="people"><div class="h">${convs.length ? "Start a conversation" : "People"}</div>
+        ${others.map(p => `
+          <button class="conv" data-with="${p.id}">
+            <span class="av">${esc(initials(p.username))}</span>
+            <span class="c">
+              <span class="n">${esc(p.username)}${p.role === "admin" ? `<span class="role">admin</span>` : ""}</span>
+              <span class="p">${p.bikes.length ? esc(p.bikes.slice(0, 2).join(", ")) + (p.bikes.length > 2 ? ` +${p.bikes.length - 2}` : "") : (p.role === "admin" ? "every bike" : "no bikes yet")}</span>
+            </span>
+          </button>`).join("")}</div>` : ""}
+    </div>`;
+}
+
+function threadHTML(){
+  if(!OPEN) return `<div class="panel"><div class="panel-body empty">Pick a conversation, or someone to start one with.</div></div>`;
+  const o = OPEN.other;
+  const person = PEOPLE.find(p => p.id === o.id);
+  let lastDay = null;
+  const msgs = OPEN.messages.map(m => {
+    const d = dayOf(m.created_at);
+    const sep = d !== lastDay ? `<div class="day">${esc(new Date(m.created_at.replace(" ", "T") + "Z").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }))}</div>` : "";
+    lastDay = d;
+    return sep + `<div class="msg ${m.mine ? "mine" : "theirs"}">${richText(m.body)}<span class="w">${esc(fmt(m.created_at))}${m.mine && m.read_at ? " · read" : ""}</span></div>`;
+  }).join("");
+  return `
+    <a class="back-link" href="#" id="back-to-list">← All conversations</a>
+    <div class="panel">
+      <div class="thread-head">
+        <h2>${esc(o.username)}</h2>
+        <span class="m">${o.role === "admin" ? "admin" : person && person.bikes.length ? "manages " + esc(person.bikes.join(", ")) : "manager"}</span>
+      </div>
+      <div class="msgs">${msgs || `<div class="none">No messages yet — say hello.</div>`}</div>
+      <div class="compose">
+        <textarea id="dm-body" maxlength="2000" placeholder="Write a message… (Enter to send, Shift+Enter for a new line)">${esc(draft[o.id] || "")}</textarea>
+        <button class="primary-btn" id="dm-send">Send</button>
+      </div>
+    </div>`;
+}
+
+function render(){
+  document.getElementById("content").innerHTML = `
+    <div class="dm${OPEN ? " reading" : ""}">
+      <div class="panel list-col" style="margin-bottom:0">${listHTML()}</div>
+      <div class="thread-col">${threadHTML()}</div>
+    </div>`;
+  hookList();
+  const body = document.getElementById("dm-body");
+  if(body){
+    body.addEventListener("input", e => { draft[OPEN.other.id] = e.target.value; });
+    body.addEventListener("keydown", e => {
+      if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); document.getElementById("dm-send").click(); }
+    });
+    if(window.innerWidth > 800) body.focus();
+  }
+}
+function hookList(){
+  const q = document.getElementById("dm-q");
+  q.addEventListener("input", e => {
+    FILTER = e.target.value;
+    document.querySelector(".list-col").innerHTML = listHTML();
+    hookList();
+    const nq = document.getElementById("dm-q"); nq.focus(); nq.setSelectionRange(nq.value.length, nq.value.length);
+  });
+}
+
+// New messages arrive while the page is open: every 15 seconds, refresh the
+// open conversation and the list without disturbing what is being typed.
+async function poll(){
+  if(document.hidden) return;   // not looking: nothing is read, nothing refreshes
+  try {
+    if(OPEN){
+      const fresh = await API.get(`/api/messages/with/${OPEN.other.id}`);
+      const changed = fresh.messages.length !== OPEN.messages.length
+        || fresh.messages.some((m, i) => m.read_at !== OPEN.messages[i].read_at);
+      await loadConvs();
+      if(changed){
+        OPEN = fresh;
+        const atBottom = (() => { const m = document.querySelector(".msgs"); return !m || m.scrollHeight - m.scrollTop - m.clientHeight < 40; })();
+        document.querySelector(".thread-col").innerHTML = threadHTML();
+        const body = document.getElementById("dm-body");
+        body.addEventListener("input", e => { draft[OPEN.other.id] = e.target.value; });
+        body.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); document.getElementById("dm-send").click(); } });
+        if(atBottom) scrollMsgs();
+      }
+      document.querySelector(".list-col").innerHTML = listHTML(); hookList();
+    } else {
+      await loadConvs();
+      document.querySelector(".list-col").innerHTML = listHTML(); hookList();
+    }
+  } catch(_){ /* offline for a moment; try again next tick */ }
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const w = e.target.closest("[data-with]");
+  if(w){ await openWith(Number(w.dataset.with)); return; }
+  if(e.target.id === "back-to-list"){ e.preventDefault(); OPEN = null; setUrl(null); render(); return; }
+  if(e.target.id === "dm-send"){
+    const body = document.getElementById("dm-body").value;
+    if(!body.trim()) return;
+    await API.post(`/api/messages/with/${OPEN.other.id}`, { body });
+    draft[OPEN.other.id] = "";
+    await openWith(OPEN.other.id);
+    return;
+  }
+}));
+
+(async () => {
+  await initChrome("/messages.html");
+  if(!requireRole("manager")) return;
+  document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  const [convs, people] = await Promise.all([API.get("/api/messages"), API.get("/api/board/members")]);
+  CONVS = convs.conversations; PEOPLE = people.people;
+  const w = withId();
+  if(w){ try { await openWith(w); } catch(_){ render(); } }
+  else render();
+  pollTimer = setInterval(poll, 15000);
+})();
+</script>
+</body>
+</html>

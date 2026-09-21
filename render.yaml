@@ -1,0 +1,26 @@
+# Render blueprint for GearHeadSpecs: one always-on Python web service with a
+# persistent disk for the database and photos. The service created from the
+# dashboard / MCP matches this; keeping it here documents the shape.
+services:
+  - type: web
+    name: gearheadspecs
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: "echo nothing to build -- standard library only"
+    startCommand: "python bootstrap.py"
+    healthCheckPath: /api/auth/me
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.4"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATA_DIR
+        value: /var/data
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

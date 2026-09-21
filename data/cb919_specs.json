@@ -1,0 +1,163 @@
+{
+  "_comment": [
+    "The researched CB919 spec set, lifted out of the spec()/s() calls that were",
+    "embedded in hondabrowserv2_23_2.html and turned into real seed data.",
+    "This file is now the source of truth for these values, not the mockup.",
+    "",
+    "confidence: confirmed = straight from the official manual",
+    "            mfr       = manufacturer press specs / consistent cross-reference",
+    "            pending   = one weak source only, shown as a gap rather than a guess",
+    "            null      = no manufacturer value exists at all",
+    "",
+    "spec_type:  fixed     = one correct value, alternates make no sense",
+    "            pref      = manual gives a baseline, riders legitimately vary",
+    "            community = no stock value exists, inherently open",
+    "",
+    "field_key is derived from the label by seed.py (slugify), because every",
+    "mockup refers to fields by their display label."
+  ],
+
+  "bike": {
+    "make": "Honda",
+    "model_code": "CB900F2 919",
+    "bike_type": "Street / Sport",
+    "year_start": 2002,
+    "year_end": 2007,
+    "names": [
+      { "name": "Honda CB919", "market": "US", "is_primary": 1 },
+      { "name": "CB900F2 919", "market": "" },
+      { "name": "Hornet 900", "market": "EU" },
+      { "name": "919", "market": "US" }
+    ]
+  },
+
+  "categories": ["General", "Engine", "Drive", "Fuel and Air", "Controls", "Suspension", "Electrical"],
+
+  "specs": [
+    { "category": "General", "label": "Dry Weight", "value": "193.7 kg / 427 lb (dry)", "confidence": "mfr", "spec_type": "pref",
+      "_note": "Dry, not curb: the figure excludes fluids. Labelled Curb Weight originally, which contradicted its own value." },
+    { "category": "General", "label": "Wheelbase", "value": "1461 mm / 57.5 in", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "General", "label": "Seat Height", "value": "800 mm / 31.5 in", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "General", "label": "Rake (Caster Angle)", "value": "25.0°", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "General", "label": "Trail", "value": "3.9 in (98 mm)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "General", "label": "Factory Color", "value": "Metallic Black", "confidence": "mfr", "spec_type": "pref",
+      "_note": "Only colour confirmed in the sourced 2005 press specs; other MY2005 colours may exist." },
+
+    { "category": "Engine", "label": "Cylinder Configuration", "value": "Inline-4 — Outer Pair (1&4) / Inner Pair (2&3) grouping applies", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Engine Displacement", "value": "919cc", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Bore × Stroke", "value": "71mm × 58mm", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Compression Ratio", "value": "10.8:1", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Idle Speed", "value": "1,200 ± 100 rpm", "confidence": "confirmed", "spec_type": "pref" },
+    { "category": "Engine", "label": "Spark Plug — Standard", "value": "NGK CR8EH-9 / DENSO U24FER9", "confidence": "mfr", "spec_type": "pref",
+      "tools": "16mm spark plug socket, extension bar, torque wrench (12–14 Nm / 9–10 lb-ft)" },
+    { "category": "Engine", "label": "Spark Plug — Extended High-Speed", "value": "NGK CR9EH-9 / DENSO U27FER9", "confidence": "confirmed", "spec_type": "pref" },
+    { "category": "Engine", "label": "Spark Plug Gap", "value": "0.80–0.90mm (0.031–0.035 in)", "confidence": "confirmed", "spec_type": "pref",
+      "tools": "Wire-type feeler gauge / gap tool" },
+    { "category": "Engine", "label": "Valve Clearance — Exhaust", "value": "0.25mm (0.010 in), cold", "confidence": "confirmed", "spec_type": "pref",
+      "tools": "Feeler gauge set, valve cover removal tools, shim kit if adjustment needed" },
+    { "category": "Engine", "label": "Valve Clearance — Intake", "value": null, "confidence": "pending", "spec_type": "pref" },
+    { "category": "Engine", "label": "Engine Oil Weight", "value": null, "confidence": "pending", "spec_type": "pref" },
+    { "category": "Engine", "label": "Engine Oil Volume", "value": "3.8 L w/ filter change", "confidence": "mfr", "spec_type": "pref",
+      "tools": "Oil drain pan, 17mm drain-bolt wrench, oil filter wrench, funnel" },
+    { "category": "Engine", "label": "Oil Change Interval", "value": "8,000 mi / 12,000 km (manual baseline)", "confidence": "mfr", "spec_type": "pref",
+      "alternates": [
+        { "text": "Synthetic oil, extended interval — up to ~7,000 mi shown safe by oil analysis", "votes": 0 },
+        { "text": "Frequent short trips / stop-start — 3,000–4,000 mi", "votes": 0 }
+      ] },
+    { "category": "Engine", "label": "Oil Filter Part Number", "value": "OEM Honda 15410-MFJ-D01", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Coolant Type", "value": "Honda HP Coolant (or equivalent silicate-free ethylene glycol)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Coolant Capacity", "value": "2.8 L (total system)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Engine", "label": "Ignition Timing", "value": "ECU-controlled, non-adjustable", "confidence": "mfr", "spec_type": "pref" },
+
+    { "category": "Drive", "label": "Drive Type", "value": "Chain and sprockets", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Drive Chain", "value": "530, 108 links (O-ring)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Drive Chain Slack", "value": "30–40mm (1.2–1.6 in)", "confidence": "confirmed", "spec_type": "pref",
+      "tools": "Ruler or chain-slack gauge, 12mm/14mm axle wrenches to adjust" },
+    { "category": "Drive", "label": "Front Sprocket", "value": "16T, 530 pitch", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Rear Sprocket", "value": "43T, 530 pitch", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Chain Lube (type/brand)", "value": "General chain lube — no brand specified in manual", "confidence": null, "spec_type": "community",
+      "alternates": [
+        { "text": "Street riding — Motul C1/C2", "votes": 14 },
+        { "text": "Wax-based, less fling-off — Scottoiler / wax spray", "votes": 5 },
+        { "text": "Budget option — gear oil (80w90)", "votes": 2 }
+      ] },
+    { "category": "Drive", "label": "Front Left Caliper", "value": "Nissin 4-piston, 296mm dual full-floating discs", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Front Right Caliper", "value": "Nissin 4-piston, 296mm dual full-floating discs", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Front Brake Pads", "value": "(Qty: 2 required) OEM Honda 06455-MCJ-D01", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Rear Brake Pads", "value": "OEM Honda 43105-MCJ-D01", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Front Tire Size", "value": "120/70ZR-17", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Front Tire Pressure", "value": null, "confidence": "pending", "spec_type": "pref",
+      "alternates": [
+        { "text": "Two-up / touring load — F 38 psi", "votes": 0 },
+        { "text": "Track day — F 32 psi", "votes": 0 },
+        { "text": "Cold climate riders — F 38 psi", "votes": 0 }
+      ] },
+    { "category": "Drive", "label": "Rear Tire Size", "value": "180/55ZR-17", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Rear Tire Pressure", "value": null, "confidence": "pending", "spec_type": "pref",
+      "alternates": [
+        { "text": "Two-up / touring load — R 42 psi", "votes": 0 },
+        { "text": "Track day — R 34 psi", "votes": 0 },
+        { "text": "Cold climate riders — R 44 psi", "votes": 0 }
+      ] },
+    { "category": "Drive", "label": "Front Valve Stem Type", "value": "TR414 (tubeless)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Drive", "label": "Rear Valve Stem Type", "value": "TR414 (tubeless)", "confidence": "mfr", "spec_type": "pref" },
+
+    { "category": "Fuel and Air", "label": "Fuel System", "value": "PGM-FI electronic fuel injection", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Fuel Pump Relay", "value": "Under seat, relay box, position 2", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Fuel Pump Fuse Location", "value": "Fuse box, under seat", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Fuel Pump Fuse Type", "value": "Blade (mini)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Fuel Pump Fuse Amp Rating", "value": "10A", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Tip-Over Sensor", "value": "Under fuel tank, front-left mount", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Fuel and Air", "label": "Fuel Tank Capacity", "value": "5.0 gal (18.9 L)", "confidence": "mfr", "spec_type": "pref" },
+
+    { "category": "Controls", "label": "Front Brake Fluid", "value": "DOT 4", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Controls", "label": "Rear Brake Fluid", "value": "DOT 4", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Controls", "label": "Clutch Lever Freeplay", "value": "10–20mm (0.4–0.8 in)", "confidence": "confirmed", "spec_type": "pref" },
+
+    { "category": "Suspension", "label": "Front Fork Type", "value": "43mm cartridge fork, 4.7 in travel", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Suspension", "label": "Rear Shock Preload Setting", "value": "7-position adjustable, 5.0 in travel", "confidence": "mfr", "spec_type": "pref" },
+
+    { "category": "Electrical", "label": "Battery", "value": null, "confidence": "pending", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Fuse Box Location", "value": "Under seat, left side", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Fuse Type", "value": "Blade (standard + mini mixed)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Part Number", "value": "OEM Honda 31200-MFJ-D01", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Relay Location", "value": "Under seat, next to fuse box", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Fuse Location", "value": "Fuse box, under seat", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Fuse Type", "value": "Blade (standard)", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Fuse Amp Rating", "value": "30A", "confidence": "mfr", "spec_type": "pref" },
+    { "category": "Electrical", "label": "Starter Switch Wire Color", "value": "Yellow/Red", "confidence": "mfr", "spec_type": "pref",
+      "_note": "Not in the mockup's CB919_BASE, but the manager dashboard seeds an open flag against it. Added so that flag has a real target." }
+  ],
+
+  "service_tasks": [
+    { "task_key": "oil",     "name": "Engine oil & filter", "interval_label": "Oil Change Interval", "default_interval_miles": 8000,
+      "specs": ["Engine Oil Weight", "Engine Oil Volume", "Oil Filter Part Number"] },
+    { "task_key": "plugs",   "name": "Spark plugs", "interval_label": null, "default_interval_miles": 16000,
+      "specs": ["Spark Plug — Standard", "Spark Plug Gap"] },
+    { "task_key": "valves",  "name": "Valve clearance", "interval_label": null, "default_interval_miles": 16000,
+      "specs": ["Valve Clearance — Intake", "Valve Clearance — Exhaust"] },
+    { "task_key": "chain",   "name": "Chain slack & lube", "interval_label": null, "default_interval_miles": 600,
+      "specs": ["Drive Chain Slack", "Drive Chain", "Chain Lube (type/brand)"] },
+    { "task_key": "coolant", "name": "Coolant", "interval_label": null, "default_interval_miles": 24000,
+      "specs": ["Coolant Type", "Coolant Capacity"] },
+    { "task_key": "brakefl", "name": "Brake fluid", "interval_label": null, "default_interval_miles": 24000,
+      "specs": ["Front Brake Fluid", "Rear Brake Fluid"] }
+  ],
+
+  "enrichment": {
+    "_comment": "From oil-spec-links-mockup-v3_24.html — tools and links attached to the oil-change spec.",
+    "field_label": "Engine Oil Volume",
+    "tools": [
+      { "text": "Oil drain pan", "added_by": "manager" },
+      { "text": "17mm drain-bolt wrench", "added_by": "manager" },
+      { "text": "Oil filter wrench", "added_by": "manager" },
+      { "text": "Funnel", "added_by": "manager" },
+      { "text": "Torque wrench (for drain bolt)", "added_by": "user" }
+    ],
+    "links": [
+      { "link_type": "yt", "title": "Honda CB919 Oil & Filter Change — Full Walkthrough", "url": "https://youtube.com/watch?v=cb919-oil-full", "votes": 22, "added_by": "manager" },
+      { "link_type": "forum", "title": "Oil change interval — what are you actually running?", "url": "https://cb919riders.forum/threads/oil-change-interval", "votes": 8, "added_by": "manager" },
+      { "link_type": "yt", "title": "5-Minute Quick Oil Change — CB919/Hornet 900", "url": "https://youtube.com/watch?v=cb919-oil-quick", "votes": 5, "added_by": "user" }
+    ]
+  }
+}

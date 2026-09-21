@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enrich Spec — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page-crumb{ font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
+  .page-crumb a{ color: var(--text-dim); }
+  .tag-chip-row{ display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .tag-chip{
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); background: var(--bg);
+    padding: 5px 9px; font-size: 11.5px; color: var(--text);
+  }
+  .tag-chip.paused{ opacity: 0.45; text-decoration: line-through; }
+  .tag-chip .who{ font-size: 9.5px; color: var(--text-faint); }
+  .tag-input-row{ display: flex; gap: 8px; }
+  .tag-input-row input{ flex: 1; }
+
+  .link-row{
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .link-row:last-child{ border-bottom: none; }
+  .link-row.paused{ opacity: 0.5; }
+  .link-main{ flex: 1; min-width: 0; }
+  .link-title{ font-size: 12.5px; }
+  .link-url{ font-size: 10.5px; color: var(--text-faint); word-break: break-all; }
+  .link-type{
+    font-size: 9px; letter-spacing: 0.02em;
+    border: 1px solid var(--line); padding: 1px 5px; color: var(--text-dim);
+  }
+  .link-type.yt{ border-color: var(--danger); color: var(--danger); }
+  .link-type.forum{ border-color: var(--blue); color: var(--blue); }
+  /* .icon-btn / .badge-n come from app.css, shared with the browse page.
+     Pause is a plain control, not a counted vote/flag, so it keeps a border. */
+  .icon-btn.pause-btn{
+    border: 1px solid var(--line); padding: 4px 8px; font-size: 10.5px;
+    flex-direction: row; color: var(--text-faint);
+  }
+  .icon-btn.pause-btn:hover{ color: var(--text); border-color: var(--text-dim); }
+  .spec-hero{ font-size: 18px; font-family: var(--display); }
+  .spec-hero.gap{ color: var(--text-faint); font-style: italic; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Enrich Spec</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main>
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const BIKE_ID = Number(params.get("bike"));
+const FIELD = params.get("field");
+
+const LINK_FLAG_REASONS = [
+  { value: "broken",       label: "Broken or dead link" },
+  { value: "wrong-bike",   label: "Not for this bike" },
+  { value: "low-quality",  label: "Low quality / unhelpful" },
+  { value: "spam",         label: "Spam or self-promotion" },
+  { value: "inappropriate",label: "Inappropriate content" },
+];
+
+let DATA = null;
+
+const load = guard(async () => {
+  DATA = await API.get(`/api/bikes/${BIKE_ID}/fields/${encodeURIComponent(FIELD)}/enrichment`);
+  render();
+});
+
+function render(){
+  const s = DATA.spec;
+  const hasValue = s.value !== null && s.value !== "";
+  const activeLinks = DATA.links.filter(l => !l.paused).length;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">← Back to spec sheet</a> ·
+      ${esc(s.category)} · ${esc(s.label)}</div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">${DATA.tools.filter(t => !t.paused).length}</div><div class="lbl">Tools Listed</div></div>
+      <div class="stat-card"><div class="num">${activeLinks}</div><div class="lbl">Guides & Threads</div></div>
+      <div class="stat-card"><div class="num">${DATA.links.reduce((a, l) => a + l.votes, 0)}</div><div class="lbl">Total Votes</div></div>
+      <div class="stat-card${DATA.links.some(l => l.flags) ? " alert" : ""}">
+        <div class="num">${DATA.links.reduce((a, l) => a + l.flags, 0)}</div><div class="lbl">Open Link Flags</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>${esc(s.label)}</h3>
+          <p>Tools and guides attach to this spec on this specific bike — not to
+             the model name — so a walkthrough can't drift onto a machine it
+             wasn't filmed on.</p></div>
+        ${DATA.is_manager ? `<span class="badge amber">You manage this bike</span>` : ""}
+      </div>
+      <div class="panel-body">
+        <div class="spec-hero${hasValue ? "" : " gap"}">${hasValue ? esc(s.value) : "Not yet sourced"}</div>
+        <div class="spec-badges" style="display:flex;gap:6px;margin-top:8px">
+          ${confidenceBadge(s.confidence)}
+        </div>
+        ${s.tools ? `<div class="field-hint">Manual's tool note: ${esc(s.tools)}</div>` : ""}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Tools for this job</h3>
+          <p>What you actually need in your hand. Anyone can add one.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="tag-input-row">
+          <input type="text" id="tool-input" placeholder="e.g. 17mm drain-bolt wrench" maxlength="120">
+          <button class="primary-btn" id="tool-add" data-auth-kind="default"${authAttr()}>Add</button>
+        </div>
+        <div class="tag-chip-row">
+          ${DATA.tools.length ? DATA.tools.map(t => `
+            <span class="tag-chip${t.paused ? " paused" : ""}">
+              ${esc(t.text)}
+              <span class="who">${esc(t.added_by || "—")}</span>
+              ${DATA.is_manager ? `<button class="icon-btn pause-btn" data-pause="tools|${t.id}"
+                 title="${t.paused ? "Unpause" : "Hide without deleting"}">${t.paused ? "▶" : "❙❙"}</button>` : ""}
+            </span>`).join("")
+          : `<span class="field-hint">No tools listed yet.</span>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Guides & Discussion</h3>
+          <p>Sorted by votes, so what actually helped rises. Pausing hides a
+             dead link without destroying its votes, in case it comes back.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row"><label>Add a link</label>
+          <div class="tag-input-row">
+            <select id="link-type" style="width:110px">
+              <option value="yt">YouTube</option>
+              <option value="forum">Forum</option>
+              <option value="doc">Document</option>
+              <option value="other">Other</option>
+            </select>
+            <input type="text" id="link-title" placeholder="Title" maxlength="200">
+          </div>
+          <div class="tag-input-row" style="margin-top:8px">
+            <input type="url" id="link-url" placeholder="https://…">
+            <button class="primary-btn" id="link-add" data-auth-kind="default"${authAttr()}>Add</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          ${DATA.links.length ? DATA.links.map(renderLink).join("")
+            : `<div class="empty">Nothing linked yet.</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderLink(l){
+  return `
+    <div class="link-row${l.paused ? " paused" : ""}" id="link-${l.id}">
+      <button class="icon-btn thumb${l.my_vote ? " voted" : ""}" data-vote="${l.id}"
+              data-auth-kind="vote"${authAttr()}>${THUMB_SVG}<span class="badge-n">${l.votes}</span></button>
+      <div class="link-main">
+        <div class="link-title">
+          <span class="link-type ${esc(l.link_type)}">${esc(l.link_type)}</span>
+          <a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener noreferrer nofollow">${esc(l.title)}</a>
+        </div>
+        <div class="link-url">${esc(l.url)} · added by ${esc(l.added_by || "—")}
+          ${l.paused ? " · paused by manager" : ""}</div>
+        <div id="link-form-${l.id}"></div>
+      </div>
+      <div class="btn-row">
+        <button class="icon-btn flag${l.my_flag ? " flagged" : ""}" data-flag="${l.id}"
+           data-auth-kind="flag"${authAttr()}
+           title="${l.my_flag ? "You flagged this" : "Flag this link"}">${FLAG_SVG}<span class="badge-n">${l.flags}</span></button>
+        ${DATA.is_manager ? `<button class="icon-btn pause-btn" data-pause="links|${l.id}">${l.paused ? "▶" : "❙❙"}</button>` : ""}
+      </div>
+    </div>`;
+}
+
+document.addEventListener("click", guard(async (e) => {
+  if(e.target.closest("#tool-add")){
+    const input = document.getElementById("tool-input");
+    if(!input.value.trim()) return;
+    await API.post(`/api/bikes/${BIKE_ID}/fields/${encodeURIComponent(FIELD)}/tools`,
+                   { text: input.value.trim() });
+    toast("Tool added.", "ok");
+    await load();
+    return;
+  }
+
+  if(e.target.closest("#link-add")){
+    const title = document.getElementById("link-title").value.trim();
+    const url = document.getElementById("link-url").value.trim();
+    if(!title || !url){ toast("Title and URL are both required.", "error"); return; }
+    await API.post(`/api/bikes/${BIKE_ID}/fields/${encodeURIComponent(FIELD)}/links`, {
+      link_type: document.getElementById("link-type").value, title, url });
+    toast("Link added.", "ok");
+    await load();
+    return;
+  }
+
+  const vote = e.target.closest("[data-vote]");
+  if(vote){
+    const r = await API.post(`/api/links/${vote.dataset.vote}/vote`);
+    vote.classList.toggle("voted", r.voted);
+    vote.querySelector(".badge-n").textContent = r.votes;
+    // Matches the mockup's little scale bounce on a registered vote.
+    vote.classList.remove("pop"); void vote.offsetWidth; vote.classList.add("pop");
+    return;
+  }
+
+  const pause = e.target.closest("[data-pause]");
+  if(pause){
+    const [kind, id] = pause.dataset.pause.split("|");
+    const r = await API.post(`/api/${kind}/${id}/pause`);
+    toast(r.paused ? "Hidden from public view." : "Visible again.", "ok");
+    await load();
+    return;
+  }
+
+  const flag = e.target.closest("[data-flag]");
+  if(flag){
+    const id = flag.dataset.flag;
+    const l = DATA.links.find(x => x.id === Number(id));
+    if(l.my_flag){
+      // "Flagged by mistake" — withdrawing is deleting your own flag.
+      document.getElementById(`link-form-${id}`).innerHTML = `
+        <div class="inline-box danger" style="margin-top:8px">
+          <div class="inline-sub" style="margin:0">You've flagged this link.</div>
+          <div class="form-actions">
+            <button class="ghost-btn" data-close="${id}">Keep flag</button>
+            <button class="primary-btn" data-unflag="${id}">Flagged by mistake</button>
+          </div>
+        </div>`;
+      return;
+    }
+    document.getElementById(`link-form-${id}`).innerHTML = `
+      <div class="inline-box danger" style="margin-top:8px">
+        <div class="inline-title">Flag this link — reason?</div>
+        ${LINK_FLAG_REASONS.map(r => `
+          <button class="ghost-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px"
+                  data-flag-reason="${id}" data-reason="${r.value}">${esc(r.label)}</button>`).join("")}
+        <div class="form-actions"><button class="ghost-btn" data-close="${id}">Cancel</button></div>
+      </div>`;
+    return;
+  }
+
+  const reason = e.target.closest("[data-flag-reason]");
+  if(reason){
+    const id = reason.dataset.flagReason;
+    document.getElementById(`link-form-${id}`).innerHTML = `
+      <div class="inline-box danger" style="margin-top:8px">
+        <div class="inline-title">${esc(reason.textContent.trim())}</div>
+        <textarea id="lf-detail" maxlength="150" placeholder="Add detail (optional, 150 char max)"></textarea>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${id}">Cancel</button>
+          <button class="primary-btn" data-flag-submit="${id}" data-reason="${esc(reason.dataset.reason)}">Submit flag</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const submit = e.target.closest("[data-flag-submit]");
+  if(submit){
+    await API.post(`/api/links/${submit.dataset.flagSubmit}/flag`, {
+      reason: submit.dataset.reason,
+      detail: document.getElementById("lf-detail").value.trim() || null,
+    });
+    toast("Flag submitted.", "ok");
+    await load();
+    return;
+  }
+
+  const unflag = e.target.closest("[data-unflag]");
+  if(unflag){
+    await API.del(`/api/links/${unflag.dataset.unflag}/flag`);
+    toast("Flag withdrawn.", "ok");
+    await load();
+    return;
+  }
+
+  const close = e.target.closest("[data-close]");
+  if(close){ document.getElementById(`link-form-${close.dataset.close}`).innerHTML = ""; return; }
+}));
+
+(async function(){
+  await initChrome("");
+  document.getElementById("who").innerHTML = ME.user
+    ? `Signed in as <strong>${esc(ME.user.display_name || ME.user.username)}</strong>` : "";
+  if(!BIKE_ID || !FIELD){
+    document.getElementById("content").innerHTML =
+      `<div class="panel"><div class="empty">Open this page from a spec on the
+         <a href="/index.html">browse page</a> — it needs to know which spec to enrich.</div></div>`;
+    return;
+  }
+  await load();
+})();
+</script>
+</body>
+</html>

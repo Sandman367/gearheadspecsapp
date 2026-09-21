@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Managers' Board — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .board{ display: grid; grid-template-columns: 340px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 860px){
+    .board{ grid-template-columns: 1fr; }
+    .board.reading .list-col{ display: none; }
+    .board:not(.reading) .thread-col{ display: none; }
+  }
+  .back-link{ display: none; font-size: 11.5px; margin-bottom: 8px; }
+  @media (max-width: 860px){ .back-link{ display: inline-block; } }
+
+  .list-head{ display: flex; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .list-head input{ flex: 1; min-width: 0; }
+  .threads{ max-height: 70vh; overflow-y: auto; }
+  .thread-row{
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-bottom: 1px solid var(--line); padding: 10px 14px; color: var(--text); cursor: pointer;
+  }
+  .thread-row:hover{ background: rgba(255,255,255,0.02); }
+  .thread-row.on{ background: rgba(217,154,43,0.08); border-left: 2px solid var(--amber); padding-left: 12px; }
+  .thread-row .t{ font-size: 13px; line-height: 1.35; display: flex; gap: 6px; align-items: baseline; }
+  .thread-row.unread .t{ font-weight: 600; }
+  .thread-row .dot{ width: 7px; height: 7px; border-radius: 50%; background: var(--amber); flex: none; visibility: hidden; }
+  .thread-row.unread .dot{ visibility: visible; }
+  .thread-row .m{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 3px; }
+  .thread-row .m b{ color: var(--text-dim); font-weight: 500; }
+  .pin{ font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: var(--amber); border: 1px solid var(--amber-dim); padding: 0 5px; }
+  .lock{ font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: var(--text-faint); border: 1px solid var(--line); padding: 0 5px; }
+  .threads .none{ padding: 18px 14px; font-size: 12px; color: var(--text-faint); }
+
+  .thread-head{ padding: 16px 20px 12px; border-bottom: 1px solid var(--line); }
+  .thread-head h2{ margin: 0 0 4px; font-family: var(--display); font-size: 21px; letter-spacing: 0.01em; line-height: 1.2; }
+  .thread-head .m{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .thread-head .m a{ color: var(--text-dim); }
+  .thread-tools{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+  .post{ padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .post .who{ display: flex; gap: 8px; align-items: baseline; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-bottom: 6px; }
+  .post .who b{ color: var(--text); font-weight: 500; font-size: 11.5px; }
+  .post .who .role{ color: var(--amber); }
+  .post .who .tools{ margin-left: auto; display: flex; gap: 4px; }
+  .post .who .tools button, .post .who .tools a{ font-size: 10px; }
+  .post .body{ font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
+  .post .body a{ color: var(--amber); }
+  .post.first{ background: rgba(255,255,255,0.015); }
+  .compose{ padding: 14px 20px; }
+  .compose textarea{ width: 100%; min-height: 90px; }
+  .compose .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .compose .hint{ font-size: 11px; color: var(--text-faint); }
+  .new-form input, .new-form textarea{ width: 100%; }
+  .new-form .row{ margin-bottom: 10px; }
+  .new-form label{ display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 4px; }
+  .bike-hits button{ display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 6px 4px; color: var(--text); font-size: 12px; cursor: pointer; }
+  .bike-hits button:hover{ background: rgba(255,255,255,0.03); }
+  .people{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .person{ border: 1px solid var(--line); padding: 8px 10px; font-size: 12px; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .person .n{ font-weight: 500; }
+  .person .b{ font-size: 10.5px; color: var(--text-faint); line-height: 1.4; }
+  .person .r{ font-family: var(--mono); font-size: 9.5px; color: var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Managers' Board</h1>
+    <div class="subhead" id="sub">Notes between the people who keep the bikes.</div>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main class="wide">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let THREADS = [];
+let OPEN = null;            // { thread, posts }
+let PEOPLE = null;
+let QUERY = "";
+let NEW_OPEN = false;
+let NEW_BIKE = null;        // { bike_id, display_name, year_range }
+let EDITING = null;         // post id being edited
+let IS_ADMIN = false;
+const draft = { title: "", body: "", reply: "" };
+
+function fmt(ts){
+  if(!ts) return "";
+  const d = new Date(ts.replace(" ", "T") + "Z");
+  const now = new Date();
+  const same = d.toDateString() === now.toDateString();
+  return same ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : d.toLocaleDateString([], { month: "short", day: "numeric" }) + (d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : "");
+}
+
+// Plain text, escaped; web addresses become links. No markup beyond that.
+function richText(s){
+  return esc(s).replace(/(https?:\/\/[^\s<]+)/g, m => {
+    const trail = m.match(/[.,;:!?)]+$/); const url = trail ? m.slice(0, -trail[0].length) : m;
+    return `<a href="${url}" target="_blank" rel="noopener">${url}</a>${trail ? trail[0] : ""}`;
+  });
+}
+
+function threadId(){ return Number(new URLSearchParams(location.search).get("t")) || null; }
+function setUrl(t){
+  const url = new URL(location.href);
+  if(t) url.searchParams.set("t", t); else url.searchParams.delete("t");
+  history.replaceState(null, "", url);
+}
+
+async function loadList(){
+  THREADS = (await API.get("/api/board/threads" + (QUERY ? "?q=" + encodeURIComponent(QUERY) : ""))).threads;
+  if(!QUERY) setNavCount("/board.html", THREADS.filter(t => t.unread).length);
+}
+
+async function openThread(id){
+  try {
+    OPEN = await API.get(`/api/board/threads/${id}`);
+  } catch(err){
+    OPEN = null; setUrl(null); throw err;
+  }
+  setUrl(id);
+  EDITING = null;
+  await loadList();          // opening marks it read; the list reflects that
+  render();
+  document.querySelector(".thread-col")?.scrollIntoView({ block: "start" });
+}
+
+function listHTML(){
+  return `
+    <div class="list-head">
+      <input type="text" id="board-q" placeholder="Search threads…" value="${esc(QUERY)}" autocomplete="off">
+      <button class="primary-btn" id="new-thread" style="white-space:nowrap">${NEW_OPEN ? "Close" : "New thread"}</button>
+    </div>
+    <div class="threads">
+      ${THREADS.length ? THREADS.map(t => `
+        <button class="thread-row${t.unread ? " unread" : ""}${OPEN && OPEN.thread.id === t.id ? " on" : ""}" data-open="${t.id}">
+          <div class="t"><span class="dot"></span><span>${esc(t.title)}</span>${t.pinned ? `<span class="pin">pinned</span>` : ""}${t.locked ? `<span class="lock">locked</span>` : ""}</div>
+          <div class="m">${t.posts} post${t.posts !== 1 ? "s" : ""} · last <b>${esc(t.last_by || t.author)}</b> ${esc(fmt(t.last_post_at))}${
+            t.bike_name ? ` · <b>${esc(t.bike_name)}</b>` : ""}</div>
+        </button>`).join("")
+      : `<div class="none">${QUERY ? "No thread matches that." : "No threads yet. Start one."}</div>`}
+    </div>`;
+}
+
+function newFormHTML(){
+  return `
+    <div class="panel" id="new-panel">
+      <div class="panel-head"><div><h3>New thread</h3>
+        <p>A question for the other managers, a source worth sharing, a quirk that spans a family of bikes.</p></div></div>
+      <div class="panel-body new-form">
+        <div class="row"><label for="nt-title">Title</label>
+          <input type="text" id="nt-title" maxlength="120" autocomplete="off" value="${esc(draft.title)}" placeholder="e.g. Anyone have the 2004 CB919 wiring diagram scanned?"></div>
+        <div class="row"><label for="nt-bike">About a bike (optional)</label>
+          ${NEW_BIKE
+            ? `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px"><span>${esc(NEW_BIKE.display_name)} <span class="cell-dim">· ${esc(NEW_BIKE.year_range || "")}</span></span>
+                 <button class="ghost-btn" id="nt-bike-clear">×</button></div>`
+            : `<input type="text" id="nt-bike" autocomplete="off" placeholder="Search the catalogue, e.g. XT600"><div class="bike-hits" id="nt-bike-hits"></div>`}</div>
+        <div class="row"><label for="nt-body">Post</label>
+          <textarea id="nt-body" maxlength="4000" style="min-height:110px" placeholder="Plain text. Links become clickable.">${esc(draft.body)}</textarea></div>
+        <div class="form-actions" style="display:flex;gap:8px">
+          <button class="primary-btn" id="nt-send">Post thread</button>
+          <button class="ghost-btn" id="nt-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function threadHTML(){
+  if(!OPEN) return `
+    <div class="panel"><div class="panel-body empty">${THREADS.length ? "Pick a thread on the left, or start one." : "Nothing here yet — start the first thread."}</div></div>
+    ${peopleHTML()}`;
+  const t = OPEN.thread;
+  const canDelete = IS_ADMIN || (t.mine && OPEN.posts.every(p => p.mine));
+  return `
+    <a class="back-link" href="#" id="back-to-list">← All threads</a>
+    <div class="panel">
+      <div class="thread-head">
+        <h2>${esc(t.title)}</h2>
+        <div class="m">started by <b style="color:var(--text)">${esc(t.author)}</b> ${esc(fmt(t.created_at))}${
+          t.bike_name ? ` · about <a href="/index.html?bike=${t.bike_id}">${esc(t.bike_name)}${t.bike_years ? ` · ${esc(t.bike_years)}` : ""}</a>` : ""}${
+          t.pinned ? ` · <span class="pin">pinned</span>` : ""}${t.locked ? ` · <span class="lock">locked</span>` : ""}</div>
+        ${IS_ADMIN || canDelete ? `<div class="thread-tools">
+          ${IS_ADMIN ? `<button class="action-btn" data-pin="${t.id}">${t.pinned ? "Unpin" : "Pin"}</button>
+                        <button class="action-btn" data-lock="${t.id}">${t.locked ? "Unlock" : "Lock"}</button>` : ""}
+          ${canDelete ? `<button class="action-btn danger" data-del-thread="${t.id}">Delete thread</button>` : ""}
+        </div>` : ""}
+      </div>
+      ${OPEN.posts.map(p => `
+        <div class="post${p.first ? " first" : ""}" id="post-${p.id}">
+          <div class="who"><b>${esc(p.author)}</b>${p.author_role === "admin" ? `<span class="role">admin</span>` : ""}
+            <span>${esc(fmt(p.created_at))}${p.edited_at ? " · edited" : ""}</span>
+            ${EDITING !== p.id ? `<span class="tools">
+              ${!p.mine ? `<a class="action-btn" style="text-decoration:none" href="/messages.html?with=${p.author_id}" title="Message ${esc(p.author)} directly">Message</a>` : ""}
+              ${p.mine || IS_ADMIN ? `<button class="action-btn" data-edit="${p.id}">Edit</button>` : ""}
+              ${(p.mine || IS_ADMIN) && !p.first ? `<button class="action-btn danger" data-del-post="${p.id}">Delete</button>` : ""}</span>` : ""}
+          </div>
+          ${EDITING === p.id
+            ? `<textarea id="edit-${p.id}" maxlength="4000" style="width:100%;min-height:90px">${esc(p.body)}</textarea>
+               <div class="form-actions" style="display:flex;gap:8px;margin-top:6px">
+                 <button class="primary-btn" data-edit-save="${p.id}">Save</button>
+                 <button class="ghost-btn" data-edit-cancel="${p.id}">Cancel</button></div>`
+            : `<div class="body">${richText(p.body)}</div>`}
+        </div>`).join("")}
+      <div class="compose">
+        ${t.locked && !IS_ADMIN
+          ? `<div class="hint">This thread is locked — no more replies.</div>`
+          : `<textarea id="reply" maxlength="4000" placeholder="Reply…">${esc(draft.reply)}</textarea>
+             <div class="form-actions">
+               <button class="primary-btn" id="reply-send">Reply</button>
+               <span class="hint">${t.locked ? "Locked to managers; admin can still post." : "Plain text; links become clickable."}</span>
+             </div>`}
+      </div>
+    </div>`;
+}
+
+function peopleHTML(){
+  if(!PEOPLE) return "";
+  return `
+    <div class="panel">
+      <div class="panel-head"><div><h3>Who's here</h3>
+        <p>Every bike manager and admin. Message one directly from here.</p></div>
+        <span class="count-tag">${PEOPLE.length}</span></div>
+      <div class="panel-body people">
+        ${PEOPLE.map(p => `
+          <div class="person">
+            <div><div class="n">${esc(p.username)}${p.me ? ` <span class="cell-dim">(you)</span>` : ""} ${p.role === "admin" ? `<span class="r">admin</span>` : ""}</div>
+              <div class="b">${p.bikes.length ? esc(p.bikes.slice(0, 3).join(", ")) + (p.bikes.length > 3 ? ` +${p.bikes.length - 3}` : "") : "no bikes yet"}</div></div>
+            ${p.me ? "" : `<a class="action-btn" style="text-decoration:none;white-space:nowrap" href="/messages.html?with=${p.id}">Message</a>`}
+          </div>`).join("")}
+      </div>
+    </div>`;
+}
+
+function render(){
+  document.getElementById("content").innerHTML = `
+    ${NEW_OPEN ? newFormHTML() : ""}
+    <div class="board${OPEN ? " reading" : ""}">
+      <div class="panel list-col" style="margin-bottom:0">${listHTML()}</div>
+      <div class="thread-col">${threadHTML()}</div>
+    </div>`;
+  const q = document.getElementById("board-q");
+  let qt;
+  q.addEventListener("input", e => {
+    QUERY = e.target.value; clearTimeout(qt);
+    qt = setTimeout(guard(async () => { await loadList(); document.querySelector(".list-col").innerHTML = listHTML(); hookSearch(); }), 250);
+  });
+  ["nt-title", "nt-body", "reply"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener("input", e => { draft[{ "nt-title": "title", "nt-body": "body", "reply": "reply" }[id]] = e.target.value; });
+  });
+  hookBikeSearch();
+}
+function hookSearch(){
+  const q = document.getElementById("board-q");
+  q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+  let qt;
+  q.addEventListener("input", e => {
+    QUERY = e.target.value; clearTimeout(qt);
+    qt = setTimeout(guard(async () => { await loadList(); document.querySelector(".list-col").innerHTML = listHTML(); hookSearch(); }), 250);
+  });
+}
+// Picking a bike re-renders the form; what is typed in it comes along.
+function keepDraft(){
+  const t = document.getElementById("nt-title"), b = document.getElementById("nt-body");
+  if(t) draft.title = t.value;
+  if(b) draft.body = b.value;
+}
+function hookBikeSearch(){
+  const inp = document.getElementById("nt-bike");
+  if(!inp) return;
+  let bt;
+  inp.addEventListener("input", e => {
+    clearTimeout(bt);
+    const v = e.target.value.trim();
+    const box = document.getElementById("nt-bike-hits");
+    if(v.length < 2){ box.innerHTML = ""; return; }
+    bt = setTimeout(guard(async () => {
+      const data = await API.get("/api/bikes?limit=6&q=" + encodeURIComponent(v));
+      box.innerHTML = data.bikes.map(b => `<button type="button" data-nt-bike="${b.bike_id}" data-name="${esc(b.display_name)}" data-years="${esc(b.year_range || "")}">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></button>`).join("")
+        || `<div class="cell-dim" style="padding:6px 4px">No bike matches.</div>`;
+    }), 250);
+  });
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const open = e.target.closest("[data-open]");
+  if(open){ await openThread(Number(open.dataset.open)); return; }
+  if(e.target.id === "back-to-list"){ e.preventDefault(); OPEN = null; setUrl(null); render(); return; }
+  if(e.target.id === "new-thread"){ NEW_OPEN = !NEW_OPEN; render(); if(NEW_OPEN) document.getElementById("nt-title").focus(); return; }
+  if(e.target.id === "nt-cancel"){ NEW_OPEN = false; render(); return; }
+  const ntb = e.target.closest("[data-nt-bike]");
+  if(ntb){ keepDraft(); NEW_BIKE = { bike_id: Number(ntb.dataset.ntBike), display_name: ntb.dataset.name, year_range: ntb.dataset.years }; render(); return; }
+  if(e.target.id === "nt-bike-clear"){ keepDraft(); NEW_BIKE = null; render(); return; }
+  if(e.target.id === "nt-send"){
+    const r = await API.post("/api/board/threads", {
+      title: document.getElementById("nt-title").value, body: document.getElementById("nt-body").value,
+      bike_id: NEW_BIKE ? NEW_BIKE.bike_id : null });
+    draft.title = ""; draft.body = ""; NEW_BIKE = null; NEW_OPEN = false;
+    toast("Posted.", "ok");
+    await openThread(r.thread_id);
+    return;
+  }
+  if(e.target.id === "reply-send"){
+    await API.post(`/api/board/threads/${OPEN.thread.id}/posts`, { body: document.getElementById("reply").value });
+    draft.reply = "";
+    await openThread(OPEN.thread.id);
+    return;
+  }
+  const edit = e.target.closest("[data-edit]");
+  if(edit){ EDITING = Number(edit.dataset.edit); render(); document.getElementById(`edit-${EDITING}`).focus(); return; }
+  const editCancel = e.target.closest("[data-edit-cancel]");
+  if(editCancel){ EDITING = null; render(); return; }
+  const editSave = e.target.closest("[data-edit-save]");
+  if(editSave){
+    const id = Number(editSave.dataset.editSave);
+    await API.patch(`/api/board/posts/${id}`, { body: document.getElementById(`edit-${id}`).value });
+    EDITING = null; toast("Saved.", "ok");
+    await openThread(OPEN.thread.id);
+    return;
+  }
+  const delPost = e.target.closest("[data-del-post]");
+  if(delPost){
+    if(!delPost.dataset.armed){ delPost.dataset.armed = "1"; delPost.textContent = "Delete — sure?"; return; }
+    await API.del(`/api/board/posts/${delPost.dataset.delPost}`);
+    toast("Post deleted.", "ok");
+    await openThread(OPEN.thread.id);
+    return;
+  }
+  const delThread = e.target.closest("[data-del-thread]");
+  if(delThread){
+    if(!delThread.dataset.armed){ delThread.dataset.armed = "1"; delThread.textContent = "Delete the whole thread — sure?"; return; }
+    await API.del(`/api/board/threads/${delThread.dataset.delThread}`);
+    toast("Thread deleted.", "ok");
+    OPEN = null; setUrl(null); await loadList(); render();
+    return;
+  }
+  const pin = e.target.closest("[data-pin]");
+  if(pin){ const r = await API.post(`/api/board/threads/${pin.dataset.pin}/pin`, {}); toast(r.pinned ? "Pinned to the top." : "Unpinned.", "ok"); await openThread(OPEN.thread.id); return; }
+  const lock = e.target.closest("[data-lock]");
+  if(lock){ const r = await API.post(`/api/board/threads/${lock.dataset.lock}/lock`, {}); toast(r.locked ? "Locked — no more replies." : "Unlocked.", "ok"); await openThread(OPEN.thread.id); return; }
+}));
+
+(async () => {
+  await initChrome("/board.html");
+  if(!requireRole("manager")) return;
+  IS_ADMIN = ME.user.role === "admin";
+  document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  const [list, people] = await Promise.all([API.get("/api/board/threads"), API.get("/api/board/members")]);
+  THREADS = list.threads; PEOPLE = people.people;
+  const t = threadId();
+  if(t){ try { await openThread(t); return; } catch(_){} }
+  render();
+})();
+</script>
+</body>
+</html>

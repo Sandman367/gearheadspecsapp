@@ -1,0 +1,488 @@
+/* ==========================================================================
+   GearHeadSpecs — shared stylesheet.
+
+   The four mockups each carried their own copy of these tokens and component
+   styles, which is why the dashboard and the browser had drifted to slightly
+   different panel padding and badge sizes. One file now, so a change to a
+   badge is a change everywhere.
+   ========================================================================== */
+
+:root{
+  --bg: #14120f;
+  --panel: #1c1a16;
+  --panel-2: #221f1a;
+  --line: #34302a;
+  --amber: #d99a2b;
+  --amber-dim: #8a691f;
+  --text: #e8e2d4;
+  --text-dim: #9c9484;
+  --text-faint: #6b6558;
+  --danger: #b5502e;
+  --good: #6f8a4e;
+  --blue: #4a8fd9;
+  --blue-dim: #2e5c8f;
+  --pref: #8f7fd9;
+  --pref-dim: #5f4fb0;
+  --confirmed: #4a8fd9;
+  --thumb-blue: #4a8fd9;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --display: 'Oswald', 'Arial Narrow', sans-serif;
+}
+
+*{ box-sizing: border-box; }
+
+body{
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse at top left, rgba(217,154,43,0.05), transparent 45%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 3px);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  padding-bottom: 60px;
+  font-size: 14px;
+}
+
+a{ color: var(--blue); }
+a:hover{ color: #6ba8e8; }
+
+/* ---------- header / nav ---------- */
+header{
+  border-bottom: 1px solid var(--line);
+  padding: 18px 20px 16px;
+  background: linear-gradient(180deg, var(--panel), var(--bg));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.eyebrow{
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--amber);
+  margin-bottom: 4px;
+}
+h1{
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.manager-tag{ font-size: 11.5px; color: var(--text-dim); }
+.manager-tag strong{ color: var(--text); }
+
+nav.mainnav{
+  display: flex;
+  gap: 2px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+nav.mainnav a{
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 11px 14px;
+  border-bottom: 2px solid transparent;
+}
+nav.mainnav a:hover{ color: var(--text); background: rgba(255,255,255,0.02); }
+nav.mainnav a.active{ color: var(--amber); border-bottom-color: var(--amber); }
+nav.mainnav .nav-right{ margin-left: auto; display: flex; align-items: center; gap: 10px; }
+nav.mainnav .nav-count{
+  display: inline-block; margin-left: 6px; padding: 0 5px; min-width: 14px; text-align: center;
+  font-family: var(--mono); font-size: 9.5px; line-height: 15px;
+  color: var(--bg); background: var(--amber); border-radius: 8px;
+}
+nav.mainnav .nav-right span{ font-size: 11px; color: var(--text-faint); }
+
+main{ max-width: 1000px; margin: 0 auto; padding: 24px 20px 0; }
+main.wide{ max-width: 1180px; }
+
+/* ---------- stat cards ---------- */
+.stat-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.stat-card{ border: 1px solid var(--line); background: var(--panel); padding: 15px 15px 13px; }
+.stat-card .num{
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+.stat-card.alert .num{ color: var(--danger); }
+.stat-card.good .num{ color: var(--good); }
+.stat-card .lbl{
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  margin-top: 6px;
+}
+
+/* ---------- stat cards that lead somewhere ----------
+   The whole card is the control, so it is a real <button>: Enter, Space, tab
+   order and screen-reader semantics come for free. These rules only undo the
+   browser's button styling so it still looks like the card it replaced. */
+button.stat-card{
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: block;
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+button.stat-card:hover{ border-color: var(--amber); background: var(--panel-2); }
+button.stat-card:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+/* An arrow, so the card reads as a control and not just a number. */
+button.stat-card .lbl::after{ content: " \2192"; opacity: 0.5; }
+button.stat-card.away .lbl::after{ content: " \2197"; }
+
+/* Where the jump landed — otherwise a scroll on a page of near-identical
+   panels leaves you guessing which one it meant. */
+@keyframes panel-flash{
+  from{ border-color: var(--amber); background: var(--panel-2); }
+  to{ border-color: var(--line); background: var(--panel); }
+}
+.panel-flash{ animation: panel-flash 1.5s ease-out 1; }
+.panel:focus{ outline: none; }        /* focused only to place the caret */
+
+@media (prefers-reduced-motion: reduce){
+  .panel-flash{ animation-duration: 1ms; }
+  button.stat-card{ transition: none; }
+}
+
+/* ---------- panels ---------- */
+.panel{ border: 1px solid var(--line); background: var(--panel); margin-bottom: 22px; }
+.panel-head{
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.panel-head h3{
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+/* The brand name is written GearHeadSpecs, as on the logo, wherever it sits
+   inside a heading that upper-cases the rest. */
+.brand-name{ text-transform: none; }
+.panel-head p{ margin: 4px 0 0; font-size: 11.5px; color: var(--text-dim); max-width: 70ch; line-height: 1.5; }
+.panel-head .count-tag{ font-size: 10.5px; color: var(--text-faint); }
+.panel-body{ padding: 16px 18px; }
+
+/* ---------- tables ---------- */
+table{ width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th{
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 500;
+}
+td{ padding: 12px 18px; border-bottom: 1px solid var(--line); color: var(--text); vertical-align: top; }
+tr:last-child td{ border-bottom: none; }
+tbody tr:hover td{ background: rgba(255,255,255,0.015); }
+.cell-dim{ color: var(--text-faint); font-size: 11.5px; }
+.cell-comment{ color: var(--text-dim); font-style: italic; font-size: 11.5px; max-width: 320px; }
+.empty-row td, .empty{
+  text-align: center;
+  color: var(--text-faint);
+  font-style: italic;
+  padding: 24px;
+  font-size: 12.5px;
+}
+
+/* ---------- badges ---------- */
+.badge{
+  display: inline-block;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.badge.reason-irrelevant, .badge.blue{ border-color: var(--blue); color: var(--blue); }
+.badge.reason-incorrect,
+.badge.reason-inappropriate,
+.badge.status-rejected,
+.badge.status-overdue,
+.badge.danger{ border-color: var(--danger); color: var(--danger); }
+.badge.status-pending, .badge.status-soon, .badge.amber{ border-color: var(--amber-dim); color: var(--amber); }
+.badge.status-approved,
+.badge.status-confirmed,
+.badge.status-ok,
+.badge.outcome-fixed,
+.badge.good{ border-color: var(--good); color: var(--good); }
+.badge.outcome-dismissed{ border-color: var(--text-dim); color: var(--text-dim); }
+
+/* confidence + spec type, the two things a rider judges a value by */
+.badge.conf-confirmed{ border-color: var(--confirmed); color: var(--confirmed); }
+.badge.conf-mfr{ border-color: var(--good); color: var(--good); }
+.badge.conf-pending{ border-color: var(--amber-dim); color: var(--amber); }
+.badge.type-pref{ border-color: var(--pref-dim); color: var(--pref); }
+.badge.type-community{ border-color: var(--amber-dim); color: var(--amber); }
+
+/* ---------- buttons ---------- */
+button{ font-family: var(--mono); }
+.action-btn{
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  padding: 6px 11px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.action-btn:hover{ color: var(--text); border-color: var(--text-dim); }
+.action-btn.approve{ border-color: var(--good); color: var(--good); }
+.action-btn.approve:hover{ background: rgba(111,138,78,0.12); }
+.action-btn.contact{ border-color: var(--blue); color: var(--blue); }
+.action-btn.contact:hover{ background: rgba(74,143,217,0.12); }
+.action-btn.danger{ border-color: var(--danger); color: var(--danger); }
+.action-btn.danger:hover{ background: rgba(181,80,46,0.12); }
+.action-btn[disabled]{ opacity: 0.45; cursor: default; }
+.btn-row{ display: flex; gap: 8px; flex-wrap: wrap; }
+
+.primary-btn{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 8px 16px;
+  cursor: pointer;
+  background: var(--amber);
+  border: 1px solid var(--amber);
+  color: #1a1710;
+  font-weight: 600;
+}
+.primary-btn:hover{ background: #e8ac47; }
+.primary-btn[disabled]{ opacity: 0.5; cursor: default; background: var(--amber-dim); }
+.ghost-btn{
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 8px 16px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--text-dim);
+}
+.ghost-btn:hover{ color: var(--text); border-color: var(--text-dim); }
+
+/* ---------- forms ---------- */
+.form-row{ margin-bottom: 10px; }
+.form-row label{
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+input, select, textarea{
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 8px 9px;
+}
+textarea{ min-height: 60px; resize: vertical; }
+input:focus, select:focus, textarea:focus{ outline: 1px solid var(--amber); border-color: var(--amber); }
+.form-actions{ display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; }
+.field-hint{ font-size: 10.5px; color: var(--text-faint); margin-top: 5px; line-height: 1.5; }
+
+/* ---------- inline expandable rows ---------- */
+.inline-row td{ padding: 0; }
+.inline-box{ padding: 14px 18px; background: var(--panel-2); border-left: 2px solid var(--amber-dim); }
+.inline-box.good{ border-left-color: var(--good); }
+.inline-box.danger{ border-left-color: var(--danger); }
+.inline-box.blue{ border-left-color: var(--blue); }
+.inline-title{
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+.inline-box.good .inline-title{ color: var(--good); }
+.inline-box.danger .inline-title{ color: var(--danger); }
+.inline-box.blue .inline-title{ color: var(--blue); }
+.inline-sub{ font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.5; }
+
+/* ---------- misc ---------- */
+/* Stays 30s or until clicked, so a message can actually be read. Clicking
+   anywhere on it dismisses — hence the pointer over the whole box. */
+.toast{
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  padding: 12px 14px 12px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  z-index: 100;
+  max-width: min(90vw, 560px);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+}
+.toast:hover{ border-color: var(--text-faint); }
+.toast-text{ flex: 1; }
+.toast-close{
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.toast:hover .toast-close{ color: var(--text); }
+.toast.error{ border-left-color: var(--danger); color: #e8b4a0; }
+.toast.ok{ border-left-color: var(--good); }
+
+.loading{ padding: 30px; text-align: center; color: var(--text-faint); font-size: 12px; }
+
+/* ---------- vote / flag icons ----------
+   Borderless icon with its count floating at the top-right, as in the mockup.
+   The count uses .badge-n rather than .badge: .badge is the bordered chip used
+   for confidence and status throughout the site, and reusing it here would
+   drag that border and padding onto a number meant to sit loose over an icon. */
+.icon-btn{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px;
+  font-family: var(--mono);
+}
+.icon-btn svg{ width: 17px; height: 17px; }
+.icon-btn .badge-n{
+  position: absolute;
+  top: -9px;
+  right: -10px;
+  font-size: 9.5px;
+  color: var(--amber);
+  background: var(--panel);
+  padding: 0 3px;
+  line-height: 1.4;
+}
+.icon-btn:hover{ color: var(--amber); }
+
+.icon-btn.flag .badge-n{ color: var(--danger); }
+.icon-btn.flag:hover{ color: var(--danger); }
+.icon-btn.flag.flagged,
+.icon-btn.flag.flagged .badge-n{ color: var(--danger); }
+
+.icon-btn.thumb.voted,
+.icon-btn.thumb.voted .badge-n{ color: var(--thumb-blue); }
+
+.icon-btn.muted{ opacity: 0.3; cursor: default; pointer-events: none; }
+
+@keyframes thumb-pop{
+  0%{ transform: scale(1); }
+  40%{ transform: scale(1.35); }
+  100%{ transform: scale(1); }
+}
+.icon-btn.thumb.pop{ animation: thumb-pop 0.32s ease; }
+
+/* Shown in place when a visitor who is not signed in clicks something that
+   would change data. Deliberately quiet — it is an explanation, not a wall. */
+.auth-prompt{
+  margin: 0 18px 14px;
+  padding: 13px 15px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--amber);
+}
+.auth-prompt-title{
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--amber);
+  margin-bottom: 6px;
+}
+.auth-prompt-body{ font-size: 11.5px; color: var(--text-dim); line-height: 1.55; max-width: 62ch; }
+.auth-prompt-actions{ display: flex; gap: 8px; margin-top: 11px; align-items: center; }
+.auth-prompt-actions .primary-btn{ text-decoration: none; padding: 7px 15px; }
+
+.progress{ width: 140px; height: 6px; background: var(--panel-2); position: relative; }
+.progress-fill{ height: 100%; background: var(--amber); }
+
+.username-btn{
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.username-btn:hover{ color: #6ba8e8; }
+.username-btn::before{ content: "@"; color: var(--text-faint); text-decoration: none; }
+
+.profile-stat-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.profile-stat{ border: 1px solid var(--line); background: var(--bg); padding: 10px 12px; }
+.profile-stat.alert{ border-color: var(--danger); }
+.profile-stat.alert .profile-stat-num{ color: var(--danger); }
+.profile-stat-num{
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--amber);
+  line-height: 1;
+}
+.profile-stat-lbl{
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-top: 5px;
+}
+
+/* ---------- responsive tables ---------- */
+@media (max-width: 760px){
+  table.responsive, table.responsive thead, table.responsive tbody, table.responsive tr{ display: block; }
+  table.responsive th{ display: none; }
+  table.responsive td{ display: flex; justify-content: space-between; gap: 12px; }
+  table.responsive td::before{
+    content: attr(data-label);
+    color: var(--text-faint);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  table.responsive tr{ border-bottom: 1px solid var(--amber-dim); padding: 8px 0; }
+  table.responsive tr.inline-row td{ display: block; }
+  table.responsive tr.inline-row td::before{ content: none; }
+}

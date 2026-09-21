@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create an Account — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* The rules, shown while typing rather than only after a rejected submit.
+     A password field that says "at least 10 characters" up front beats one
+     that says it once you have already chosen a shorter one. */
+  .rule{
+    display: flex; align-items: baseline; gap: 7px;
+    font-size: 11.5px; color: var(--text-faint); line-height: 1.5;
+  }
+  .rule .mark{
+    font-family: var(--mono); width: 11px; flex-shrink: 0; color: var(--text-faint);
+  }
+  .rule.ok{ color: var(--good); }
+  .rule.ok .mark{ color: var(--good); }
+  .rules{ display: grid; gap: 3px; margin-top: 7px; }
+  .alt-action{
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--text-dim);
+  }
+  .alt-action a{ color: var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Create an Account</h1>
+  </div>
+</header>
+
+<main style="max-width:440px">
+  <div class="panel">
+    <div class="panel-head">
+      <div><h3>Join <span class="brand-name">GearHeadSpecs</span></h3>
+        <p>An account lets you flag a value that looks wrong, vote for the ones
+           that fitted your bike, fill a gap you know the answer to, and keep a
+           garage with its service history.</p></div>
+    </div>
+    <div class="panel-body">
+      <form id="register-form" novalidate>
+        <div class="form-row">
+          <label for="username">Username</label>
+          <input type="text" id="username" autocomplete="username"
+                 maxlength="32" autofocus>
+          <div class="rules">
+            <div class="rule" id="r-len"><span class="mark">·</span>
+              <span>3 to 32 characters</span></div>
+            <div class="rule" id="r-chars"><span class="mark">·</span>
+              <span>Letters, numbers, dot, dash and underscore. Starts with a
+                letter or number.</span></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="email">Email</label>
+          <input type="email" id="email" autocomplete="email" maxlength="254"
+                 placeholder="you@example.com">
+          <div class="rules">
+            <div class="rule" id="r-email"><span class="mark">·</span>
+              <span>A real address. Seen by the site admin only — never shown on
+                your profile or to other riders.</span></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="display">Display name <span class="cell-dim">— optional</span></label>
+          <input type="text" id="display" autocomplete="nickname" maxlength="60"
+                 placeholder="Shown instead of your username">
+        </div>
+
+        <div class="form-row">
+          <label for="password">Password</label>
+          <input type="password" id="password" autocomplete="new-password">
+          <div class="rules">
+            <div class="rule" id="r-pw"><span class="mark">·</span>
+              <span>At least 10 characters</span></div>
+            <div class="rule" id="r-pw2"><span class="mark">·</span>
+              <span>Not your username, and not the site's name</span></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="confirm">Confirm password</label>
+          <input type="password" id="confirm" autocomplete="new-password">
+          <div class="rules">
+            <div class="rule" id="r-match"><span class="mark">·</span>
+              <span>Both entries match</span></div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="primary-btn" id="submit-btn">Create account</button>
+        </div>
+      </form>
+
+      <div class="alt-action">
+        Already have one? <a id="to-login" href="/login.html">Sign in instead</a>.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-body cell-dim" style="line-height:1.6">
+      <p>New accounts are readers. Looking after a bike's specs is something an
+      admin grants by assigning you one — it is not a box you tick here.</p>
+    </div>
+  </div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+// Carry the destination through, so signing up from a page you were trying to
+// reach returns you to it rather than dumping you on the catalog.
+const next = params.get("next") || "/index.html";
+document.getElementById("to-login").href =
+  "/login.html?next=" + encodeURIComponent(next);
+
+const $ = id => document.getElementById(id);
+const USERNAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+
+function checkRules(){
+  const u = $("username").value.trim();
+  const p = $("password").value;
+  const c = $("confirm").value;
+
+  const m = $("email").value.trim();
+  const rules = {
+    "r-email": /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m),
+    "r-len":   u.length >= 3 && u.length <= 32,
+    "r-chars": u.length > 0 && USERNAME_RE.test(u),
+    "r-pw":    p.length >= 10,
+    "r-pw2":   p.length > 0 &&
+               !["gearheadspecs", "gearhead", u.toLowerCase()].includes(p.toLowerCase()),
+    "r-match": c.length > 0 && p === c,
+  };
+  for(const [id, ok] of Object.entries(rules)){
+    const el = $(id);
+    el.classList.toggle("ok", ok);
+    el.querySelector(".mark").textContent = ok ? "✓" : "·";
+  }
+  return Object.values(rules).every(Boolean);
+}
+
+["username", "email", "password", "confirm"].forEach(id =>
+  $(id).addEventListener("input", checkRules));
+
+$("register-form").addEventListener("submit", guard(async (e) => {
+  e.preventDefault();
+  // The server checks all of this again — this only saves a round trip and
+  // tells the reader which rule they missed.
+  if(!checkRules()){
+    toast("Check the highlighted rules below each field.", "error");
+    return;
+  }
+  const btn = $("submit-btn");
+  btn.disabled = true;
+  try {
+    const r = await API.post("/api/auth/register", {
+      username: $("username").value.trim(),
+      email: $("email").value.trim(),
+      password: $("password").value,
+      display_name: $("display").value.trim() || null,
+    });
+    toast(`Welcome, ${r.user.display_name || r.user.username}.`, "ok");
+    location.href = next;
+  } finally {
+    btn.disabled = false;
+  }
+}));
+
+initChrome("/register.html");
+checkRules();
+</script>
+</body>
+</html>

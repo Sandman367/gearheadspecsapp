@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Console — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .more-row td, .more-row{ padding: 8px 14px; text-align: center; }
+  .more-row .action-btn{ min-width: 160px; }
+  .member-profile{ margin: 0; }
+  .diverge{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .diverge > div{ border: 1px solid var(--line); background: var(--bg); padding: 9px 11px; }
+  .diverge .lbl{ font-size: 9.5px; color: var(--text-faint); letter-spacing: 0.04em; }
+  .diverge .val{ font-size: 12.5px; margin-top: 4px; }
+  @media (max-width: 640px){ .diverge{ grid-template-columns: 1fr; } }
+
+  /* Branches chosen for a field. A field can belong to several, so they stack
+     up as removable chips rather than each pick overwriting the last. */
+  .branch-chips{ display: flex; flex-wrap: wrap; gap: 7px; }
+  .branch-chip{
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--amber-dim); background: var(--panel-2);
+    color: var(--amber); font-size: 11px; padding: 4px 8px;
+  }
+  .branch-chip button{
+    background: none; border: none; color: var(--text-faint);
+    font-family: var(--mono); font-size: 13px; line-height: 1;
+    padding: 0; cursor: pointer;
+  }
+  .branch-chip button:hover{ color: var(--danger); }
+
+  /* Up/down beside each field in the Spec Tree manager. */
+  .move-col{ display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+  .move-btn{
+    background: none; border: 1px solid var(--line); color: var(--text-faint);
+    font-size: 8px; line-height: 1; padding: 2px 4px; cursor: pointer;
+  }
+  .move-btn:hover:not(:disabled){ color: var(--amber); border-color: var(--amber-dim); }
+  .move-btn:disabled{ opacity: 0.25; cursor: default; }
+
+  /* Field type, changed in place — the tree-wide setting, not a manager's
+     per-bike lock. */
+  .type-select{
+    margin-top: 4px; width: auto; font-size: 10.5px; padding: 2px 4px;
+    background: var(--bg); color: var(--text-dim);
+  }
+  /* ---- extra headings, site-wide ---- */
+  .also-under{ display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 6px 0; }
+  .also-pick{
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; cursor: pointer;
+    border: 1px solid var(--line); font-size: 10.5px; color: var(--text-dim);
+  }
+  .also-pick input{ width: auto; margin: 0; }
+  .also-pick.on{ border-color: var(--amber); color: var(--amber); }
+  .also-pick.home{ opacity: .7; cursor: default; }
+  .also-pick small{ font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.02em; }
+
+  /* ---- a manager's change to their bike ---- */
+  .notice{
+    display: flex; justify-content: space-between; gap: 14px; align-items: flex-start;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .notice:last-child{ border-bottom: 0; }
+  .notice-text{ margin-left: 6px; }
+  .notice-thumb{ float: right; width: 96px; height: 72px; object-fit: cover;
+                 border: 1px solid var(--line); margin: 0 0 6px 12px; }
+  .notice-meta{ margin-top: 4px; font-size: 11.5px; }
+  .notice-meta a{ color: var(--amber); }
+
+  /* ---- a branch, expandable to the question it came from ---- */
+  .branch{ display: inline-block; margin: 0 6px 4px 0; vertical-align: top; }
+  .branch summary{ cursor: pointer; list-style: none; display: inline-block; }
+  .branch summary::-webkit-details-marker{ display: none; }
+  .branch summary::after{ content: " ▾"; opacity: .6; font-size: 9px; }
+  .branch[open] summary::after{ content: " ▴"; }
+  .branch-q{
+    margin-top: 6px; padding: 9px 11px; border: 1px solid var(--line);
+    background: var(--panel-2); max-width: 340px; font-size: 12px; line-height: 1.5;
+  }
+  .branch-sec{
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; color: var(--text-faint); margin-bottom: 3px;
+  }
+  .branch-text{ color: var(--text); margin-bottom: 6px; }
+  .branch-opts{ margin: 0; padding: 0; list-style: none; }
+  .branch-opts li{ color: var(--text-dim); padding: 1px 0; }
+  .branch-opts li.on{ color: var(--amber); }
+  .branch-opts li.on b{ font-weight: 500; }
+  .branch-opts .l{
+    display: inline-block; width: 16px; font-family: var(--mono); font-size: 10px;
+    color: var(--text-faint);
+  }
+  .branch-opts li.on .l{ color: var(--amber); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Admin Console</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main class="wide">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let S = {};
+
+// Questionnaire branches plus how many bikes answered each way. Fetched once
+// and cleared after an approval, since back-filling moves the counts.
+let BRANCHES = null;
+
+// Branches chosen in whichever dialog is open. A field may belong to several —
+// chain OR belt, say — so this is a list, and picking one leaves the selector
+// ready for the next.
+let PICKED = [];
+
+function branchText(qid, opt){
+  const b = BRANCHES.branches.find(x => x.question_id === qid);
+  const o = b && b.options.find(x => x.label === opt);
+  return b && o ? `${b.section} · ${o.text}` : `${qid}=${opt}`;
+}
+
+function bikesForPicked(){
+  // Union, not sum: a bike matching two chosen branches is still one bike.
+  const seen = new Set();
+  PICKED.forEach(({ q, o }) => {
+    const b = BRANCHES.branches.find(x => x.question_id === q);
+    const opt = b && b.options.find(x => x.label === o);
+    if(opt) for(let i = 0; i < opt.bikes; i++) seen.add(`${q}|${o}|${i}`);
+  });
+  // The per-option counts cannot tell us which bikes overlap, so this is an
+  // upper bound; the server reports the true figure after the write.
+  return PICKED.reduce((n, { q, o }) => {
+    const b = BRANCHES.branches.find(x => x.question_id === q);
+    const opt = b && b.options.find(x => x.label === o);
+    return n + (opt ? opt.bikes : 0);
+  }, 0);
+}
+
+function renderPicked(listId){
+  const box = document.getElementById(listId);
+  if(!box) return;
+  box.innerHTML = PICKED.length
+    ? PICKED.map((t, i) => `<span class="branch-chip">${esc(branchText(t.q, t.o))}
+        <button type="button" data-unpick="${i}" aria-label="Remove">×</button></span>`).join("")
+    : `<span class="cell-dim">No branch chosen yet.</span>`;
+}
+
+/* Picking a question reveals its options, each showing how many existing bikes
+   answered that way — the blast radius of back-filling, shown before the admin
+   commits rather than after. */
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "mem-search") return;
+  const q = e.target.value.trim().toLowerCase();
+  const hit = S.members.filter(u => !q || [u.username, u.display_name, u.email, u.role]
+    .some(v => (v || "").toLowerCase().includes(q)));
+  document.getElementById("mem-list").innerHTML = renderMembers(hit);
+  collapseLong();
+});
+
+document.addEventListener("change", (e) => {
+  const offOn = e.target.closest("[data-offline-on]");
+  if(offOn){
+    guard(async () => {
+      const key = offOn.dataset.offlineOn;
+      const boxes = [...document.querySelectorAll(`[data-offline-on="${CSS.escape(key)}"]`)];
+      const types = boxes.filter(b => b.checked).map(b => b.value);
+      try {
+        await API.patch(`/api/admin/fields/${key}/offline-defaults`, { bike_types: types });
+        boxes.forEach(b => b.closest("label").classList.toggle("on", b.checked));
+        toast(types.length
+          ? `"${offOn.dataset.label}" now starts offline on ${types.join(", ")}. Bikes already showing it are unchanged.`
+          : `"${offOn.dataset.label}" starts online everywhere again.`, "ok");
+      } catch(err){
+        offOn.checked = !offOn.checked;
+        throw err;
+      }
+    })();
+    return;
+  }
+  if(e.target.id === "as-make"){
+    AS_MAKE = e.target.value;
+    const model = document.getElementById("as-bike");
+    model.innerHTML = assignModelOptions(AS_MAKE);
+    model.disabled = !AS_MAKE;
+    return;
+  }
+  if(e.target.id === "ap-question"){
+    const row = document.getElementById("ap-option-row");
+    const backfillRow = document.getElementById("ap-backfill-row");
+    const branch = BRANCHES.branches.find(b => b.question_id === e.target.value);
+    if(!branch){
+      row.style.display = backfillRow.style.display = "none";
+      return;
+    }
+    document.getElementById("ap-option").innerHTML = branch.options.map(o =>
+      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${
+        o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
+    row.style.display = "";
+    updateBackfillLabel();
+  }
+  if(e.target.id === "ap-option") updateBackfillLabel();
+  if(e.target.id === "br-question"){
+    const b = BRANCHES.branches.find(x => x.question_id === e.target.value);
+    const row = document.getElementById("br-option-row");
+    if(!b){ row.style.display = "none"; document.getElementById("br-backfill-row").style.display = "none"; return; }
+    document.getElementById("br-option").innerHTML = b.options.map(o =>
+      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
+    row.style.display = "";
+    updateBranchBackfill();
+  }
+  if(e.target.id === "br-option") updateBranchBackfill();
+  // Site-wide extra headings: every tick saves the whole set for the field.
+  const alsoCat = e.target.closest("[data-also-cat]");
+  if(alsoCat){
+    const key = alsoCat.dataset.alsoCat;
+    const boxes = [...document.querySelectorAll(`[data-also-cat="${CSS.escape(key)}"]`)];
+    const categories = boxes.filter(b => b.checked).map(b => b.value);
+    guard(async () => {
+      try {
+        const r = await API.patch(`/api/admin/fields/${key}/categories`, { categories });
+        boxes.forEach(b => b.closest("label").classList.toggle("on", b.checked));
+        toast(`“${alsoCat.dataset.label}” ${r.shown.length ? "shows under " + r.shown.join(", ") : "is under no heading — header only"}`
+          + ` — on ${r.bikes} bike${r.bikes === 1 ? "" : "s"}.`, "ok");
+      } catch(err){
+        alsoCat.checked = !alsoCat.checked;
+        throw err;
+      }
+    })();
+    return;
+  }
+
+  const catSel = e.target.closest("[data-set-category]");
+  if(catSel){
+    const key = catSel.dataset.setCategory;
+    const was = catSel.dataset.was;
+    const to = catSel.value;
+    if(to === was) return;
+    guard(async () => {
+      try {
+        const r = await API.patch(`/api/admin/fields/${key}/category`,
+                                  { category: to });
+        toast(`“${catSel.dataset.label}” moved from ${was} to ${r.category}`
+              + ` — on ${r.bikes} bike${r.bikes === 1 ? "" : "s"}.`
+              + ` It sits last in ${r.category}; use ▲ to move it up.`, "ok");
+        await load();
+      } catch(err){
+        // Put the select back, or it shows a move that did not happen.
+        catSel.value = was;
+        throw err;
+      }
+    })();
+    return;
+  }
+
+  const vtSel = e.target.closest("[data-set-value-type]");
+  if(vtSel){
+    guard(async () => {
+      try {
+        const r = await API.patch(`/api/admin/fields/${vtSel.dataset.setValueType}/value-type`,
+                                  { value_type: vtSel.value });
+        vtSel.dataset.was = r.value_type;
+        toast(`${vtSel.dataset.label}: values are now ${r.value_type.replace("_", " ")}`
+          + (r.rewritten ? ` — ${r.rewritten} existing value(s) put in canonical form.` : "."), "ok");
+      } catch(err){
+        vtSel.value = vtSel.dataset.was;   // the change did not happen
+        throw err;
+      }
+    })();
+    return;
+  }
+
+  const typeSel = e.target.closest("[data-set-type]");
+  if(typeSel){
+    guard(async () => {
+      const r = await API.patch(`/api/admin/fields/${typeSel.dataset.setType}/type`,
+                                { spec_type: typeSel.value });
+      toast(r.spec_type === "fixed"
+        ? `Now Fixed — alternates are refused on this field across every bike.`
+          + (r.existing_alternates
+              ? ` ${r.existing_alternates} existing alternate(s) are kept but no more can be added.` : "")
+        : `Changed from ${r.was} to ${r.spec_type}.`, "ok");
+    })();
+    return;
+  }
+  if(["ap-question","ap-option","ap-backfill","ap-apply","ap-universal"].includes(e.target.id))
+    updateApproveWarning();
+});
+
+function updateBackfillLabel(){
+  const qid = document.getElementById("ap-question").value;
+  const opt = document.getElementById("ap-option").value;
+  const branch = BRANCHES.branches.find(b => b.question_id === qid);
+  const option = branch && branch.options.find(o => o.label === opt);
+  const row = document.getElementById("ap-backfill-row");
+  if(!option || !option.bikes){
+    // Nothing to back-fill onto, so offering the choice would be noise.
+    row.style.display = "none";
+    return;
+  }
+  row.style.display = "";
+  document.getElementById("ap-backfill-label").textContent =
+    `Add it now to the ${option.bikes} bike${option.bikes === 1 ? "" : "s"} that already answered this way`;
+}
+
+/* Approving with no reachable destination creates a field nobody can see. That
+   happened three times before this warning existed, silently, with the dialog
+   reporting success — so say it plainly while the choice can still be changed. */
+function updateApproveWarning(){
+  const warn = document.getElementById("ap-warn");
+  if(!warn) return;
+  const qid = PICKED.length ? PICKED[0].q : "";
+  const applyBox = document.getElementById("ap-apply");
+  const backfill = document.getElementById("ap-backfill");
+  const option = PICKED.length
+    ? { bikes: bikesForPicked() }
+    : null;
+
+  const uniBox = document.getElementById("ap-universal");
+  if(uniBox && uniBox.checked){ warn.textContent = ""; return; }
+  const reachesNow = (applyBox && applyBox.checked)
+                  || (backfill && backfill.checked && option && option.bikes);
+  if(reachesNow){ warn.textContent = ""; return; }
+
+  warn.textContent = qid
+    ? (option && option.bikes
+        ? `No bike gets this field yet — tick the back-fill box, or add it to bikes later from “Fields on no bike”.`
+        : `No bike has answered ${qid} that way, so this field will appear on no bike until one does. You can add it to bikes directly afterwards.`)
+    : `No branch and no bike chosen — this field will appear on no bike at all. You can place it afterwards from “Fields on no bike”.`;
+}
+
+
+/* Bike search for placing a field. Debounced against /api/bikes, which is the
+   same search the browse page uses, so admin and rider find bikes the same way. */
+let brTimer;
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "br-search") return;
+  clearTimeout(brTimer);
+  const q = e.target.value.trim();
+  const rid = e.target.dataset.req;
+  const box = document.getElementById("br-results");
+  if(q.length < 2){ box.innerHTML = `<div class="cell-dim">Type at least two characters.</div>`; return; }
+  brTimer = setTimeout(guard(async () => {
+    const data = await API.get("/api/bikes?limit=8&q=" + encodeURIComponent(q));
+    box.innerHTML = data.bikes.length ? data.bikes.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></div>
+        <button class="action-btn approve" data-bike-req-match-go="${rid}|${b.bike_id}">This one</button>
+      </div>`).join("")
+      : `<div class="cell-dim">No bikes match "${esc(q)}".</div>`;
+  }), 250);
+});
+
+document.addEventListener("change", guard(async (e) => {
+  if(e.target.id !== "restore-file" && e.target.id !== "restore-photos-file") return;
+  const file = e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  const photos = e.target.id === "restore-photos-file";
+  const status = document.getElementById("restore-status");
+  if(!photos && !confirm(`Replace the live database with "${file.name}" (${Math.round(file.size / 1048576)} MB)?\n\nEverything live is overwritten by the file's contents and everyone is signed out. Download a backup first if you have not.`)) return;
+  status.textContent = photos ? "Uploading photos…" : "Uploading and checking the database…";
+  const res = await fetch(photos ? "/api/admin/restore-photos" : "/api/admin/restore", {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": photos ? "application/zip" : "application/octet-stream" }, body: file });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ status.textContent = ""; throw new Error(data.error || `${res.status} ${res.statusText}`); }
+  if(photos){
+    status.textContent = "";
+    toast(`${data.restored} photo(s) restored${data.skipped.length ? `; ${data.skipped.length} file(s) in the zip ignored` : ""}.`, "ok");
+    return;
+  }
+  status.textContent = `Restored: ${data.bikes} bikes, ${data.specs} specs, ${data.users} users. Signing you out…`;
+  setTimeout(() => { location.href = "/login.html?next=/admin.html"; }, 2500);
+}));
+
+let plTimer;
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "pl-search") return;
+  clearTimeout(plTimer);
+  const q = e.target.value.trim();
+  const key = e.target.dataset.field;
+  const box = document.getElementById("pl-results");
+  if(q.length < 2){ box.innerHTML = `<div class="cell-dim">Type at least two characters.</div>`; return; }
+  plTimer = setTimeout(guard(async () => {
+    const data = await API.get("/api/bikes?limit=8&q=" + encodeURIComponent(q));
+    box.innerHTML = data.bikes.length ? data.bikes.map(b => `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div><div style="font-size:12.5px">${esc(b.display_name)}</div>
+          <div class="cell-dim">${esc(b.year_range || "")} · ${b.specs_filled}/${b.fields_triggered} filled</div></div>
+        <button class="action-btn approve" data-add-to-bike="${esc(key)}|${b.bike_id}">Add</button>
+      </div>`).join("")
+      : `<div class="cell-dim">No bikes match "${esc(q)}".</div>`;
+  }), 250);
+});
+
+function updateBranchBackfill(){
+  const b = BRANCHES.branches.find(x => x.question_id === document.getElementById("br-question").value);
+  const o = b && b.options.find(x => x.label === document.getElementById("br-option").value);
+  const row = document.getElementById("br-backfill-row");
+  if(!o || !o.bikes){ row.style.display = "none"; return; }
+  row.style.display = "";
+  document.getElementById("br-backfill-label").textContent =
+    `Add it now to the ${o.bikes} bike${o.bikes === 1 ? "" : "s"} that already answered this way`;
+}
+
+
+/* ---- Spec Tree manager -------------------------------------------------
+   113 fields is too many to list, so this is search-first. Each row carries
+   the two numbers that decide whether removing it is safe: how many bikes hold
+   it, and how many of those hold a value somebody sourced. */
+let fmTimer;
+// What is typed in the Spec Tree search, held outside the DOM. render() rewrites
+// #content wholesale, so anything that reloads the console — renaming a field,
+// re-filing it, setting a branch — used to take the query and the results with
+// it and drop the admin back at "Type to search the tree", hunting for the row
+// they had just been working on.
+let FM_QUERY = "";
+
+let FM_TYPES = [];
+async function runFieldSearch(){
+  const box = document.getElementById("fm-results");
+  if(!box) return;
+  const q = FM_QUERY.trim();
+  if(q.length < 2){ box.innerHTML = `<div class="empty">Type to search the tree.</div>`; return; }
+    const data = await API.get("/api/admin/fields?q=" + encodeURIComponent(q));
+    FM_TYPES = data.bike_types || [];
+    box.innerHTML = data.fields.length ? `
+      <table class="responsive">
+        <thead><tr><th>Field</th><th>Applies via</th><th>On bikes</th><th>Action</th></tr></thead>
+        <tbody>${data.fields.map((f, i) => `
+          <tr>
+            <td data-label="Field">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="move-col">
+                  <button class="move-btn" data-move="${esc(f.field_key)}|up"
+                          ${f.position === 0 ? "disabled" : ""} title="Move up">▲</button>
+                  <button class="move-btn" data-move="${esc(f.field_key)}|down"
+                          ${f.position === f.siblings - 1 ? "disabled" : ""} title="Move down">▼</button>
+                </span>
+                <span><strong>${esc(f.label)}</strong>
+                  <div class="cell-dim">${f.position + 1} of ${f.siblings} in ${esc(f.category)}</div>
+                  <select class="type-select" data-set-category="${esc(f.field_key)}"
+                          data-was="${esc(f.category)}" data-label="${esc(f.label)}">
+                    ${catOptions(f.category)}
+                  </select>
+                  <div class="also-under">
+                    <span class="cell-dim">Also under</span>
+                    ${CATEGORIES.map(c => {
+                      const on = c === f.category ? f.home_shown !== false : (f.also_in || []).includes(c);
+                      return `
+                      <label class="also-pick${on ? " on" : ""}"${c === f.category ? ' title="Its usual heading. Untick to show it only under the others, on every bike."' : ""}>
+                        <input type="checkbox" data-also-cat="${esc(f.field_key)}" value="${esc(c)}"
+                               data-label="${esc(f.label)}"${on ? " checked" : ""}>${esc(c)}${
+                        c === f.category ? ` <small>usual</small>` : ""}</label>`; }).join("")}
+                  </div>
+                  <select class="type-select" data-set-type="${esc(f.field_key)}">
+                    <option value="pref"${f.spec_type === "pref" ? " selected" : ""}>Preference — riders vary</option>
+                    <option value="fixed"${f.spec_type === "fixed" ? " selected" : ""}>Fixed — one right answer</option>
+                    <option value="community"${f.spec_type === "community" ? " selected" : ""}>Community — no factory value</option>
+                  </select>
+                  <select class="type-select" data-set-value-type="${esc(f.field_key)}" data-was="${esc(f.value_type || "text")}"
+                          data-label="${esc(f.label)}" title="What the value is: typed text, or one of the closed lists.">
+                    <option value="text"${(f.value_type || "text") === "text" ? " selected" : ""}>Text value</option>
+                    <option value="wire_color"${f.value_type === "wire_color" ? " selected" : ""}>Wire colour value</option>
+                    <option value="fuel_octane"${f.value_type === "fuel_octane" ? " selected" : ""}>Fuel octane value</option>
+                    <option value="ethanol"${f.value_type === "ethanol" ? " selected" : ""}>Ethanol limit value</option>
+                  </select>
+                  <div class="also-under" title="On these kinds of bike the field is created offline — on the sheet, hidden from riders — until the bike's manager puts it online. Bikes that already show it are not changed.">
+                    <span class="cell-dim">Starts offline on</span>
+                    ${FM_TYPES.map(t => `
+                      <label class="also-pick${(f.offline_on || []).includes(t) ? " on" : ""}">
+                        <input type="checkbox" data-offline-on="${esc(f.field_key)}" value="${esc(t)}"
+                               data-label="${esc(f.label)}"${(f.offline_on || []).includes(t) ? " checked" : ""}>${esc(t)}</label>`).join("")}
+                  </div></span>
+              </div></td>
+            <td data-label="Applies via">${
+              f.universal ? `<span class="badge good">every bike</span>` :
+              f.triggers ? branchesHTML(f) :
+                           `<span class="cell-dim">named bikes only</span>`}</td>
+            <td data-label="On bikes">${f.bikes}
+              ${f.values_set ? `<div class="cell-dim" style="color:var(--danger)">${
+                f.values_set} with a value</div>` : `<div class="cell-dim">none filled</div>`}</td>
+            <td data-label="Action"><div class="btn-row">
+              <button class="action-btn" data-rename="${esc(f.field_key)}"
+                      data-slot="fm${i}" data-label="${esc(f.label)}">Rename</button>
+              ${f.universal
+                ? `<button class="action-btn" data-un-universal="${esc(f.field_key)}"
+                      data-label="${esc(f.label)}">Stop applying to all</button>`
+                : `<button class="action-btn" data-branch="${esc(f.field_key)}" data-slot="fm${i}"
+                      data-label="${esc(f.label)}">Branches</button>
+                   <button class="action-btn approve" data-all-bikes="${esc(f.field_key)}" data-slot="fm${i}"
+                      data-label="${esc(f.label)}" data-on="${f.bikes}" data-triggers="${f.triggers ? "1" : ""}"
+                      title="Put this field on every bike, now and in future">Apply to all bikes</button>`}
+              ${f.triggers ? `<button class="action-btn" data-clear-branch="${esc(f.field_key)}"
+                      data-label="${esc(f.label)}">Remove branch</button>` : ""}
+              ${f.bikes ? `<button class="action-btn" data-unplace="${esc(f.field_key)}"
+                      data-slot="fm${i}" data-label="${esc(f.label)}">Remove from a bike</button>` : ""}
+              <button class="action-btn danger" data-drop-field="${esc(f.field_key)}"
+                      data-label="${esc(f.label)}" data-bikes="${f.bikes}"
+                      data-values="${f.values_set}">Delete field</button>
+            </div></td>
+          </tr>
+          <tr class="inline-row"><td colspan="4"><div id="slot-fm${i}"></div></td></tr>`).join("")}
+        </tbody>
+      </table>
+      ${data.total > data.fields.length
+        ? `<div class="panel-body cell-dim">Showing ${data.fields.length} of ${data.total} matches.</div>` : ""}`
+      : `<div class="empty">No field matches "${esc(q)}".</div>`;
+  collapseLong();
+}
+
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "fm-search") return;
+  FM_QUERY = e.target.value;
+  clearTimeout(fmTimer);
+  fmTimer = setTimeout(guard(runFieldSearch), 250);
+});
+
+// Put the query back in the box and re-run it. Awaited by load() so the results
+// are on the page before the scroll position is restored — otherwise the page
+// is still short at that moment and the scroll lands somewhere else.
+async function restoreFieldSearch(){
+  const box = document.getElementById("fm-search");
+  if(!box || !FM_QUERY.trim()) return;
+  box.value = FM_QUERY;
+  await guard(runFieldSearch)();
+}
+
+
+/* ---- activity log --------------------------------------------------------
+   A record rather than a queue: nothing here needs actioning, it is there so a
+   change can be traced back. Destructive entries expand to the detail, which is
+   the only place a deleted value still exists. */
+function renderActivity(actions){
+  if(!actions.length) return `<div class="empty">Nothing recorded yet.</div>`;
+  return `<table class="responsive">
+    <thead><tr><th>When</th><th>Action</th><th>By</th><th></th></tr></thead>
+    <tbody>${actions.map((a, i) => `
+      <tr>
+        <td data-label="When" class="cell-dim">${esc(fmtDate(a.created_at))}
+          <div class="cell-dim">${esc((a.created_at || "").slice(11, 16))}</div></td>
+        <td data-label="Action">${esc(a.summary)}
+          <div class="cell-dim">${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</div></td>
+        <td data-label="By" class="cell-dim">${userLink(a.username, a.user_id)}</td>
+        <td data-label="">${a.destructive ? `<span class="badge danger">destructive</span>` : ""}
+          ${a.detail ? `<button class="action-btn" data-act-detail="${i}">Detail</button>` : ""}</td>
+      </tr>
+      <tr class="inline-row"><td colspan="4"><div id="act-${i}"></div></td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+const reloadActivity = guard(async () => {
+  const scope = document.getElementById("act-scope").dataset.scope;
+  const onlyBad = document.getElementById("act-destructive").dataset.on === "1";
+  const q = `/api/admin/activity?who=${scope}` + (onlyBad ? "&destructive=1" : "");
+  S.activity = await API.get(q);
+  document.getElementById("act-list").innerHTML = renderActivity(S.activity.actions);
+});
+
+const load = guard(async () => {
+  const scroll = window.scrollY;
+  const [summary, proposals, treeFlags, notSure, userFlags, divergence, dropped,
+         unverified, assign, unplaced, activity, notices, members, fieldReqs, bikeReqs] = await Promise.all([
+      API.get("/api/admin/summary"),
+      API.get("/api/admin/proposals"),
+      API.get("/api/admin/tree-flags"),
+      API.get("/api/admin/not-sure"),
+      API.get("/api/admin/user-flags"),
+      API.get("/api/admin/divergence"),
+      API.get("/api/admin/catalog-dropped?limit=25"),
+      API.get("/api/admin/unverified-years"),
+      API.get("/api/admin/assignments"),
+      API.get("/api/admin/unplaced-fields"),
+      API.get("/api/admin/activity"),
+      API.get("/api/admin/notices"),
+      API.get("/api/users"),
+      API.get("/api/admin/field-requests"),
+      API.get("/api/admin/bike-requests"),
+    ]);
+  S = { summary, proposals: proposals.items, treeFlags: treeFlags.items,
+        notSure: notSure.items, userFlags: userFlags.items,
+        divergence: divergence.items, dropped, unverified: unverified.items,
+        assign, unplaced: unplaced.fields, waiting: unplaced.waiting_count,
+        activity, notices: notices.items, members: members.users,
+        fieldRequests: fieldReqs.items,
+        bikeRequests: bikeReqs.items, bikeTypes: bikeReqs.bike_types };
+  render();
+  await restoreFieldSearch();
+  collapseLong();
+  window.scrollTo(0, scroll);
+});
+
+// A dashboard figure you can act on. `dest` is either a panel id on this page
+// (scrolls to it) or a path (navigates). `alert` reddens the number the way the
+// cards always have — passing 0 keeps a plain total plain.
+
+function bikeRequestRows(items){
+  const years = r => !r.year_from ? "years not given"
+    : r.year_to && r.year_to !== r.year_from ? `${r.year_from}–${r.year_to}` : String(r.year_from);
+  return items.map((r, i) => `
+    <tr>
+      <td data-label="Bike"><strong>${esc(r.make)} ${esc(r.model)}</strong>
+        <div class="current-value">${esc(years(r))}${r.displacement ? ` · ${esc(r.displacement)}` : ""}${
+          r.bike_type ? ` · ${esc(r.bike_type)}` : ""}</div>
+        ${r.maybe.length ? `<div class="cell-dim" style="margin-top:4px;color:var(--amber)">Already here? ${
+          r.maybe.map(b => bikeLink(b.display_name, b.year_range, b.bike_id)).join(", ")}</div>` : ""}</td>
+      <td data-label="Details" class="cell-dim">${r.reasoning ? `“${esc(r.reasoning)}”` : "—"}${
+        r.source_url ? `<div><a href="${esc(r.source_url)}" target="_blank" rel="noopener">source ↗</a></div>` : ""}
+        <div>${new Date(r.created_at + "Z").toLocaleDateString()}</div></td>
+      <td data-label="Waiting"><span class="badge amber">${r.riders} rider${r.riders !== 1 ? "s" : ""}</span>
+        <div class="cell-dim" style="margin-top:4px">${r.supporters.map(u => userLink(u.username, u.user_id)).join(", ")}</div></td>
+      <td data-label="Action">
+        <div class="btn-row">
+          <button class="action-btn approve" data-bike-req-add="${r.id}" data-slot="br${i}">Add as a new bike</button>
+          <button class="action-btn" data-bike-req-match="${r.id}" data-slot="br${i}">Match to a bike here</button>
+          <button class="action-btn" data-bike-req-decline="${r.id}" data-slot="br${i}">Decline</button>
+        </div>
+      </td>
+    </tr>
+    <tr class="inline-row"><td colspan="4"><div id="slot-br${i}"></div></td></tr>`).join("");
+}
+
+function fieldRequestRows(items, showManager){
+  if(!items.length) return "";
+  return items.map(r => `
+    <tr>
+      <td data-label="Spec"><strong>${esc(r.label)}</strong>
+        <div class="current-value">${esc(r.category)}</div></td>
+      <td data-label="Bike" class="cell-dim"><a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name)}</a>${
+        r.year_range ? ` · ${esc(r.year_range)}` : ""}${
+        showManager && !r.has_manager ? ` <span class="badge amber">no manager</span>` : ""}</td>
+      <td data-label="Asked by"><span class="badge amber">${r.requests} rider${r.requests !== 1 ? "s" : ""}</span>
+        <div class="cell-dim" style="margin-top:4px">${r.asked_by.map(a =>
+          `${userLink(a.username, a.user_id)}${a.reasoning ? ` — “${esc(a.reasoning)}”` : ""}`).join("<br>")}</div></td>
+      <td data-label="Action">
+        <div class="btn-row">
+          <button class="action-btn approve" data-field-req="added" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+                  title="Puts an empty ${esc(r.label)} row on the bike's sheet, for a value to be sourced.">Add to bike</button>
+          <button class="action-btn" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+                  title="Closes the request without adding the field.">Decline</button>
+        </div>
+      </td>
+    </tr>`).join("");
+}
+
+
+/* ---- names that go somewhere ------------------------------------------
+   A person's name opens their entry in Members (filtered to them, profile
+   card open); a bike's name opens its page, with the years alongside so two
+   bikes of one model can be told apart at a glance. */
+function userLink(name, id){
+  if(!name) return "—";
+  if(!id) return esc(name);
+  return `<button class="username-btn" data-member="${id}" data-member-name="${esc(name)}"
+                  title="Open ${esc(name)} in Members">${esc(name)}</button>`;
+}
+function bikeLink(name, years, id){
+  if(!name) return "";
+  const label = esc(name) + (years ? ` <span class="cell-dim">· ${esc(years)}</span>` : "");
+  return id ? `<a href="/index.html?bike=${id}">${label}</a>` : label;
+}
+
+/* ---- long lists fold to ten ---------------------------------------------
+   Every panel shows its first ten rows and a button for the rest, so moving
+   between sections is not a scroll past forty flags. Expanded panels stay
+   expanded across re-renders until the page is reloaded. */
+const EXPANDED = new Set();
+const FOLD_AT = 10;
+function collapseLong(){
+  document.querySelectorAll(".panel[id]").forEach(panel => {
+    const key = panel.id;
+    if(EXPANDED.has(key)) return;
+    // one list per panel: the rows of its first table, or the items of its body
+    const tbody = panel.querySelector(":scope > table > tbody, :scope > div > table > tbody");
+    let items;
+    if(tbody){
+      items = [...tbody.children].filter(tr =>
+        !tr.classList.contains("empty-row") && !tr.classList.contains("inline-row")
+        && !tr.classList.contains("more-row"));
+    } else {
+      const body = panel.querySelector(":scope > .panel-body");
+      items = body ? [...body.children].filter(el => el.classList.contains("notice")) : [];
+    }
+    if(items.length <= FOLD_AT || panel.querySelector(".more-row")) return;
+    const extra = items.slice(FOLD_AT);
+    extra.forEach(el => {
+      el.hidden = true;
+      // a field's inline slot row travels with it
+      if(el.nextElementSibling && el.nextElementSibling.classList.contains("inline-row"))
+        el.nextElementSibling.hidden = true;
+    });
+    const btn = `<button class="action-btn" data-show-more="${esc(key)}">Show ${extra.length} more ▾</button>`;
+    const last = extra[extra.length - 1];
+    if(tbody){
+      const tr = document.createElement("tr"); tr.className = "more-row";
+      tr.innerHTML = `<td colspan="99">${btn}</td>`;
+      last.after(tr);
+    } else {
+      const div = document.createElement("div"); div.className = "more-row";
+      div.innerHTML = btn;
+      last.after(div);
+    }
+  });
+}
+
+function statCard(num, label, dest, alert){
+  const away = dest.startsWith("/");
+  return `<button class="stat-card${alert ? " alert" : ""}${away ? " away" : ""}"
+    ${away ? `data-goto="${esc(dest)}"` : `data-jump="${esc(dest)}"`}
+    aria-label="${esc(label)}: ${esc(String(num))}. ${
+      away ? "Opens the browse page." : "Jumps to that section."}">
+    <div class="num">${esc(String(num))}</div>
+    <div class="lbl">${esc(label)}</div>
+  </button>`;
+}
+
+// The seven categories, in the order the browse page shows them. Kept next to
+// the two places that offer a choice so they cannot drift apart.
+const CATEGORIES = ["General", "Engine", "Drive", "Fuel and Air", "Controls", "Suspension", "Electrical", "Gear and Accessories"];
+const catOptions = (current) => CATEGORIES.map(c =>
+  `<option value="${esc(c)}"${c === current ? " selected" : ""}>${esc(c)}</option>`
+).join("");
+
+/* A branch as the person answering saw it. The chip is the answer they chose;
+   opening it shows the whole question with that answer marked, because
+   "Chain and sprockets" on its own does not say which question was asked or
+   what the alternatives were — and that is the thing you need when deciding
+   whether the field is attached to the right branch. */
+function branchesHTML(f){
+  const d = f.trigger_details || [];
+  if(!d.length) return `<span class="badge amber">${esc(f.trigger_list || "")}</span>`;
+  return d.map(t => `
+    <details class="branch">
+      <summary class="badge amber" title="${esc(t.question_id)} = ${esc(t.option)} · click for the question">${esc(t.answer)}</summary>
+      <div class="branch-q">
+        <div class="branch-sec">${esc(t.section)} · ${esc(t.question_id)}</div>
+        <div class="branch-text">${esc(t.question)}</div>
+        <ul class="branch-opts">
+          ${t.options.map(o => `<li${o.l === t.option ? ' class="on"' : ""}>
+            <span class="l">${esc(o.l)}</span>${esc(o.t)}${o.l === t.option ? " <b>← this one</b>" : ""}</li>`).join("")}
+        </ul>
+      </div>
+    </details>`).join("");
+}
+
+// The later half of a split is a different bike from the one the notice
+// points at; give it its own link.
+function splitNoticeLink(n){
+  try{
+    const d = JSON.parse(n.detail);
+    if(d && d.later && d.later.bike_id)
+      return ` · <a href="/index.html?bike=${d.later.bike_id}">open ${esc(d.later.display_name)} · ${esc(d.later.year_range || "")}</a>`;
+  } catch(_){}
+  return "";
+}
+
+// The picture the manager put up, small, so admin can see it without
+// leaving the dashboard. A removed photo just does not load.
+function photoThumb(n){
+  try{
+    const d = JSON.parse(n.detail);
+    if(d && d.url) return `<a href="/index.html?bike=${n.bike_id}"><img class="notice-thumb" src="${esc(d.url)}" alt=""></a>`;
+  } catch(_){}
+  return "";
+}
+
+async function showMemberProfile(id, name){
+  const slot = document.getElementById(`slot-member-${id}`);
+  if(!slot) return;
+  if(slot.dataset.open){ slot.innerHTML = ""; slot.dataset.open = ""; return; }
+  const p = await API.get(`/api/users/${id}/profile`);
+  const bikes = (S.assign.assignments || []).filter(a => a.user_id === Number(id));
+  slot.dataset.open = "1";
+  slot.innerHTML = `
+    <div class="inline-box member-profile">
+      <div class="inline-title">@${esc(p.username)} · ${esc(p.role)}${
+        p.display_name ? ` · ${esc(p.display_name)}` : ""}</div>
+      <div class="profile-stat-grid">
+        <div class="profile-stat"><div class="profile-stat-num">${p.specs_entered}</div><div class="profile-stat-lbl">Specs Entered</div></div>
+        <div class="profile-stat${p.specs_flagged ? " alert" : ""}"><div class="profile-stat-num">${p.specs_flagged}</div><div class="profile-stat-lbl">Their Specs Flagged</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.flags_submitted}</div><div class="profile-stat-lbl">Flags Submitted</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.thumbs_up_given}</div><div class="profile-stat-lbl">Thumbs Up Given</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.garage_count}</div><div class="profile-stat-lbl">Bikes in Garage</div></div>
+        <div class="profile-stat${p.open_user_flags ? " alert" : ""}"><div class="profile-stat-num">${p.open_user_flags}</div><div class="profile-stat-lbl">Open Flags Against</div></div>
+      </div>
+      ${bikes.length ? `<div class="cell-dim" style="margin-top:8px">Manages: ${
+        bikes.map(b => bikeLink(b.bike_name, b.year_range, b.bike_id)).join(", ")}</div>` : ""}
+    </div>`;
+}
+
+/* ---- assigning a bike: make first, then model ---------------------------
+   One dropdown for 2,000 bikes is unusable; two, the second filtered by the
+   first, is how the browse page does it too. The chosen make survives a
+   re-render so assigning three bikes of one make is three quick picks. */
+let AS_MAKE = "";
+function assignMakes(){
+  const counts = {};
+  for(const b of S.assign.unassigned) counts[b.make] = (counts[b.make] || 0) + 1;
+  return Object.keys(counts).sort().map(make => ({ make, count: counts[make] }));
+}
+function assignModelOptions(make){
+  if(!make) return `<option value="">Choose a make first</option>`;
+  const bikes = S.assign.unassigned.filter(b => b.make === make);
+  if(!bikes.length) return `<option value="">Every ${esc(make)} already has a manager</option>`;
+  return `<option value="">Choose a model…</option>` + bikes.map(b =>
+    `<option value="${b.bike_id}">${esc(b.display_name)}${
+      b.year_range ? ` · ${esc(b.year_range)}` : ""} — ${b.specs_filled}/${b.fields_triggered} filled</option>`).join("");
+}
+
+function renderMembers(list){
+  return `<table class="responsive">
+    <thead><tr><th>Account</th><th>Email</th><th>Role</th><th>Joined</th><th>Activity</th></tr></thead>
+    <tbody>${list.length ? list.map(u => `
+      <tr${u.suspended ? ' class="suspended"' : ""}>
+        <td data-label="Account"><strong>${esc(u.username)}</strong>${
+          u.display_name ? `<div class="cell-dim">${esc(u.display_name)}</div>` : ""}${
+          u.suspended ? ` <span class="badge danger">suspended</span>` : ""}</td>
+        <td data-label="Email">${u.email
+          ? `<a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`
+          : `<span class="cell-dim">—</span>`}</td>
+        <td data-label="Role">${esc(u.role)}${
+          u.bikes_managed ? `<div class="cell-dim">${u.bikes_managed} bike${u.bikes_managed === 1 ? "" : "s"}</div>` : ""}</td>
+        <td data-label="Joined" class="cell-dim">${esc(String(u.created_at || "").slice(0, 10))}</td>
+        <td data-label="Activity" class="cell-dim">${u.specs_entered} entered · ${
+          u.flags_submitted} flags · ${u.thumbs_up_given} votes
+          <div class="btn-row" style="margin-top:4px">
+            <button class="action-btn" data-profile="${u.user_id}" data-name="${esc(u.username)}">Profile</button>
+            <button class="action-btn" data-set-pw="${u.user_id}" data-name="${esc(u.username)}">Set password</button>
+            ${u.user_id === ME.user.id ? "" : u.suspended
+              ? `<button class="action-btn" data-suspend="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Reinstate</button>`
+              : `<button class="action-btn danger" data-suspend="${u.user_id}" data-on="1" data-name="${esc(u.username)}">Suspend</button>`}
+          </div></td>
+      </tr>
+      <tr class="inline-row"><td colspan="5"><div id="slot-member-${u.user_id}"></div></td></tr>`).join("")
+      : `<tr class="empty-row"><td colspan="5">No accounts match.</td></tr>`}</tbody>
+  </table>`;
+}
+
+function render(){
+  const s = S.summary;
+  document.getElementById("content").innerHTML = `
+    <div class="stat-grid">
+      ${statCard(s.proposals, "Pending Proposals", "p-proposals", s.proposals)}
+      ${statCard(s.tree_flags, "Tree Flags", "p-tree-flags", s.tree_flags)}
+      ${statCard(s.not_sure, "\"Not Sure\" Pending", "p-not-sure", s.not_sure)}
+      ${statCard(s.user_flags, "User Flags", "p-user-flags", s.user_flags)}
+      ${statCard(s.divergence, "Sibling Divergence", "p-divergence", s.divergence)}
+      ${statCard(s.bikes, "Bikes", "/index.html", 0)}
+      ${statCard(s.specs.toLocaleString(), "Spec Rows", "/index.html", 0)}
+      ${statCard(s.unverified_years, "Unconfirmed Year Spans", "p-years", s.unverified_years)}
+      ${statCard(s.manager_changes, "Manager Changes", "p-notices", s.manager_changes)}
+      ${statCard(s.field_requests, "Specs Riders Want Added", "p-field-requests", s.field_requests)}
+      ${statCard(s.bike_requests, "Bikes Riders Want Added", "p-bike-requests", s.bike_requests)}
+      ${statCard(s.users, "Members", "p-members", 0)}
+    </div>
+
+    ${S.unplaced.length ? `
+    <div class="panel" id="p-unplaced">
+      <div class="panel-head">
+        <div><h3>Fields on no bike</h3>
+          <p>These reach no bike and nothing will give them one — they exist on
+             the Spec Tree but appear on nobody's spec sheet. Add them to bikes,
+             or delete them.
+             ${S.waiting ? `<br><span class="cell-dim">${S.waiting} further
+               fields are unused but attached to questionnaire branches (belt
+               drive, 2-stroke, extra carbs). Those are fine — a bike answering
+               that way will pick them up.</span>` : ""}</p></div>
+        <span class="count-tag">${S.unplaced.length} unplaced</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Field</th><th>Category</th><th>Branch</th><th>From</th><th>Action</th></tr></thead>
+        <tbody>${S.unplaced.map((f, i) => `
+          <tr>
+            <td data-label="Field"><strong>${esc(f.label)}</strong>
+              <div class="cell-dim">${esc(f.spec_type)}</div></td>
+            <td data-label="Category"><span class="badge">${esc(f.category)}</span></td>
+            <td data-label="Branch">${f.triggers
+              ? `<span class="badge amber">${esc(f.trigger_list)}</span>
+                 <div class="cell-dim">no bike has answered that way yet — it
+                   will appear on the first that does</div>`
+              : `<span class="badge danger">no branch</span>
+                 <div class="cell-dim">nothing will ever trigger it</div>`}</td>
+            <td data-label="From" class="cell-dim">${esc(f.proposed_by || "—")}</td>
+            <td data-label="Action"><div class="btn-row">
+              ${f.triggers
+                ? ""   /* restricted to a branch — "every bike" would contradict it */
+                : `<button class="action-btn" data-universal="${esc(f.field_key)}"
+                      data-label="${esc(f.label)}">All bikes</button>`}
+              <button class="action-btn" data-branch="${esc(f.field_key)}"
+                      data-slot="u${i}" data-label="${esc(f.label)}">${
+                f.triggers ? "Change branch" : "Set branch"}</button>
+              <button class="action-btn approve" data-place="${esc(f.field_key)}"
+                      data-slot="u${i}" data-label="${esc(f.label)}">Add to bikes</button>
+              <button class="action-btn danger" data-drop-field="${esc(f.field_key)}"
+                      data-label="${esc(f.label)}">Delete</button>
+            </div></td>
+          </tr>
+          <tr class="inline-row"><td colspan="5"><div id="slot-u${i}"></div></td></tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : ""}
+
+    <div class="panel" id="p-tree">
+      <div class="panel-head">
+        <div><h3>Manage the Spec Tree</h3>
+          <p>Every field, what it costs to remove, and where it applies. Search
+             by name or category. Deleting a field takes its spec rows with it,
+             including any values people sourced — so the counts are shown
+             before the button, not after.</p></div>
+      </div>
+      <div class="panel-body" style="background:var(--panel-2)">
+        <input type="text" id="fm-search" autocomplete="off"
+               placeholder="Search fields — e.g. chain, Suspension, oil">
+      </div>
+      <div id="fm-results"><div class="empty">Type to search the tree.</div></div>
+    </div>
+
+    <div class="panel" id="p-managers">
+      <div class="panel-head">
+        <div><h3>Bike Managers</h3>
+          <p>A manager does not pick up bikes — you hand them out. That is what
+             makes "the person closest to the bike" mean something, and it is
+             why a value flag can be routed to one named person.</p></div>
+        <span class="count-tag">${s.managed_bikes} of ${s.bikes} bikes assigned</span>
+      </div>
+      <div class="panel-body" style="background:var(--panel-2)">
+        <div class="form-row"><label for="as-make">Make</label>
+          <select id="as-make">
+            ${S.assign.unassigned.length
+              ? `<option value="">Choose a make…</option>` + assignMakes().map(m =>
+                  `<option value="${esc(m.make)}"${m.make === AS_MAKE ? " selected" : ""}>${
+                    esc(m.make)} — ${m.count} unassigned</option>`).join("")
+              : `<option value="">Every bike already has a manager</option>`}
+          </select></div>
+        <div class="form-row"><label for="as-bike">Model (unassigned only)</label>
+          <select id="as-bike"${AS_MAKE ? "" : " disabled"}>${assignModelOptions(AS_MAKE)}</select></div>
+        <div class="form-row"><label for="as-user">Assign to</label>
+          <select id="as-user">
+            ${S.assign.candidates.map(c => `<option value="${c.id}">${
+              esc(c.display_name || c.username)} — ${esc(c.role)}${
+              c.bikes ? ` · already manages ${c.bikes}` : " · no bikes yet"}</option>`).join("")}
+          </select></div>
+        <div class="form-row"><label for="as-spec">Specialty (optional)</label>
+          <input type="text" id="as-spec" placeholder="e.g. Street / Sport"></div>
+        <div class="field-hint">Assigning promotes a public account to manager.
+          Removing their last bike sets it back to public, so nobody keeps
+          manager access to nothing.</div>
+        <div class="form-actions">
+          <button class="primary-btn" id="as-go"
+                  ${S.assign.unassigned.length ? "" : "disabled"}>Assign manager</button>
+        </div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Bike</th><th>Manager</th><th>Specialty</th><th>State</th><th></th></tr></thead>
+        <tbody>${S.assign.assignments.length ? S.assign.assignments.map(a => `
+          <tr>
+            <td data-label="Bike"><strong>${bikeLink(a.bike_name, a.year_range, a.bike_id)}</strong></td>
+            <td data-label="Manager">${userLink(a.username, a.user_id)}${
+              a.display_name && a.display_name !== a.username ? ` <span class="cell-dim">${esc(a.display_name)}</span>` : ""}
+              <div class="cell-dim">${esc(a.role)}</div></td>
+            <td data-label="Specialty" class="cell-dim">${esc(a.specialty || "—")}</td>
+            <td data-label="State">
+              <span class="badge ${a.specs_needed ? "amber" : "good"}">${
+                a.specs_filled} filled · ${a.specs_needed} to go</span>
+              ${a.open_flags ? `<span class="badge danger">${a.open_flags} open flag${
+                a.open_flags > 1 ? "s" : ""}</span>` : ""}</td>
+            <td data-label=""><button class="action-btn danger"
+                data-unassign="${a.bike_id}|${a.user_id}">Remove</button></td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="5">Nobody is managing any bike yet.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-proposals">
+      <div class="panel-head">
+        <div><h3>Pending Branch Proposals</h3>
+          <p>Approving creates the field for real, across every bike on the
+             platform. That's why it stops here and not with the manager who
+             proposed it.</p></div>
+        <span class="count-tag">${S.proposals.length} pending</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Field</th><th>Category</th><th>Reasoning</th><th>From</th><th>Action</th></tr></thead>
+        <tbody>${S.proposals.length ? S.proposals.map((p, i) => `
+          <tr>
+            <td data-label="Field"><strong>${esc(p.field_name)}</strong>
+              ${p.bike_name ? `<div class="cell-dim">for ${bikeLink(p.bike_name, p.year_range, p.bike_id)}</div>` : ""}</td>
+            <td data-label="Category"><span class="badge">${esc(p.category)}</span>${
+              p.value_type && p.value_type !== "text" ? `<div class="cell-dim">${esc(p.value_type.replace("_", " "))} value</div>` : ""}</td>
+            <td data-label="Reasoning" class="cell-comment">${esc(p.reasoning || "—")}</td>
+            <td data-label="From" class="cell-dim">${userLink(p.proposed_by, p.proposed_by_id)}<br>${esc(fmtDate(p.created_at))}</td>
+            <td data-label="Action"><div class="btn-row">
+              <button class="action-btn approve" data-approve="${p.id}" data-slot="p${i}"
+                      data-name="${esc(p.field_name)}" data-bike="${p.bike_id || ""}"
+                      data-category="${esc(p.category)}" data-value-type="${esc(p.value_type || "text")}">Approve</button>
+              <button class="action-btn danger" data-reject="${p.id}" data-slot="p${i}">Reject</button>
+            </div></td>
+          </tr>
+          <tr class="inline-row"><td colspan="5"><div id="slot-p${i}"></div></td></tr>`).join("")
+          : `<tr class="empty-row"><td colspan="5">No proposals waiting.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-not-sure">
+      <div class="panel-head">
+        <div><h3>"Not Sure" — Pending Confirmation</h3>
+          <p>A manager couldn't answer confidently. Confirming writes the value
+             straight onto the spec; rejecting closes the question and leaves
+             the gap visible.</p></div>
+        <span class="count-tag">${S.notSure.length} pending</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Question</th><th>Bike</th><th>From</th><th>Action</th></tr></thead>
+        <tbody>${S.notSure.length ? S.notSure.map((n, i) => `
+          <tr>
+            <td data-label="Question">${esc(n.question_text)}
+              ${n.field_key ? "" : `<div class="cell-dim">not tied to a field — can only be closed, not answered</div>`}</td>
+            <td data-label="Bike" class="cell-dim">${bikeLink(n.bike_name, n.year_range, n.bike_id)}</td>
+            <td data-label="From" class="cell-dim">${userLink(n.submitted_by, n.submitted_by_id)}<br>${esc(fmtDate(n.created_at))}</td>
+            <td data-label="Action"><div class="btn-row">
+              ${n.field_key ? `<button class="action-btn approve" data-confirm="${n.id}" data-slot="n${i}"
+                 data-q="${esc(n.question_text)}">Confirm</button>` : ""}
+              <button class="action-btn" data-reject-ns="${n.id}">Close</button>
+            </div></td>
+          </tr>
+          <tr class="inline-row"><td colspan="4"><div id="slot-n${i}"></div></td></tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">Nothing pending.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-tree-flags">
+      <div class="panel-head">
+        <div><h3>Spec Tree Flags</h3>
+          <p>Feedback about the shape of the tree itself — a field that should
+             be two, or a question that fits nothing.</p></div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>About</th><th>Comment</th><th>From</th><th>Action</th></tr></thead>
+        <tbody>${S.treeFlags.length ? S.treeFlags.map(t => `
+          <tr>
+            <td data-label="About"><strong>${esc(t.question_text || "—")}</strong>
+              <div class="cell-dim">${bikeLink(t.bike_name, t.year_range, t.bike_id)}</div></td>
+            <td data-label="Comment" class="cell-comment">${esc(t.comment)}</td>
+            <td data-label="From" class="cell-dim">${userLink(t.flagged_by, t.flagged_by_id)}<br>${esc(fmtDate(t.created_at))}</td>
+            <td data-label="Action"><div class="btn-row">
+              <button class="action-btn approve" data-tree="${t.id}" data-status="accepted">Accept</button>
+              <button class="action-btn danger" data-tree="${t.id}" data-status="rejected">Reject</button>
+            </div></td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">No open tree flags.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-user-flags">
+      <div class="panel-head">
+        <div><h3>User Flags</h3>
+          <p>Suspending ends the account's live sessions immediately, not just
+             at the next login.</p></div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>User</th><th>Reason</th><th>Detail</th><th>From</th><th>Action</th></tr></thead>
+        <tbody>${S.userFlags.length ? S.userFlags.map(u => `
+          <tr>
+            <td data-label="User"><strong>${userLink(u.flagged_user, u.flagged_user_id)}</strong>
+              ${u.suspended ? `<span class="badge danger">suspended</span>` : ""}</td>
+            <td data-label="Reason"><span class="badge danger">${esc(u.reason)}</span></td>
+            <td data-label="Detail" class="cell-comment">${esc(u.detail || "—")}</td>
+            <td data-label="From" class="cell-dim">${userLink(u.flagged_by, u.flagged_by_id)}<br>${esc(fmtDate(u.created_at))}</td>
+            <td data-label="Action"><div class="btn-row">
+              <button class="action-btn danger" data-uf="${u.id}" data-status="actioned" data-suspend="1">Suspend</button>
+              <button class="action-btn" data-uf="${u.id}" data-status="actioned">Warn only</button>
+              <button class="action-btn" data-uf="${u.id}" data-status="dismissed">Dismiss</button>
+            </div></td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="5">No open user flags.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-divergence">
+      <div class="panel-head">
+        <div><h3>Sibling Divergence</h3>
+          <p>Bikes that came from the same split and no longer agree. Most
+             divergence is intended — that's why the split happened. Marking it
+             reviewed remembers <em>these exact values</em>, so if someone edits
+             the field again it comes back.</p></div>
+        <span class="count-tag">${S.divergence.length} to review</span>
+      </div>
+      <div class="panel-body">
+        ${S.divergence.length ? S.divergence.map((d, i) => `
+          <div style="border-bottom:1px solid var(--line);padding:12px 0">
+            <strong>${esc(d.label)}</strong>
+            <div class="diverge">
+              <div><div class="lbl">${esc(d.bike_a_name)} · ${esc(d.bike_a_years || "")}</div>
+                   <div class="val">${esc(d.value_a ?? "— not set —")}</div></div>
+              <div><div class="lbl">${esc(d.bike_b_name)} · ${esc(d.bike_b_years || "")}</div>
+                   <div class="val">${esc(d.value_b ?? "— not set —")}</div></div>
+            </div>
+            <div class="form-actions" style="justify-content:flex-start">
+              <button class="action-btn approve" data-ack="${i}">Mark reviewed — difference is intended</button>
+            </div>
+          </div>`).join("")
+          : `<div class="empty">Nothing diverging. Either no bikes have been split
+               yet, or every difference has been reviewed.</div>`}
+      </div>
+    </div>
+
+    <div class="panel" id="p-members">
+      <div class="panel-head">
+        <div><h3>Members</h3>
+          <p>Every account, newest first. The email is asked for at sign-up and
+             shown here only — it is not on a profile and no other reader can
+             see it. Accounts from before emails were collected show a dash.</p></div>
+        <span class="count-tag">${S.members.length} accounts</span>
+      </div>
+      <div class="panel-body" style="background:var(--panel-2)">
+        <input type="text" id="mem-search" autocomplete="off"
+               placeholder="Filter by name, email or role">
+      </div>
+      <div id="mem-list">${renderMembers(S.members)}</div>
+    </div>
+
+    <div class="panel" id="p-backups">
+      <div class="panel-head">
+        <div><h3>Backups &amp; Restore</h3>
+          <p>The database holds every bike, spec, account and message; the photos
+             are a folder beside it. Download both regularly and keep them off
+             the server. Restore replaces what is live with the file you upload —
+             the way to move the site to a new server, or to go back to a backup.
+             Everyone, including you, is signed out by a restore.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="btn-row">
+          <a class="action-btn approve" style="text-decoration:none" href="/api/admin/backup">Download database</a>
+          <a class="action-btn" style="text-decoration:none" href="/api/admin/backup-photos">Download photos (zip)</a>
+        </div>
+        <div class="btn-row" style="margin-top:14px;align-items:center">
+          <button class="action-btn danger" id="restore-pick">Restore database from a file…</button>
+          <button class="action-btn" id="restore-photos-pick">Restore photos from a zip…</button>
+          <input type="file" id="restore-file" accept=".db,.sqlite,.sqlite3,application/octet-stream" hidden>
+          <input type="file" id="restore-photos-file" accept=".zip,application/zip" hidden>
+          <span class="cell-dim" id="restore-status"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="p-bike-requests">
+      <div class="panel-head">
+        <div><h3>Bikes Riders Want Added</h3>
+          <p>A rider asked for a machine the catalogue doesn't have. <em>Add as a
+             new bike</em> creates it from what they gave — check the model code
+             and years first; a guessed year is a wrong one. If it's already
+             here under another name, <em>match</em> the request to that bike
+             instead. Everyone waiting on it is answered either way.</p></div>
+        <span class="count-tag">${S.bikeRequests.length} open</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Bike</th><th>Details</th><th>Waiting</th><th>Action</th></tr></thead>
+        <tbody>${S.bikeRequests.length ? bikeRequestRows(S.bikeRequests)
+          : `<tr class="empty-row"><td colspan="4">No open requests.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-field-requests">
+      <div class="panel-head">
+        <div><h3>Specs Riders Want Added</h3>
+          <p>A rider asked for a field the Spec Tree has but a bike doesn't. The
+             bike's manager sees the same list on their dashboard; the ones
+             marked <span class="badge amber">no manager</span> are yours to
+             settle. Fields that aren't on the tree at all arrive as proposals
+             above.</p></div>
+        <span class="count-tag">${S.fieldRequests.length} open</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Bike</th><th>Asked by</th><th>Action</th></tr></thead>
+        <tbody>${S.fieldRequests.length ? fieldRequestRows(S.fieldRequests, true)
+          : `<tr class="empty-row"><td colspan="4">No open requests.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-notices">
+      <div class="panel-head">
+        <div><h3>Manager Changes</h3>
+          <p>A bike manager renamed or split one of their bikes. The change has
+             already happened — this is so you know, not for approval. Open the
+             page if you want to look; mark it seen when you have.</p></div>
+        <div class="btn-row">
+          <span class="count-tag">${S.notices.length} unseen</span>
+          ${S.notices.length > 1 ? `<button class="action-btn" data-notice-seen="all">Mark all seen</button>` : ""}
+        </div>
+      </div>
+      <div class="panel-body">
+        ${S.notices.length ? S.notices.map(n => `
+          <div class="notice">
+            <div>
+              <span class="badge ${n.kind === "split" ? "amber" : "good"}">${esc(n.kind)}</span>${
+                n.kind === "photo" ? photoThumb(n) : ""}
+              <span class="notice-text">${esc(n.summary)}</span>
+              <div class="cell-dim notice-meta">${esc(n.created_at)}${
+                n.bike_id ? ` · <a href="/index.html?bike=${n.bike_id}">open ${esc(n.bike_name || "the bike")}${
+                  n.year_range ? " · " + esc(n.year_range) : ""}</a>` : ""}${
+                n.kind === "split" && n.detail ? splitNoticeLink(n) : ""}</div>
+            </div>
+            <button class="action-btn" data-notice-seen="${n.id}">Seen</button>
+          </div>`).join("")
+          : `<div class="empty">Nothing new from the managers.</div>`}
+      </div>
+    </div>
+
+    <div class="panel" id="p-years">
+      <div class="panel-head">
+        <div><h3>Unconfirmed Year Spans</h3>
+          <p>Bikes folded out of the bulk catalog import. Their year ranges were
+             inferred from rows that carried no model-year boundaries, so each
+             is a guess until someone confirms or splits it.</p></div>
+        <span class="count-tag">${s.unverified_years} unconfirmed</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Bike</th><th>Years</th><th>Model years</th><th>Action</th></tr></thead>
+        <tbody>${S.unverified.length ? S.unverified.map(b => `
+          <tr>
+            <td data-label="Bike"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}</a></td>
+            <td data-label="Years" class="cell-dim">${esc(b.year_range || "—")}</td>
+            <td data-label="Model years" class="cell-dim">${b.year_count}</td>
+            <td data-label="Action"><button class="action-btn approve" data-verify="${b.bike_id}">Confirm span</button></td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">Every year span has been confirmed.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel" id="p-activity">
+      <div class="panel-head">
+        <div><h3>My Activity</h3>
+          <p>What you have changed, most recent first. Actions marked
+             <span class="badge danger">destructive</span> removed data;
+             expanding one shows exactly what was lost.
+             ${S.activity.destructive_total
+               ? `<br><span class="cell-dim">${S.activity.destructive_total} destructive
+                  action(s) recorded in total.</span>` : ""}</p></div>
+        <div class="btn-row">
+          <button class="action-btn" id="act-scope" data-scope="me">Showing: mine</button>
+          <button class="action-btn" id="act-destructive">Only destructive</button>
+        </div>
+      </div>
+      <div id="act-list">${renderActivity(S.activity.actions)}</div>
+    </div>
+
+    <div class="panel" id="p-catalog">
+      <div class="panel-head">
+        <div><h3>Catalog Provenance — Dropped in v2</h3>
+          <p>Model years present in the original 991-row catalog that did not
+             survive into the 139-row v2 browse page. Imported and kept rather
+             than silently discarded, so the difference is a decision someone
+             makes rather than an accident of which file got loaded.</p></div>
+        <span class="count-tag">${S.dropped.total} rows</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Bike</th><th>Model</th><th>Year</th></tr></thead>
+        <tbody>${S.dropped.items.map(d => `
+          <tr>
+            <td data-label="Bike">${esc(d.display_name)}</td>
+            <td data-label="Model" class="cell-dim">${esc(d.model_code)}</td>
+            <td data-label="Year" class="cell-dim">${d.year}</td>
+          </tr>`).join("")}</tbody>
+      </table>
+      <div class="panel-body cell-dim">Showing the first ${S.dropped.items.length} of ${S.dropped.total}.</div>
+    </div>`;
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const jump = e.target.closest("[data-jump]");
+  if(jump){
+    const target = document.getElementById(jump.dataset.jump);
+    // A card whose panel is not on the page (Fields on no bike only renders
+    // when there are any) should say so rather than silently do nothing.
+    if(!target){ toast("That section has nothing in it right now.", "ok"); return; }
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.classList.remove("panel-flash");
+    void target.offsetWidth;                       // restart, if re-clicked
+    target.classList.add("panel-flash");
+    // Send focus with the scroll, so a keyboard user carries on from where the
+    // page just took them instead of from the card they left behind.
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+    return;
+  }
+
+  const goto_ = e.target.closest("[data-goto]");
+  if(goto_){ location.href = goto_.dataset.goto; return; }
+
+  if(e.target.closest("#as-go")){
+    const bike = document.getElementById("as-bike").value;
+    if(!bike){ toast("Pick a make, then the model.", "error"); return; }
+    const r = await API.post(`/api/admin/bikes/${bike}/manager`, {
+      user_id: Number(document.getElementById("as-user").value),
+      specialty: document.getElementById("as-spec").value.trim() || null,
+    });
+    toast(r.promoted ? "Assigned — account promoted to manager." : "Assigned.", "ok");
+    await load();
+    return;
+  }
+
+  const un = e.target.closest("[data-unassign]");
+  if(un){
+    const [bike, user] = un.dataset.unassign.split("|");
+    const r = await API.del(`/api/admin/bikes/${bike}/manager/${user}`);
+    toast(r.demoted ? "Removed — no bikes left, account set back to public." : "Removed.", "ok");
+    await load();
+    return;
+  }
+
+  const pick = e.target.closest("[data-pick]");
+  if(pick){
+    const pre = pick.dataset.pick;                      // "ap" or "br"
+    const q = document.getElementById(pre + "-question").value;
+    const o = document.getElementById(pre + "-option").value;
+    if(!q || !o){ toast("Choose a question and an answer first.", "error"); return; }
+    if(PICKED.some(t => t.q === q && t.o === o)){
+      toast("That branch is already on the list.", "error");
+      return;
+    }
+    PICKED.push({ q, o });
+    renderPicked(pre + "-picked");
+    if(pre === "ap") updateApproveWarning();
+    return;
+  }
+
+  const unpick = e.target.closest("[data-unpick]");
+  if(unpick){
+    PICKED.splice(Number(unpick.dataset.unpick), 1);
+    renderPicked(document.getElementById("ap-picked") ? "ap-picked" : "br-picked");
+    if(document.getElementById("ap-picked")) updateApproveWarning();
+    return;
+  }
+
+  if(e.target.closest("#act-scope")){
+    const b = document.getElementById("act-scope");
+    b.dataset.scope = b.dataset.scope === "me" ? "all" : "me";
+    b.textContent = b.dataset.scope === "me" ? "Showing: mine" : "Showing: everyone";
+    await reloadActivity();
+    return;
+  }
+  if(e.target.closest("#act-destructive")){
+    const b = document.getElementById("act-destructive");
+    b.dataset.on = b.dataset.on === "1" ? "" : "1";
+    b.classList.toggle("danger", b.dataset.on === "1");
+    b.textContent = b.dataset.on === "1" ? "Destructive only ✓" : "Only destructive";
+    await reloadActivity();
+    return;
+  }
+  const actDetail = e.target.closest("[data-act-detail]");
+  if(actDetail){
+    const i = Number(actDetail.dataset.actDetail);
+    const slot = document.getElementById(`act-${i}`);
+    if(slot.innerHTML){ slot.innerHTML = ""; return; }
+    const a = S.activity.actions[i];
+    let d = {};
+    try { d = JSON.parse(a.detail); } catch(err){ d = { raw: a.detail }; }
+    const lost = Array.isArray(d.lost_values) ? d.lost_values : null;
+    slot.innerHTML = `
+      <div class="inline-box${a.destructive ? " danger" : ""}">
+        <div class="inline-title">${esc(a.action)}</div>
+        ${lost && lost.length ? `
+          <div class="inline-sub">Values destroyed — this is the only remaining
+            record of them:</div>
+          <table class="responsive"><thead><tr><th>Bike</th><th>Value</th></tr></thead>
+          <tbody>${lost.map(v => `<tr>
+            <td data-label="Bike">${esc(v.display_name)}</td>
+            <td data-label="Value">${esc(v.value)}</td></tr>`).join("")}</tbody></table>`
+          : `<pre style="white-space:pre-wrap;font-size:11px;color:var(--text-dim);margin:0">${
+              esc(JSON.stringify(d, null, 2))}</pre>`}
+      </div>`;
+    return;
+  }
+
+  const move = e.target.closest("[data-move]");
+  if(move){
+    const [key, direction] = move.dataset.move.split("|");
+    const r = await API.post(`/api/admin/fields/${key}/move`, { direction });
+    toast(`Moved ${direction} past "${r.swapped_with}".`, "ok");
+    // Re-run the current search so the new order is what you see.
+    document.getElementById("fm-search").dispatchEvent(new Event("input", {bubbles:true}));
+    return;
+  }
+
+  const clearBranch = e.target.closest("[data-clear-branch]");
+  if(clearBranch){
+    const r = await API.del(`/api/admin/fields/${clearBranch.dataset.clearBranch}/trigger`);
+    toast(`"${clearBranch.dataset.label}" detached from ${r.removed} branch${
+      r.removed === 1 ? "" : "es"}. Bikes that already have it keep it.`, "ok");
+    document.getElementById("fm-search").dispatchEvent(new Event("input", {bubbles:true}));
+    await load();
+    return;
+  }
+
+  const unplace = e.target.closest("[data-unplace]");
+  if(unplace){
+    const key = unplace.dataset.unplace;
+    const usage = await API.get(`/api/admin/fields/${key}/usage`);
+    document.getElementById(`slot-${unplace.dataset.slot}`).innerHTML = `
+      <div class="inline-box danger">
+        <div class="inline-title">Remove "${esc(unplace.dataset.label)}" from a bike</div>
+        <div class="inline-sub">Bikes holding a value are listed last and marked —
+          removing those destroys the value and anything hanging off it.</div>
+        ${usage.bikes.map(b => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+            <div><div style="font-size:12.5px">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}</div>
+              <div class="cell-dim">${b.value
+                ? `<span style="color:var(--danger)">holds “${esc(b.value)}”</span>`
+                : "empty"}${b.alternates ? ` · ${b.alternates} alternate(s)` : ""}</div></div>
+            <button class="action-btn danger" data-unplace-go="${esc(key)}|${b.bike_id}"
+                    data-force="${b.value || b.alternates ? "1" : ""}"
+                    data-name="${esc(b.display_name)}">Remove</button>
+          </div>`).join("")}
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${unplace.dataset.slot}">Done</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const unplaceGo = e.target.closest("[data-unplace-go]");
+  if(unplaceGo){
+    const [key, bikeId] = unplaceGo.dataset.unplaceGo.split("|");
+    const force = unplaceGo.dataset.force === "1";
+    if(force && !unplaceGo.dataset.armed){
+      // One deliberate second click before anything is destroyed.
+      unplaceGo.dataset.armed = "1";
+      unplaceGo.textContent = "Destroy value?";
+      return;
+    }
+    const r = await API.del(`/api/admin/bikes/${bikeId}/specs/${key}`, { force });
+    toast(r.value_destroyed
+      ? `Removed from ${unplaceGo.dataset.name} — its value was destroyed.`
+      : `Removed from ${unplaceGo.dataset.name}.`, "ok");
+    unplaceGo.closest("div").remove();
+    document.getElementById("fm-search").dispatchEvent(new Event("input", {bubbles:true}));
+    return;
+  }
+
+  const unUni = e.target.closest("[data-un-universal]");
+  if(unUni){
+    await API.post(`/api/admin/fields/${unUni.dataset.unUniversal}/universal`,
+                   { universal: false });
+    toast(`"${unUni.dataset.label}" no longer applies to every bike. Bikes that `
+        + `already have it keep it — remove it from them individually if it `
+        + `does not belong.`, "ok");
+    const search = document.getElementById("fm-search");
+    if(search && search.value) search.dispatchEvent(new Event("input", {bubbles:true}));
+    await load();
+    return;
+  }
+
+  // From the tree editor: an existing field onto every bike. Shown with the
+  // count first -- it writes one row per bike -- and refused, with the reason,
+  // while the field is tied to a questionnaire branch.
+  const allBikes = e.target.closest("[data-all-bikes]");
+  if(allBikes){
+    const key = allBikes.dataset.allBikes;
+    const total = S.summary.bikes;
+    const on = Number(allBikes.dataset.on || 0);
+    document.getElementById(`slot-${allBikes.dataset.slot}`).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Put "${esc(allBikes.dataset.label)}" on every bike?</div>
+        ${allBikes.dataset.triggers ? `
+          <div class="inline-sub">It is tied to a questionnaire branch, which says only
+            some bikes have it. "Every bike" contradicts that — clear the branch first
+            (the <b>Remove branch</b> button beside this one), then apply to all.</div>
+          <div class="form-actions"><button class="ghost-btn" data-close="${allBikes.dataset.slot}">Close</button></div>`
+        : `
+          <div class="inline-sub">It is on <b>${on.toLocaleString()}</b> of <b>${total.toLocaleString()}</b> bikes.
+            This adds an empty row to the other <b>${Math.max(0, total - on).toLocaleString()}</b> — a gap for
+            each manager to fill — and every bike created from now on gets it automatically.
+            Nothing already entered is touched.</div>
+          <div class="form-actions">
+            <button class="ghost-btn" data-close="${allBikes.dataset.slot}">Cancel</button>
+            <button class="primary-btn" data-all-bikes-go="${esc(key)}" data-label="${esc(allBikes.dataset.label)}">Apply to all bikes</button>
+          </div>`}
+      </div>`;
+    return;
+  }
+  const allGo = e.target.closest("[data-all-bikes-go]");
+  if(allGo){
+    const r = await API.post(`/api/admin/fields/${allGo.dataset.allBikesGo}/universal`,
+                             { universal: true, backfill: true });
+    toast(`"${allGo.dataset.label}" now applies to every bike — added to ${r.added.toLocaleString()} of ${r.bikes.toLocaleString()}. New bikes get it automatically.`, "ok");
+    await load();
+    return;
+  }
+
+  const uni = e.target.closest("[data-universal]");
+  if(uni){
+    const r = await API.post(`/api/admin/fields/${uni.dataset.universal}/universal`,
+                             { universal: true, backfill: true });
+    toast(`"${uni.dataset.label}" now applies to every bike — added to ${r.added} of ${r.bikes}. New bikes get it automatically.`, "ok");
+    await load();
+    return;
+  }
+
+  const rename = e.target.closest("[data-rename]");
+  if(rename){
+    const key = rename.dataset.rename;
+    document.getElementById(`slot-${rename.dataset.slot}`).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Rename "${esc(rename.dataset.label)}"</div>
+        <div class="inline-sub">This is what riders read on every bike carrying
+          the field. The internal key stays <code>${esc(key)}</code>, so saved
+          Guides links and the spec rows themselves are untouched — only the
+          wording changes.</div>
+        <div class="form-row"><label for="rn-label">New name</label>
+          <input type="text" id="rn-label" maxlength="120" autocomplete="off"
+                 value="${esc(rename.dataset.label)}"></div>
+        <div class="form-actions">
+          <button class="action-btn" data-cancel-slot="${esc(rename.dataset.slot)}">Cancel</button>
+          <button class="primary-btn" data-rename-go="${esc(key)}">Save name</button>
+        </div>
+      </div>`;
+    const input = document.getElementById("rn-label");
+    input.focus();
+    input.select();
+    return;
+  }
+
+  const renameGo = e.target.closest("[data-rename-go]");
+  if(renameGo){
+    const label = document.getElementById("rn-label").value.trim();
+    if(!label){ toast("A field needs a name.", "error"); return; }
+    const r = await API.patch(`/api/admin/fields/${renameGo.dataset.renameGo}/label`,
+                              { label });
+    toast(`Renamed to “${r.label}” on ${r.bikes} bike${r.bikes === 1 ? "" : "s"}.`, "ok");
+    // The tree list is rendered by its own search, so re-run that rather than
+    // load(), which rebuilds everything else and not this.
+    await runFieldSearch();
+    return;
+  }
+
+  const cancelSlot = e.target.closest("[data-cancel-slot]");
+  if(cancelSlot){
+    document.getElementById(`slot-${cancelSlot.dataset.cancelSlot}`).innerHTML = "";
+    return;
+  }
+
+  const branch = e.target.closest("[data-branch]");
+  if(branch){
+    if(!BRANCHES) BRANCHES = await API.get("/api/admin/branches");
+    PICKED = [];
+    document.getElementById(`slot-${branch.dataset.slot}`).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Which branch does "${esc(branch.dataset.label)}" belong to?</div>
+        <div class="inline-sub">The field is added automatically to any bike that
+          answers this way — including bikes added later. Replaces the current
+          branch rather than adding a second one.</div>
+        <div class="form-row"><label>Question</label>
+          <select id="br-question">
+            <option value="">— choose —</option>
+            ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
+              esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+          </select></div>
+        <div class="form-row" id="br-option-row" style="display:none">
+          <label>Applies when the answer is</label>
+          <div class="tag-input-row">
+            <select id="br-option"></select>
+            <button type="button" class="action-btn approve" data-pick="br">+ Add branch</button>
+          </div>
+        </div>
+        <div class="form-row"><div class="branch-chips" id="br-picked"></div></div>
+        <div class="form-row" id="br-backfill-row" style="display:none">
+          <label><input type="checkbox" id="br-backfill" style="width:auto">
+            <span id="br-backfill-label"></span></label>
+        </div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${branch.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-branch-go="${esc(branch.dataset.branch)}">Set branches</button>
+        </div>
+      </div>`;
+    renderPicked('br-picked');
+    return;
+  }
+
+  const branchGo = e.target.closest("[data-branch-go]");
+  if(branchGo){
+    if(!PICKED.length){ toast("Add at least one branch first.", "error"); return; }
+    const bf = document.getElementById("br-backfill");
+    const r = await API.post(`/api/admin/fields/${branchGo.dataset.branchGo}/trigger`, {
+      triggers: PICKED.map(t => ({ question: t.q, option: t.o })),
+      backfill: bf ? bf.checked : false,
+    });
+    toast(r.matching_bikes
+      ? `Attached to "${r.option_text}" — ${r.matching_bikes} bike(s) match${r.backfilled ? `, ${r.backfilled} updated` : ""}.`
+      : `Attached to "${r.option_text}". No bike answers that way yet — it will appear on the first one that does.`,
+      "ok");
+    BRANCHES = null;
+    await load();
+    return;
+  }
+
+  const place = e.target.closest("[data-place]");
+  if(place){
+    const key = place.dataset.place;
+    document.getElementById(`slot-${place.dataset.slot}`).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Add "${esc(place.dataset.label)}" to bikes</div>
+        <div class="inline-sub">Search for the bikes this field belongs on. It
+          is added as an empty gap — a new field is a new question, not an
+          answer.</div>
+        <input type="text" id="pl-search" placeholder="Search by name, e.g. CB919" autocomplete="off">
+        <div id="pl-results" style="margin-top:8px"></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${place.dataset.slot}">Done</button>
+        </div>
+      </div>`;
+    const input = document.getElementById("pl-search");
+    input.dataset.field = key;
+    input.focus();
+    return;
+  }
+
+  const addTo = e.target.closest("[data-add-to-bike]");
+  if(addTo){
+    const [key, bikeId] = addTo.dataset.addToBike.split("|");
+    const r = await API.post(`/api/admin/fields/${key}/apply`, { bike_ids: [Number(bikeId)] });
+    toast(r.added ? "Added to that bike." : "That bike already has it.", "ok");
+    addTo.textContent = "✓ Added";
+    addTo.disabled = true;
+    return;
+  }
+
+  const drop = e.target.closest("[data-drop-field]");
+  if(drop){
+    const bikes = Number(drop.dataset.bikes || 0);
+    const values = Number(drop.dataset.values || 0);
+    if(bikes && !drop.dataset.armed){
+      // Say the cost, then require a second click. No modal, but no accidents.
+      drop.dataset.armed = "1";
+      drop.textContent = values
+        ? `Delete + destroy ${values} value${values === 1 ? "" : "s"}?`
+        : `Delete from ${bikes} bike${bikes === 1 ? "" : "s"}?`;
+      return;
+    }
+    const r = await API.del(`/api/admin/fields/${drop.dataset.dropField}`,
+                            bikes ? { force: true } : undefined);
+    toast(r.values_destroyed
+      ? `"${drop.dataset.label}" deleted — removed from ${r.bikes_affected} bike(s), ${r.values_destroyed} value(s) destroyed.`
+      : `"${drop.dataset.label}" deleted from the Spec Tree.`, "ok");
+    const search = document.getElementById("fm-search");
+    if(search && search.value) search.dispatchEvent(new Event("input", {bubbles:true}));
+    await load();
+    return;
+  }
+
+  const approve = e.target.closest("[data-approve]");
+  if(approve){
+    if(!BRANCHES) BRANCHES = await API.get("/api/admin/branches");
+    PICKED = [];
+    document.getElementById(`slot-${approve.dataset.slot}`).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Approve "${esc(approve.dataset.name)}"</div>
+        <div class="inline-sub">Creating the field is not enough on its own — a
+          field attached to no branch and no bike shows up in nobody's spec
+          sheet. Decide where it lives.</div>
+
+        <div class="form-row"><label for="ap-name">Field name (as riders will see it)</label>
+          <input type="text" id="ap-name" maxlength="120" autocomplete="off"
+                 value="${esc(approve.dataset.name)}">
+          <div class="field-hint">Proposed as “${esc(approve.dataset.name)}”. Reword it
+            if it should read differently on the spec sheet — the proposal keeps
+            the original wording.</div>
+        </div>
+
+        <div class="form-row"><label for="ap-category">Category</label>
+          <select id="ap-category">${catOptions(approve.dataset.category)}</select>
+          <div class="field-hint">Proposed for ${esc(approve.dataset.category)}.
+            Re-file it if it belongs elsewhere — the proposer picked from this
+            list without seeing how the rest of the tree is arranged.</div>
+        </div>
+
+        <div class="form-row"><label>How values work</label>
+          <select id="ap-type">
+            <option value="fixed">Fixed — one correct value</option>
+            <option value="pref">Preference — riders legitimately vary</option>
+            <option value="community">Community — no manufacturer value exists</option>
+          </select></div>
+        <div class="form-row"><label>What the value is</label>
+          <select id="ap-value-type">
+            ${["text", "wire_color", "fuel_octane", "ethanol"].map(v => `<option value="${v}"${
+              (approve.dataset.valueType || "text") === v ? " selected" : ""}>${{
+                text: "Text — anything typed (default)",
+                wire_color: "Wire colour — picked from the colour list, shown in the maker's code",
+                fuel_octane: "Fuel octane — a pump grade, AKI or RON",
+                ethanol: "Ethanol limit — E0 to E15" }[v]}</option>`).join("")}
+          </select>
+          ${approve.dataset.valueType && approve.dataset.valueType !== "text"
+            ? `<div class="cell-dim" style="margin-top:4px">The proposer asked for <b>${esc(approve.dataset.valueType.replace("_", " "))}</b>.</div>` : ""}
+          <div class="cell-dim" style="margin-top:4px">Left as Text, it is a text box. Pick Wire colour for
+            a wire so riders get the colour picker.</div></div>
+
+        <div class="form-row">
+          <label><input type="checkbox" id="ap-universal" style="width:auto">
+            Applies to <strong>every bike</strong></label>
+          <div class="field-hint">For specs no questionnaire answer controls —
+            road trip tools, say. Adds it to all ${BRANCHES.bikes_total} bikes now,
+            and to every bike created later.</div>
+        </div>
+
+        <div class="form-row"><label>Which questionnaire branch(es) does it belong to?</label>
+          <select id="ap-question">
+            <option value="">No branch — pick bikes instead</option>
+            ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
+              esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+          </select></div>
+        <div class="form-row" id="ap-option-row" style="display:none">
+          <label>Applies when the answer is</label>
+          <div class="tag-input-row">
+            <select id="ap-option"></select>
+            <button type="button" class="action-btn approve" data-pick="ap">+ Add branch</button>
+          </div>
+          <div class="field-hint">Add as many as apply — chain <em>or</em> belt,
+            for instance. The field appears on a bike matching any of them.</div>
+        </div>
+        <div class="form-row"><div class="branch-chips" id="ap-picked"></div></div>
+        <div class="form-row" id="ap-backfill-row" style="display:none">
+          <label><input type="checkbox" id="ap-backfill" style="width:auto">
+            <span id="ap-backfill-label"></span></label>
+          <div class="field-hint">Either way, bikes answering this way in future
+            get the field automatically.</div>
+        </div>
+
+        ${approve.dataset.bike ? `<div class="form-row">
+          <label><input type="checkbox" id="ap-apply" checked style="width:auto">
+            Also add it to the proposing bike now</label></div>` : ""}
+
+        <div class="form-row"><label>Note back to the proposer (optional)</label>
+          <input type="text" id="ap-note"></div>
+        <div class="field-hint">${BRANCHES.bikes_with_answers} of
+          ${BRANCHES.bikes_total} bikes have questionnaire answers on record.
+          Bulk-catalog bikes never answered anything, so no branch reaches
+          them — add the field to those directly.</div>
+        <div class="field-hint" id="ap-warn" style="color:var(--danger)"></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${approve.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-approve-go="${approve.dataset.approve}">Approve &amp; create field</button>
+        </div>
+      </div>`;
+    renderPicked('ap-picked');
+    updateApproveWarning();
+    return;
+  }
+
+  const go = e.target.closest("[data-approve-go]");
+  if(go){
+    const approveName = go.closest(".inline-box").querySelector(".field-hint")
+      ? document.getElementById("ap-name").defaultValue : "";
+    const apply = document.getElementById("ap-apply");
+    const qid = PICKED.length ? PICKED[0].q : "";
+    const backfill = document.getElementById("ap-backfill");
+    const r = await API.post(`/api/admin/proposals/${go.dataset.approveGo}/decide`, {
+      status: "approved",
+      field_name: document.getElementById("ap-name").value.trim(),
+      spec_type: document.getElementById("ap-type").value,
+      value_type: document.getElementById("ap-value-type").value || "text",
+      category: document.getElementById("ap-category").value,
+      triggers: PICKED.map(t => ({ question: t.q, option: t.o })),
+      backfill: backfill ? backfill.checked : false,
+      apply_to_bike: apply ? apply.checked : false,
+      admin_note: document.getElementById("ap-note").value.trim() || null,
+    });
+    const uniBox = document.getElementById("ap-universal");
+    if(uniBox && uniBox.checked && r.created_field_key){
+      const u = await API.post(`/api/admin/fields/${r.created_field_key}/universal`,
+                               { universal: true, backfill: true });
+      r.backfilled = (r.backfilled || 0) + u.added;
+      r.universal = true;
+    }
+    const bits = [];
+    if(r.renamed) bits.push(`renamed from “${approveName}”`);
+    if(r.universal) bits.push("applied to every bike");
+    if(PICKED.length) bits.push(`attached to ${PICKED.length} branch${PICKED.length === 1 ? "" : "es"}`);
+    if(r.backfilled) bits.push(`added to ${r.backfilled} existing bike${r.backfilled === 1 ? "" : "s"}`);
+    if(r.applied_to_bike) bits.push("added to the proposing bike");
+    toast(`“${r.created_label}” created` + (bits.length ? " — " + bits.join(", ") : "") + ".", "ok");
+    BRANCHES = null;                 // the counts have moved
+    await load();
+    return;
+  }
+
+  const reject = e.target.closest("[data-reject]");
+  if(reject){
+    await API.post(`/api/admin/proposals/${reject.dataset.reject}/decide`, { status: "rejected" });
+    toast("Proposal rejected.", "ok");
+    await load();
+    return;
+  }
+
+  const confirm = e.target.closest("[data-confirm]");
+  if(confirm){
+    document.getElementById(`slot-${confirm.dataset.slot}`).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">${esc(confirm.dataset.q)}</div>
+        <div class="inline-sub">Confirming writes this onto the spec with
+          confidence "from the manual".</div>
+        <input type="text" id="ns-value" placeholder="The confirmed value">
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${confirm.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-confirm-go="${confirm.dataset.confirm}">Confirm value</button>
+        </div>
+      </div>`;
+    document.getElementById("ns-value").focus();
+    return;
+  }
+
+  const confirmGo = e.target.closest("[data-confirm-go]");
+  if(confirmGo){
+    const v = document.getElementById("ns-value").value.trim();
+    if(!v){ toast("A value is required.", "error"); return; }
+    await API.post(`/api/admin/not-sure/${confirmGo.dataset.confirmGo}/decide`,
+                   { status: "confirmed", value: v });
+    toast("Value confirmed and written to the spec.", "ok");
+    await load();
+    return;
+  }
+
+  const rejectNs = e.target.closest("[data-reject-ns]");
+  if(rejectNs){
+    await API.post(`/api/admin/not-sure/${rejectNs.dataset.rejectNs}/decide`, { status: "rejected" });
+    toast("Question closed.", "ok");
+    await load();
+    return;
+  }
+
+  const tree = e.target.closest("[data-tree]");
+  if(tree){
+    await API.post(`/api/admin/tree-flags/${tree.dataset.tree}/decide`, { status: tree.dataset.status });
+    toast(`Tree flag ${tree.dataset.status}.`, "ok");
+    await load();
+    return;
+  }
+
+  const uf = e.target.closest("[data-uf]");
+  if(uf){
+    await API.post(`/api/admin/user-flags/${uf.dataset.uf}/decide`, {
+      status: uf.dataset.status, suspend: uf.dataset.suspend === "1" });
+    toast("User flag resolved.", "ok");
+    await load();
+    return;
+  }
+
+  const ack = e.target.closest("[data-ack]");
+  if(ack){
+    const d = S.divergence[Number(ack.dataset.ack)];
+    await API.post("/api/admin/divergence/ack", {
+      bike_a: d.bike_a, bike_b: d.bike_b, field_key: d.field_key,
+      value_a: d.value_a, value_b: d.value_b });
+    toast("Marked reviewed for these values.", "ok");
+    await load();
+    return;
+  }
+
+
+  const fieldReq = e.target.closest("[data-field-req]");
+  const brAdd = e.target.closest("[data-bike-req-add]");
+  if(brAdd){
+    const r = S.bikeRequests.find(x => x.id === Number(brAdd.dataset.bikeReqAdd));
+    document.getElementById(`slot-${brAdd.dataset.slot}`).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Add "${esc(r.make)} ${esc(r.model)}" to the catalogue</div>
+        <div class="inline-sub">What the rider gave, for you to correct. The model code is the
+          catalogue's identity for the bike (CB900F, not "919"); the name is what riders see.
+          Years are required — leave nothing guessed.</div>
+        <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+          <div><span class="field-label">Make</span><input type="text" id="br-make" value="${esc(r.make)}"></div>
+          <div><span class="field-label">Model code</span><input type="text" id="br-code" value="${esc(r.model)}"></div>
+          <div><span class="field-label">Name riders see</span><input type="text" id="br-name" value="${esc(r.make + " " + r.model)}"></div>
+          <div><span class="field-label">First year</span><input type="number" id="br-y0" value="${r.year_from || ""}" placeholder="required"></div>
+          <div><span class="field-label">Last year</span><input type="number" id="br-y1" value="${r.year_to || ""}" placeholder="= first year"></div>
+          <div><span class="field-label">Kind of bike</span>
+            <select id="br-type"><option value="">— unknown —</option>${
+              S.bikeTypes.map(t => `<option${t === r.bike_type ? " selected" : ""}>${esc(t)}</option>`).join("")}</select></div>
+        </div>
+        <div style="margin-top:10px"><span class="field-label">Note to the riders (optional)</span>
+          <input type="text" id="br-note" maxlength="300" placeholder="e.g. Added as the 2008–2018 generation; the 2022+ bike is a separate request"></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${brAdd.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-bike-req-add-go="${r.id}">Create the bike</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const brAddGo = e.target.closest("[data-bike-req-add-go]");
+  if(brAddGo){
+    const y0 = document.getElementById("br-y0").value;
+    if(!y0){ toast("A first model year is required to create the bike.", "error"); return; }
+    const r = await API.post(`/api/admin/bike-requests/${brAddGo.dataset.bikeReqAddGo}/decide`, {
+      status: "added",
+      make: document.getElementById("br-make").value.trim(),
+      model_code: document.getElementById("br-code").value.trim(),
+      name: document.getElementById("br-name").value.trim(),
+      year_start: y0, year_end: document.getElementById("br-y1").value || y0,
+      bike_type: document.getElementById("br-type").value || null,
+      note: document.getElementById("br-note").value.trim() || null,
+    });
+    toast(`Bike #${r.bike_id} created — ${r.riders} rider${r.riders !== 1 ? "s" : ""} answered. Assign it a manager below.`, "ok");
+    await load();
+    return;
+  }
+
+  const brMatch = e.target.closest("[data-bike-req-match]");
+  if(brMatch){
+    const r = S.bikeRequests.find(x => x.id === Number(brMatch.dataset.bikeReqMatch));
+    document.getElementById(`slot-${brMatch.dataset.slot}`).innerHTML = `
+      <div class="inline-box blue">
+        <div class="inline-title">"${esc(r.make)} ${esc(r.model)}" is already here as…</div>
+        <div class="inline-sub">Pick the bike it is. The riders waiting are sent to it; nothing is created.</div>
+        <input type="text" id="br-search" placeholder="Search by name or model code" autocomplete="off"
+               value="${esc(r.model)}" data-req="${r.id}">
+        <div id="br-results" style="margin-top:8px">${r.maybe.map(b => `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+            <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></div>
+            <button class="action-btn approve" data-bike-req-match-go="${r.id}|${b.bike_id}">This one</button>
+          </div>`).join("") || `<div class="cell-dim">Type to search.</div>`}</div>
+        <div class="form-actions"><button class="ghost-btn" data-close="${brMatch.dataset.slot}">Cancel</button></div>
+      </div>`;
+    return;
+  }
+  const brMatchGo = e.target.closest("[data-bike-req-match-go]");
+  if(brMatchGo){
+    const [rid, bikeId] = brMatchGo.dataset.bikeReqMatchGo.split("|");
+    const r = await API.post(`/api/admin/bike-requests/${rid}/decide`, { status: "added", bike_id: Number(bikeId) });
+    toast(`Matched — ${r.riders} rider${r.riders !== 1 ? "s" : ""} sent to that bike.`, "ok");
+    await load();
+    return;
+  }
+
+  const brDecline = e.target.closest("[data-bike-req-decline]");
+  if(brDecline){
+    const note = prompt("Why not? (shown to the riders who asked — optional)");
+    if(note === null) return;
+    await API.post(`/api/admin/bike-requests/${brDecline.dataset.bikeReqDecline}/decide`, { status: "declined", note });
+    toast("Declined.", "ok");
+    await load();
+    return;
+  }
+
+  if(fieldReq){
+    const status = fieldReq.dataset.fieldReq;
+    let note = null;
+    if(status === "declined"){
+      note = prompt("Why not? (shown to the riders who asked — optional)") ;
+      if(note === null) return;
+    }
+    const r = await API.post(`/api/bikes/${fieldReq.dataset.bike}/field-requests/${fieldReq.dataset.key}/decide`,
+                             { status, note });
+    toast(status === "added"
+      ? (r.added ? `Added — ${r.resolved} request${r.resolved !== 1 ? "s" : ""} closed.` : "It was already on the bike; requests closed.")
+      : "Declined.", "ok");
+    await load();
+    return;
+  }
+
+  const more = e.target.closest("[data-show-more]");
+  if(more){
+    const key = more.dataset.showMore;
+    EXPANDED.add(key);
+    const panel = document.getElementById(key);
+    panel.querySelectorAll("[hidden]").forEach(el => { el.hidden = false; });
+    panel.querySelectorAll(".more-row").forEach(el => el.remove());
+    return;
+  }
+
+  const member = e.target.closest("[data-member]");
+  if(member){
+    // jump to Members, filtered to this person, with their profile open
+    const box = document.getElementById("mem-search");
+    box.value = member.dataset.memberName;
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    EXPANDED.add("p-members");
+    document.getElementById("p-members").scrollIntoView({ behavior: "smooth", block: "start" });
+    await showMemberProfile(member.dataset.member, member.dataset.memberName);
+    return;
+  }
+
+  const setPw = e.target.closest("[data-set-pw]");
+  if(setPw){
+    const pw = prompt(`New password for ${setPw.dataset.name} (at least 8 characters). They are signed out everywhere.`);
+    if(pw === null) return;
+    await API.post(`/api/admin/users/${setPw.dataset.setPw}/password`, { password: pw });
+    toast(`Password set for ${setPw.dataset.name}.`, "ok");
+    return;
+  }
+  const susp = e.target.closest("[data-suspend]");
+  if(susp){
+    const on = susp.dataset.on === "1";
+    if(on && !confirm(`Suspend ${susp.dataset.name}? They cannot sign in until reinstated; nothing they did is removed.`)) return;
+    await API.post(`/api/admin/users/${susp.dataset.suspend}/suspend`, { suspended: on });
+    toast(on ? `${susp.dataset.name} suspended.` : `${susp.dataset.name} reinstated.`, "ok");
+    await load();
+    return;
+  }
+  if(e.target.id === "restore-pick"){ document.getElementById("restore-file").click(); return; }
+  if(e.target.id === "restore-photos-pick"){ document.getElementById("restore-photos-file").click(); return; }
+
+  const prof = e.target.closest("[data-profile]");
+  if(prof){
+    await showMemberProfile(prof.dataset.profile, prof.dataset.name);
+    return;
+  }
+
+  const noticeSeen = e.target.closest("[data-notice-seen]");
+  if(noticeSeen){
+    const id = noticeSeen.dataset.noticeSeen;
+    await API.post("/api/admin/notices/seen", id === "all" ? {} : { id: Number(id) });
+    await load();
+    return;
+  }
+
+  const verify = e.target.closest("[data-verify]");
+  if(verify){
+    await API.post(`/api/admin/bikes/${verify.dataset.verify}/verify-years`);
+    toast("Year span confirmed.", "ok");
+    await load();
+    return;
+  }
+
+  const close = e.target.closest("[data-close]");
+  if(close){ document.getElementById(`slot-${close.dataset.close}`).innerHTML = ""; return; }
+}));
+
+(async function(){
+  await initChrome("/admin.html");
+  document.getElementById("who").innerHTML = ME.user
+    ? `Signed in as <strong>${esc(ME.user.display_name || ME.user.username)}</strong>` : "";
+  if(!requireRole("admin")) return;
+  await load();
+})();
+</script>
+</body>
+</html>

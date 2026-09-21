@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+
+# Build artifact: seed.py regenerates it from schema.sql + data/ on demand,
+# and it changes on every run, so committing it just makes noisy diffs.
+data.db
+
+# Live user data, not source: the database (password hashes, emails) and the
+# photos managers upload. Back these up; do not commit them.
+data.db.bak-*
+data/photos/
+data/gearheadspecs.db
+files*.zip
+data.db-wal
+data.db-shm
+server.log
+server.err
+
+# bundles built for a server go to the server, not the repo
+gearheadspecs-*.zip
+*.bak

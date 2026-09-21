@@ -1,0 +1,1268 @@
+{
+  "_comment": [
+    "The Spec Tree questionnaire, ported from questionnaire-wizard_13.html.",
+    "",
+    "The mockup expressed branching as JavaScript next() closures. Those cannot",
+    "cross to the server, and the server must be able to evaluate the branching",
+    "itself — otherwise a hand-written POST could claim any set of fields it",
+    "liked and the tree would be whatever the client said it was.",
+    "",
+    "So branching is declarative here:",
+    "  next: a question id, or a list of rules tried in order.",
+    "  rule.when.answer      — this question's answer is one of these options",
+    "  rule.when.answer_of   — some other question's answer is one of these",
+    "  rule.auto             — answer another question automatically and take",
+    "                          its fields (used where one answer makes another",
+    "                          question physically impossible)",
+    "  rule.add_fields       — fields triggered by the branch rather than by a",
+    "                          single option",
+    "  a rule with no 'when' always matches, and is the fallback.",
+    "",
+    "aliases maps a questionnaire label onto the canonical field it already is,",
+    "so the wizard's 'Intake Valve Clearance' does not become a second field",
+    "beside the CB919 sheet's 'Valve Clearance — Intake'."
+  ],
+  "aliases": {
+    "Intake Valve Clearance": "Valve Clearance — Intake",
+    "Exhaust Valve Clearance": "Valve Clearance — Exhaust",
+    "Front Brake Fluid Type": "Front Brake Fluid",
+    "Rear Brake Fluid Type": "Rear Brake Fluid",
+    "Chain": "Drive Chain",
+    "Chain Length": "Chain Length (Links)",
+    "Front Brake Pads (Qty: 2 required)": "Front Brake Pads",
+    "Fuel System: Fuel Injection (noted — fields TBD)": "Fuel System",
+    "Cylinder Config: Inline — shared/grouped field per cylinder count": "Cylinder Configuration",
+    "Front/Rear Cylinder Config: Front-and-Rear grouping": "Cylinder Configuration",
+    "Left/Right Cylinder Config: Boxer grouping": "Cylinder Configuration",
+    "Head Light Bulb (Qty: 2 required)": "Head Light Bulb"
+  },
+  "bike_types": [
+    "Dirt bike / Off-road",
+    "Cruiser",
+    "Street bike / Sport bike",
+    "Touring",
+    "Dual-sport / Adventure",
+    "Scooter",
+    "Standard / Naked",
+    "Harley-Davidson"
+  ],
+  "primary_order": [
+    "q0",
+    "q1",
+    "q2",
+    "q2b",
+    "q2c",
+    "q3",
+    "q4",
+    "q5",
+    "q6",
+    "q7",
+    "q8",
+    "q9",
+    "q10",
+    "q11",
+    "q12",
+    "q13",
+    "q14",
+    "q15",
+    "q16",
+    "q17",
+    "q18",
+    "q19",
+    "q20",
+    "q21"
+  ],
+  "questions": {
+    "q0": {
+      "section": "Internal — Not shown to public users",
+      "text": "What type of bike is this? (internal use only — helps route to type-specific expert admins)",
+      "options": [
+        {
+          "l": "A",
+          "t": "Dirt bike / Off-road"
+        },
+        {
+          "l": "B",
+          "t": "Cruiser"
+        },
+        {
+          "l": "C",
+          "t": "Street bike / Sport bike"
+        },
+        {
+          "l": "D",
+          "t": "Touring"
+        },
+        {
+          "l": "E",
+          "t": "Dual-sport / Adventure"
+        },
+        {
+          "l": "F",
+          "t": "Scooter"
+        },
+        {
+          "l": "G",
+          "t": "Standard / Naked"
+        },
+        {
+          "l": "H",
+          "t": "Harley-Davidson"
+        },
+        {
+          "l": "I",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q1",
+      "internal_only": true
+    },
+    "q1": {
+      "section": "Electrical",
+      "text": "Does this bike have a battery?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Electrical": [
+              "Battery",
+              "Fuse Box Location",
+              "Fuse Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "B"
+            ]
+          },
+          "auto": {
+            "q2": "B"
+          },
+          "goto": "q2b",
+          "_why": "No battery means an electric starter is not physically possible."
+        },
+        {
+          "goto": "q2"
+        }
+      ]
+    },
+    "q2": {
+      "section": "Electrical",
+      "text": "Does this bike have an electric starter?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Electrical": [
+              "Starter Part Number",
+              "Starter Relay Location",
+              "Starter Fuse Location",
+              "Starter Fuse Type",
+              "Starter Fuse Amp Rating",
+              "Starter Switch Wire Color"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q2b"
+    },
+    "q2b": {
+      "section": "Electrical",
+      "text": "Does this bike have turn signals?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Electrical": [
+              "Turn Signal Light Bulb",
+              "Left Turn Signal Wire Color",
+              "Right Turn Signal Wire Color"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q2c"
+    },
+    "q2c": {
+      "section": "Electrical",
+      "text": "Does this bike have a headlight?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes"
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "A"
+            ]
+          },
+          "goto": "q2ca"
+        },
+        {
+          "goto": "q3"
+        }
+      ]
+    },
+    "q2ca": {
+      "section": "Electrical",
+      "follow_up": true,
+      "text": "Does this bike have one headlight?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes — one headlight",
+          "fields": {
+            "Electrical": [
+              "Head Light Bulb"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No — it has two"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "B"
+            ]
+          },
+          "goto": "q2cb"
+        },
+        {
+          "goto": "q2cc"
+        }
+      ]
+    },
+    "q2cb": {
+      "section": "Electrical",
+      "follow_up": true,
+      "text": "On a two-headlight bike, are high beam and low beam separate?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Separate — one is high beam, the other is low",
+          "fields": {
+            "Electrical": [
+              "High Beam Bulb",
+              "Low Beam Bulb"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Both lights are high and low",
+          "fields": {
+            "Electrical": [
+              "Head Light Bulb (Qty: 2 required)"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q2cc"
+    },
+    "q2cc": {
+      "section": "Electrical",
+      "follow_up": true,
+      "text": "Does this bike have a parking light?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Electrical": [
+              "Parking Light Bulb"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q3"
+    },
+    "q3": {
+      "section": "Drive System",
+      "text": "What drive system does this bike have?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Chain and sprockets",
+          "fields": {
+            "Drive": [
+              "Chain",
+              "Chain Length",
+              "Master Link Type",
+              "Front Sprocket",
+              "Rear Sprocket"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Belt drive",
+          "fields": {
+            "Drive": [
+              "Drive Belt"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Driveshaft",
+          "fields": {
+            "Drive": [
+              "Drive Shaft Oil Weight",
+              "Drive Shaft Oil Volume"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q4"
+    },
+    "q4": {
+      "section": "Engine — Cylinders",
+      "text": "How many cylinders does this bike have?",
+      "options": [
+        {
+          "l": "A",
+          "t": "1"
+        },
+        {
+          "l": "B",
+          "t": "2"
+        },
+        {
+          "l": "C",
+          "t": "3",
+          "fields": {
+            "Engine": [
+              "Ignition Order"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "4",
+          "fields": {
+            "Engine": [
+              "Ignition Order"
+            ]
+          }
+        },
+        {
+          "l": "E",
+          "t": "5",
+          "fields": {
+            "Engine": [
+              "Ignition Order"
+            ]
+          }
+        },
+        {
+          "l": "F",
+          "t": "6",
+          "fields": {
+            "Engine": [
+              "Ignition Order"
+            ]
+          }
+        },
+        {
+          "l": "G",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "B",
+              "D",
+              "F"
+            ]
+          },
+          "goto": "q4a",
+          "_why": "Even cylinder counts can be arranged more than one way."
+        },
+        {
+          "goto": "q5"
+        }
+      ]
+    },
+    "q4a": {
+      "section": "Engine — Cylinders",
+      "follow_up": true,
+      "text": "Is this engine Front-and-Rear, Inline, or Boxer?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Front-and-Rear",
+          "fields": {
+            "Engine": [
+              "Front/Rear Cylinder Config: Front-and-Rear grouping"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Inline",
+          "fields": {
+            "Engine": [
+              "Cylinder Config: Inline — shared/grouped field per cylinder count"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Boxer",
+          "fields": {
+            "Engine": [
+              "Left/Right Cylinder Config: Boxer grouping"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q5"
+    },
+    "q5": {
+      "section": "Engine — Type",
+      "text": "What engine does this bike have?",
+      "options": [
+        {
+          "l": "A",
+          "t": "2-stroke auto-lube",
+          "fields": {
+            "Engine": [
+              "Auto-lube Oil Type",
+              "Auto-lube Oil Tank Capacity"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "2-stroke premix",
+          "fields": {
+            "Engine": [
+              "Premix Fuel:Oil Ratio",
+              "Recommended 2-Stroke Oil"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "4-stroke with valve clearance adjustment",
+          "fields": {
+            "Engine": [
+              "Intake Valve Clearance",
+              "Exhaust Valve Clearance"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "4-stroke with valve shims",
+          "fields": {
+            "Engine": [
+              "Intake Shim Size",
+              "Exhaust Shim Size"
+            ]
+          }
+        },
+        {
+          "l": "E",
+          "t": "4-stroke with no valve clearance adjustment (hydraulic)"
+        },
+        {
+          "l": "F",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "A",
+              "B"
+            ]
+          },
+          "add_fields": {
+            "Engine": [
+              "Transmission Oil Weight",
+              "Transmission Oil Volume"
+            ]
+          },
+          "goto": "q7",
+          "_why": "A 2-stroke always has separate transmission oil, and the 4-stroke oil question does not apply."
+        },
+        {
+          "goto": "q6"
+        }
+      ]
+    },
+    "q6": {
+      "section": "Engine — Oil (4-Stroke)",
+      "text": "How is this bike's transmission/primary/engine oil arranged?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Primary and transmission oil are separated",
+          "fields": {
+            "Engine": [
+              "Primary Oil Weight",
+              "Primary Oil Volume",
+              "Transmission Oil Weight",
+              "Transmission Oil Volume"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Combined primary/transmission oil (engine separate)",
+          "fields": {
+            "Engine": [
+              "Primary/Transmission Oil Weight",
+              "Primary/Transmission Oil Volume"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Combined engine/clutch/transmission oil",
+          "fields": {
+            "Engine": [
+              "Engine Oil Weight",
+              "Engine Oil Volume"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q7"
+    },
+    "q7": {
+      "section": "Fuel System",
+      "text": "How many carburetors does this bike have?",
+      "options": [
+        {
+          "l": "A",
+          "t": "This bike has fuel injection, not a carburetor",
+          "fields": {
+            "Fuel and Air": [
+              "Fuel System: Fuel Injection (noted — fields TBD)"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "1",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "2",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet",
+              "Carb 2 Pilot Jet",
+              "Carb 2 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "3",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet",
+              "Carb 2 Pilot Jet",
+              "Carb 2 Main Jet",
+              "Carb 3 Pilot Jet",
+              "Carb 3 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "E",
+          "t": "4",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet",
+              "Carb 2 Pilot Jet",
+              "Carb 2 Main Jet",
+              "Carb 3 Pilot Jet",
+              "Carb 3 Main Jet",
+              "Carb 4 Pilot Jet",
+              "Carb 4 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "F",
+          "t": "5",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet",
+              "Carb 2 Pilot Jet",
+              "Carb 2 Main Jet",
+              "Carb 3 Pilot Jet",
+              "Carb 3 Main Jet",
+              "Carb 4 Pilot Jet",
+              "Carb 4 Main Jet",
+              "Carb 5 Pilot Jet",
+              "Carb 5 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "G",
+          "t": "6",
+          "fields": {
+            "Fuel and Air": [
+              "Carb 1 Pilot Jet",
+              "Carb 1 Main Jet",
+              "Carb 2 Pilot Jet",
+              "Carb 2 Main Jet",
+              "Carb 3 Pilot Jet",
+              "Carb 3 Main Jet",
+              "Carb 4 Pilot Jet",
+              "Carb 4 Main Jet",
+              "Carb 5 Pilot Jet",
+              "Carb 5 Main Jet",
+              "Carb 6 Pilot Jet",
+              "Carb 6 Main Jet"
+            ]
+          }
+        },
+        {
+          "l": "H",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "A"
+            ]
+          },
+          "auto": {
+            "q8": "A"
+          },
+          "goto": "q9",
+          "_why": "Fuel injection implies electronic ignition, so asking is redundant."
+        },
+        {
+          "goto": "q8"
+        }
+      ]
+    },
+    "q8": {
+      "section": "Ignition",
+      "text": "What ignition system does this bike have?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Electronic Ignition",
+          "fields": {
+            "Engine": [
+              "Ignition Timing"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Points",
+          "fields": {
+            "Engine": [
+              "Points Gap",
+              "Ignition Timing",
+              "Condenser Part Number"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q9"
+    },
+    "q9": {
+      "section": "Fuel System",
+      "text": "Does this bike have a fuel pump?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes"
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "B",
+              "C"
+            ]
+          },
+          "goto": "q10"
+        },
+        {
+          "when": {
+            "answer_of": {
+              "q7": [
+                "A"
+              ]
+            }
+          },
+          "goto": "q10",
+          "_why": "Fuel injection already means an electric pump — no need to ask which kind."
+        },
+        {
+          "goto": "q9a"
+        }
+      ]
+    },
+    "q9a": {
+      "section": "Fuel System",
+      "follow_up": true,
+      "text": "Is this a mechanical fuel pump?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Mechanical",
+          "fields": {
+            "Fuel and Air": [
+              "Fuel Pump Location"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Electric",
+          "fields": {
+            "Fuel and Air": [
+              "Fuel Pump Relay",
+              "Fuel Pump Fuse Location",
+              "Fuel Pump Fuse Type",
+              "Fuel Pump Fuse Amp Rating",
+              "Tip-Over Sensor"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q10"
+    },
+    "q10": {
+      "section": "Suspension",
+      "text": "Does this bike have a Front shock air pressure?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Suspension": [
+              "Front Shock Air Pressure (PSI)"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q11"
+    },
+    "q11": {
+      "section": "Suspension",
+      "text": "Does this bike have a Rear shock air pressure?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Suspension": [
+              "Rear Shock Air Pressure (PSI)"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q12"
+    },
+    "q12": {
+      "section": "Controls",
+      "text": "Does this bike have a hydraulic clutch?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Controls": [
+              "Hydraulic Clutch Fluid Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q13"
+    },
+    "q13": {
+      "section": "Oil Filtration",
+      "text": "Does this bike have oil filter?",
+      "options": [
+        {
+          "l": "A",
+          "t": "No oil filter"
+        },
+        {
+          "l": "B",
+          "t": "Oil filter (single)",
+          "fields": {
+            "Engine": [
+              "Oil Filter Part Number"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Two oil filters",
+          "fields": {
+            "Engine": [
+              "Oil Filter 1 Part Number",
+              "Oil Filter 2 Part Number"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Oil Screen",
+          "fields": {
+            "Engine": [
+              "Oil Screen Location"
+            ]
+          }
+        },
+        {
+          "l": "E",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q14"
+    },
+    "q14": {
+      "section": "Brakes — Hydraulics",
+      "text": "Does this bike have a Front hydraulic brake?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Controls": [
+              "Front Brake Fluid Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q15"
+    },
+    "q15": {
+      "section": "Brakes — Hydraulics",
+      "text": "Does this bike have a Rear hydraulic brake?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Controls": [
+              "Rear Brake Fluid Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q16"
+    },
+    "q16": {
+      "section": "Wheels",
+      "text": "Does this bike have a Front wheel inner tube?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Drive": [
+              "Front Inner Tube Size/Part Number",
+              "Front Valve Stem Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q17"
+    },
+    "q17": {
+      "section": "Wheels",
+      "text": "Does this bike have a Rear wheel inner tube?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Drive": [
+              "Rear Inner Tube Size/Part Number",
+              "Rear Valve Stem Type"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q18"
+    },
+    "q18": {
+      "section": "Cooling",
+      "text": "The cooling system for this bike is:",
+      "options": [
+        {
+          "l": "A",
+          "t": "Air cool"
+        },
+        {
+          "l": "B",
+          "t": "Oil cool"
+        },
+        {
+          "l": "C",
+          "t": "Coolant system (antifreeze)",
+          "fields": {
+            "Engine": [
+              "Coolant Type",
+              "Coolant Capacity"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q19"
+    },
+    "q19": {
+      "section": "Cooling",
+      "text": "Does this bike have a radiator fan?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes",
+          "fields": {
+            "Engine": [
+              "Temperature Sensor Location",
+              "Fan Relay Location",
+              "Fan Fuse Location",
+              "Fan Fuse Type",
+              "Fan Fuse Amp Rating"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No"
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q20"
+    },
+    "q20": {
+      "section": "Brakes — Front",
+      "text": "This bike have:",
+      "options": [
+        {
+          "l": "A",
+          "t": "Front left brake caliper",
+          "fields": {
+            "Drive": [
+              "Front Left Caliper",
+              "Front Left Brake Pads"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Front right brake caliper",
+          "fields": {
+            "Drive": [
+              "Front Right Caliper",
+              "Front Right Brake Pads"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Front left and right",
+          "fields": {
+            "Drive": [
+              "Front Left Caliper",
+              "Front Right Caliper"
+            ]
+          }
+        },
+        {
+          "l": "D",
+          "t": "Front brake shoes",
+          "fields": {
+            "Drive": [
+              "Front Brake Shoes"
+            ]
+          }
+        },
+        {
+          "l": "E",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": [
+        {
+          "when": {
+            "answer": [
+              "C"
+            ]
+          },
+          "goto": "q20a"
+        },
+        {
+          "goto": "q21"
+        }
+      ]
+    },
+    "q20a": {
+      "section": "Brakes — Front",
+      "follow_up": true,
+      "text": "Are the left and right brake pads the same?",
+      "options": [
+        {
+          "l": "A",
+          "t": "Yes — same pads",
+          "fields": {
+            "Drive": [
+              "Front Brake Pads (Qty: 2 required)"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "No — different pads",
+          "fields": {
+            "Drive": [
+              "Front Brake Pad Left",
+              "Front Brake Pad Right"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "q21"
+    },
+    "q21": {
+      "section": "Brakes — Rear",
+      "text": "Does this bike have:",
+      "options": [
+        {
+          "l": "A",
+          "t": "Rear brake pads",
+          "fields": {
+            "Drive": [
+              "Rear Brake Pads"
+            ]
+          }
+        },
+        {
+          "l": "B",
+          "t": "Rear brake shoes",
+          "fields": {
+            "Drive": [
+              "Rear Brake Shoes"
+            ]
+          }
+        },
+        {
+          "l": "C",
+          "t": "Not 100% sure",
+          "not_sure": true
+        }
+      ],
+      "next": "done"
+    }
+  }
+}

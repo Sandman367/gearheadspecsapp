@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bike Manager Dashboard — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .bike-card{
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 10px;
+  }
+  .bike-card:last-child{ border-bottom: none; }
+  .bike-name{ font-size: 14px; }
+  .bike-meta{ font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+  .needed-count{ color: var(--danger); }
+  .bike-right{ display: flex; align-items: center; gap: 14px; }
+  .current-value{ font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Bike Manager Dashboard</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main>
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const REASON_LABEL = { irrelevant: "Irrelevant", incorrect: "Incorrect",
+                       inappropriate: "Inappropriate", other: "Other" };
+
+const USER_FLAG_REASONS = [
+  { value: "spam",          label: "Spam / repeated low-quality submissions" },
+  { value: "harassment",    label: "Abusive or harassing messages" },
+  { value: "bad-faith",     label: "Bad-faith flagging (griefing the page)" },
+  { value: "fraud",         label: "Submitting deliberately false/fraudulent specs" },
+  { value: "inappropriate", label: "Inappropriate content" },
+  { value: "other",         label: "Other" },
+];
+
+let STATE = {};
+
+const load = guard(async () => {
+  const [summary, bikes, flags, resolved, notSure, proposals, subs, reqs, fieldReqs] =
+    await Promise.all([
+      API.get("/api/manager/summary"),
+      API.get("/api/manager/bikes"),
+      API.get("/api/manager/flags"),
+      API.get("/api/manager/resolved"),
+      API.get("/api/manager/not-sure"),
+      API.get("/api/manager/proposals"),
+      API.get("/api/manager/submissions"),
+      API.get("/api/manager/requests"),
+      API.get("/api/manager/field-requests"),
+    ]);
+  STATE = { summary, bikes: bikes.bikes, flags: flags.flags,
+            resolved: resolved.resolved, notSure: notSure.items,
+            proposals: proposals.proposals, submissions: subs.submissions,
+            requests: reqs.requests, fieldRequests: fieldReqs.items };
+  render();
+});
+
+function render(){
+  const s = STATE.summary;
+  document.getElementById("content").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">${s.bikes_managed}</div><div class="lbl">Bikes Managed</div></div>
+      <div class="stat-card"><div class="num">${s.specs_filled}</div><div class="lbl">Specs Filled</div></div>
+      <div class="stat-card${s.specs_needed ? " alert" : ""}"><div class="num">${s.specs_needed}</div><div class="lbl">Specs Needing Values</div></div>
+      <div class="stat-card${s.open_flags ? " alert" : ""}"><div class="num">${s.open_flags}</div><div class="lbl">Flags on My Specs</div></div>
+      <div class="stat-card"><div class="num">${s.not_sure_pending}</div><div class="lbl">"Not Sure" Pending Admin</div></div>
+      <div class="stat-card"><div class="num">${s.proposals}</div><div class="lbl">My Branch Proposals</div></div>
+      <div class="stat-card${s.submissions ? " alert" : ""}"><div class="num">${s.submissions}</div><div class="lbl">Community Values to Review</div></div>
+      <div class="stat-card${s.requested_gaps ? " alert" : ""}"><div class="num">${s.requested_gaps}</div><div class="lbl">Gaps Riders Asked For</div></div>
+      <div class="stat-card${s.field_requests ? " alert" : ""}"><div class="num">${s.field_requests || 0}</div><div class="lbl">Specs Riders Want Added</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Specs Riders Want Added</h3>
+          <p>Fields on the Spec Tree that your bikes don't list, asked for by
+             riders. "Add to bike" puts the empty row on the sheet — the same as
+             answering the questionnaire would — and closes every request for
+             it. Decline if the machine simply doesn't have that part.</p></div>
+        <span class="count-tag">${STATE.fieldRequests.length} open</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Bike</th><th>Asked by</th><th>Action</th></tr></thead>
+        <tbody>${STATE.fieldRequests.length ? fieldRequestRows(STATE.fieldRequests, false)
+          : `<tr class="empty-row"><td colspan="4">Nobody has asked for a spec your bikes don't list.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Gaps Riders Asked For</h3>
+          <p>Empty fields on your bikes, ranked by how many people clicked
+             "request this". Forty blanks in a list is a wall; the same forty
+             with the most-wanted at the top is a to-do list.</p></div>
+        <span class="count-tag">${STATE.requests.length} requested</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Bike</th><th>Requests</th><th>Action</th></tr></thead>
+        <tbody>${STATE.requests.length ? STATE.requests.map(r => `
+          <tr>
+            <td data-label="Spec"><strong>${esc(r.spec_label)}</strong>
+              <div class="current-value">${esc(r.category)}</div></td>
+            <td data-label="Bike" class="cell-dim">${esc(r.bike_name)}</td>
+            <td data-label="Requests"><span class="badge amber">${r.requests} rider${
+              r.requests !== 1 ? "s" : ""}</span></td>
+            <td data-label="Action">
+              <a class="action-btn approve" href="/questionnaire.html?bike=${r.bike_id}">Fill it in</a>
+            </td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">Nobody has requested a specific gap yet.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Community Values to Review</h3>
+          <p>Gaps a rider filled in on your bikes. They're live on the page
+             already, marked <em>Unsourced</em> — confirming just says you've
+             checked it. Nothing here is blocking anyone.</p></div>
+        <span class="count-tag">${STATE.submissions.length} to review</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Value submitted</th><th>By</th><th>When</th><th>Action</th></tr></thead>
+        <tbody>${STATE.submissions.length ? STATE.submissions.map((sub, i) => `
+          <tr>
+            <td data-label="Spec"><strong>${esc(sub.spec_label)}</strong>
+              <div class="current-value">${esc(sub.category)} · ${esc(sub.bike_name)}</div></td>
+            <td data-label="Value">${esc(sub.value)}</td>
+            <td data-label="By"><button class="username-btn" data-profile="${sub.entered_by_id}" data-slot="s${i}">${esc(sub.entered_by)}</button></td>
+            <td data-label="When" class="cell-dim">${esc(fmtDate(sub.updated_at))}</td>
+            <td data-label="Action"><div class="btn-row">
+              <button class="action-btn approve" data-confirm-sub="${sub.spec_id}">Confirm</button>
+              <button class="action-btn" data-edit-sub="${sub.spec_id}" data-slot="s${i}"
+                      data-label="${esc(sub.spec_label)}" data-value="${esc(sub.value)}">Correct</button>
+            </div></td>
+          </tr>
+          <tr class="inline-row"><td colspan="5"><div id="slot-s${i}"></div></td></tr>`).join("")
+          : `<tr class="empty-row"><td colspan="5">Nothing waiting — every community value has been checked.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>My Bikes</h3></div>
+      ${STATE.bikes.length ? STATE.bikes.map(b => {
+        const pct = b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0;
+        return `
+        <div class="bike-card">
+          <div>
+            <div class="bike-name">${esc(b.display_name)}</div>
+            <div class="bike-meta">${esc(b.specialty || b.bike_type || "—")} ·
+              ${b.fields_triggered} fields triggered · ${b.specs_filled} filled ·
+              <span class="needed-count">${b.specs_needed} still need a value</span></div>
+          </div>
+          <div class="bike-right">
+            <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span class="badge ${pct === 100 ? "good" : "amber"}">${pct === 100 ? "Complete" : "In progress"}</span>
+            <a class="action-btn" href="/questionnaire.html?bike=${b.bike_id}&tree=1"
+               title="Answer the questions that decide which specs this bike has">Answer questionnaire</a>
+            <a class="action-btn" href="/questionnaire.html?bike=${b.bike_id}">Fill gaps</a>
+            <a class="action-btn" href="/index.html?bike=${b.bike_id}">View page</a>
+          </div>
+        </div>`; }).join("")
+      : `<div class="empty">No bikes assigned to you yet.</div>`}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Flags on My Specs</h3>
+          <p>When someone flags a spec as irrelevant, incorrect, or inappropriate,
+             it comes here first — you're the one closest to the bike.</p></div>
+        <span class="count-tag">${STATE.flags.length} open</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Entered By</th><th>Reason</th><th>Detail</th>
+          <th>Flagged By</th><th>When</th><th>Action</th></tr></thead>
+        <tbody>${STATE.flags.length ? STATE.flags.map(renderFlagRow).join("")
+          : `<tr class="empty-row"><td colspan="7">No open flags on your specs right now.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Recently Resolved</h3>
+          <p>Tracked separately so it's clear which flags led to a real fix
+             versus ones that turned out invalid.</p></div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Spec</th><th>Outcome</th><th>Change</th><th>When</th></tr></thead>
+        <tbody>${STATE.resolved.length ? STATE.resolved.map(r => `
+          <tr>
+            <td data-label="Spec"><strong>${esc(r.spec_label)}</strong></td>
+            <td data-label="Outcome"><span class="badge outcome-${esc(r.outcome)}">${
+              r.outcome === "fixed" ? "Fixed" : "Dismissed"}</span></td>
+            <td data-label="Change" class="cell-comment">${r.outcome === "fixed"
+              ? `"${esc(r.old_value)}" → "${esc(r.new_value)}"`
+              : `Kept "${esc(r.old_value)}" — flag was not valid`}</td>
+            <td data-label="When" class="cell-dim">${esc(fmtDate(r.resolved_at))}</td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">Nothing resolved yet.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>My "Not Sure" Answers</h3>
+          <p>Questions you couldn't confidently answer during setup — sent to
+             admin to help confirm.</p></div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Question</th><th>Bike</th><th>Submitted</th><th>Status</th></tr></thead>
+        <tbody>${STATE.notSure.length ? STATE.notSure.map(n => `
+          <tr>
+            <td data-label="Question">${esc(n.question_text)}</td>
+            <td data-label="Bike" class="cell-dim">${esc(n.bike_name)}</td>
+            <td data-label="Submitted" class="cell-dim">${esc(fmtDate(n.created_at))}</td>
+            <td data-label="Status"><span class="badge status-${esc(n.status)}">${
+              n.status === "pending" ? "Pending Admin" : esc(n.status)}</span>
+              ${n.admin_note ? `<div class="cell-dim">${esc(n.admin_note)}</div>` : ""}</td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">Nothing pending — every question was answered confidently.</td></tr>`}</tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>My Branch Proposals</h3>
+          <p>Think a spec is missing from the tree entirely? Propose it — admin
+             reviews, since an approved field becomes available for every bike,
+             not just yours.</p></div>
+        <button class="action-btn" id="propose-toggle">+ Propose New Field</button>
+      </div>
+      <div id="propose-form" style="display:none">
+        <div class="panel-body" style="background:var(--panel-2)">
+          <div class="form-row"><label>Field Name</label>
+            <input type="text" id="pf-name" placeholder="e.g. Steering Damper Preload"></div>
+          <div class="form-row"><label>Category</label>
+            <select id="pf-category">
+              <option>General</option><option>Engine</option><option>Drive</option>
+              <option>Suspension</option><option>Fuel and Air</option>
+              <option>Electrical</option><option>Controls</option>
+              <option>Gear and Accessories</option>
+            </select></div>
+          <div class="form-row"><label>What the value is</label>
+            <select id="pf-vt">
+              <option value="text" selected>Text — anything typed (default)</option>
+              <option value="wire_color">Wire colour — picked from the colour list, shown in the maker's code</option>
+              <option value="fuel_octane">Fuel octane — a pump grade, AKI or RON</option>
+              <option value="ethanol">Ethanol limit — E0 to E15</option>
+            </select>
+            <div class="field-hint">Left as Text, it's a text box. Pick Wire colour for a wire so
+              riders get the colour picker instead of typing "Lg/Bk" three different ways.</div></div>
+          <div class="form-row"><label>For which bike (optional)</label>
+            <select id="pf-bike"><option value="">Not bike-specific</option>
+              ${STATE.bikes.map(b => `<option value="${b.bike_id}">${esc(b.display_name)}</option>`).join("")}
+            </select></div>
+          <div class="form-row"><label>Reasoning</label>
+            <textarea id="pf-reason" placeholder="Why does this need its own field?"></textarea></div>
+          <div class="form-actions">
+            <button class="ghost-btn" id="pf-cancel">Cancel</button>
+            <button class="primary-btn" id="pf-submit">Submit to Admin</button>
+          </div>
+        </div>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Field</th><th>Category</th><th>Submitted</th><th>Status</th></tr></thead>
+        <tbody>${STATE.proposals.length ? STATE.proposals.map(p => `
+          <tr>
+            <td data-label="Field"><strong>${esc(p.field_name)}</strong>
+              <div class="cell-dim">${esc(p.reasoning || "")}</div></td>
+            <td data-label="Category"><span class="badge">${esc(p.category)}</span></td>
+            <td data-label="Submitted" class="cell-dim">${esc(fmtDate(p.created_at))}</td>
+            <td data-label="Status"><span class="badge status-${esc(p.status)}">${esc(p.status)}</span>
+              ${p.admin_note ? `<div class="cell-dim">${esc(p.admin_note)}</div>` : ""}</td>
+          </tr>`).join("")
+          : `<tr class="empty-row"><td colspan="4">No branch proposals submitted yet.</td></tr>`}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderFlagRow(f, i){
+  return `
+    <tr>
+      <td data-label="Spec">
+        <strong>${esc(f.spec_label)}</strong>
+        ${f.alternate_id
+          ? `<div class="current-value"><span class="badge type-pref">Alternate</span>
+               "${esc(f.alt_text)}"</div>
+             <div class="current-value">Stock stays: ${esc(f.current_value ?? "— not set —")}</div>`
+          : `<div class="current-value">Current: ${esc(f.current_value ?? "— not set —")}</div>`}
+        <div class="current-value">${esc(f.bike_name)}</div>
+      </td>
+      <td data-label="Entered By">${f.entered_by_id
+        ? `<button class="username-btn" data-profile="${f.entered_by_id}" data-slot="f${i}">${esc(f.entered_by)}</button>`
+        : `<span class="cell-dim">—</span>`}</td>
+      <td data-label="Reason"><span class="badge reason-${esc(f.reason)}">${esc(REASON_LABEL[f.reason] || f.reason)}</span></td>
+      <td data-label="Detail" class="cell-comment">${f.detail ? `"${esc(f.detail)}"` : "—"}</td>
+      <td data-label="Flagged By"><button class="username-btn" data-profile="${f.flagged_by_id}" data-slot="f${i}">${esc(f.flagged_by)}</button></td>
+      <td data-label="When" class="cell-dim">${esc(fmtDate(f.created_at))}</td>
+      <td data-label="Action"><div class="btn-row">
+        ${f.alternate_id
+          // "Fix Value" writes the stock value, which was never what a flag
+          // against somebody's alternate was about. The action that fits is
+          // taking the alternate down.
+          ? `<button class="action-btn approve" data-drop-alt="${f.id}" data-slot="f${i}"
+                     data-alt="${esc(f.alt_text || "")}">Remove alternate</button>`
+          : `<button class="action-btn approve" data-fix="${f.id}" data-slot="f${i}">Fix Value</button>`}
+        ${!f.alternate_id && (f.current_value === null || f.current_value === "")
+          ? `<button class="action-btn danger" data-remove-spec="${f.id}" data-slot="f${i}"
+                     title="Take this field off the bike — it has no value, so nothing is lost.">Remove from this bike</button>` : ""}
+        <button class="action-btn${f.spec_offline ? " on" : ""}"
+                data-offline="${f.id}" data-to="${f.spec_offline ? "0" : "1"}"
+                data-slot="f${i}"
+                title="${f.spec_offline
+                  ? "Put it back online — riders can read it again"
+                  : "Hide it from riders while you check. The flag stays open."}">${
+                f.spec_offline ? "▶ Put online" : "❙❙ Take offline"}</button>
+        <button class="action-btn" data-dismiss="${f.id}" data-slot="f${i}">Dismiss</button>
+        <button class="action-btn contact" data-contact="${f.id}" data-slot="f${i}"
+                data-name="${esc(f.flagged_by)}">Contact</button>
+      </div></td>
+    </tr>
+    <tr class="inline-row"><td colspan="7"><div id="slot-f${i}"></div></td></tr>`;
+}
+
+function slot(id){ return document.getElementById(`slot-${id}`); }
+
+
+function fieldRequestRows(items, showManager){
+  if(!items.length) return "";
+  return items.map(r => `
+    <tr>
+      <td data-label="Spec"><strong>${esc(r.label)}</strong>
+        <div class="current-value">${esc(r.category)}</div></td>
+      <td data-label="Bike" class="cell-dim"><a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name)}</a>${
+        r.year_range ? ` · ${esc(r.year_range)}` : ""}${
+        showManager && !r.has_manager ? ` <span class="badge amber">no manager</span>` : ""}</td>
+      <td data-label="Asked by"><span class="badge amber">${r.requests} rider${r.requests !== 1 ? "s" : ""}</span>
+        <div class="cell-dim" style="margin-top:4px">${r.asked_by.map(a =>
+          `${esc(a.username)}${a.reasoning ? ` — “${esc(a.reasoning)}”` : ""}`).join("<br>")}</div></td>
+      <td data-label="Action">
+        <div class="btn-row">
+          <button class="action-btn approve" data-field-req="added" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+                  title="Puts an empty ${esc(r.label)} row on the bike's sheet, for a value to be sourced.">Add to bike</button>
+          <button class="action-btn" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+                  title="Closes the request without adding the field.">Decline</button>
+        </div>
+      </td>
+    </tr>`).join("");
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const fieldReq = e.target.closest("[data-field-req]");
+  if(fieldReq){
+    const status = fieldReq.dataset.fieldReq;
+    let note = null;
+    if(status === "declined"){
+      note = prompt("Why not? (shown to the riders who asked — optional)") ;
+      if(note === null) return;
+    }
+    const r = await API.post(`/api/bikes/${fieldReq.dataset.bike}/field-requests/${fieldReq.dataset.key}/decide`,
+                             { status, note });
+    toast(status === "added"
+      ? (r.added ? `Added — ${r.resolved} request${r.resolved !== 1 ? "s" : ""} closed.` : "It was already on the bike; requests closed.")
+      : "Declined.", "ok");
+    await load();
+    return;
+  }
+
+  const confirmSub = e.target.closest("[data-confirm-sub]");
+  if(confirmSub){
+    // Raising the confidence off 'pending' is what confirming means, and it is
+    // also what takes the row out of this queue.
+    await API.patch(`/api/specs/${confirmSub.dataset.confirmSub}`, { confidence: "mfr" });
+    toast("Confirmed.", "ok");
+    await load();
+    return;
+  }
+
+  const editSub = e.target.closest("[data-edit-sub]");
+  if(editSub){
+    slot(editSub.dataset.slot).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Correct — ${esc(editSub.dataset.label)}</div>
+        <div class="inline-sub">Replaces what the rider submitted with your value.</div>
+        <input type="text" id="sub-input" value="${esc(editSub.dataset.value)}" autocomplete="off">
+        <div class="form-row" style="margin-top:10px"><label>Confidence</label>
+          <select id="sub-conf">
+            <option value="confirmed">From the manual</option>
+            <option value="mfr" selected>Manufacturer spec</option>
+            <option value="pending">Still unconfirmed</option>
+          </select></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${editSub.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-save-sub="${editSub.dataset.editSub}">Save</button>
+        </div>
+      </div>`;
+    document.getElementById("sub-input").focus();
+    return;
+  }
+
+  const saveSub = e.target.closest("[data-save-sub]");
+  if(saveSub){
+    const value = document.getElementById("sub-input").value.trim();
+    if(!value){ toast("A value is required.", "error"); return; }
+    await API.patch(`/api/specs/${saveSub.dataset.saveSub}`, {
+      value, confidence: document.getElementById("sub-conf").value });
+    toast("Updated.", "ok");
+    await load();
+    return;
+  }
+
+  const fix = e.target.closest("[data-fix]");
+  if(fix){
+    const f = STATE.flags.find(x => x.id === Number(fix.dataset.fix));
+    slot(fix.dataset.slot).innerHTML = `
+      <div class="inline-box good">
+        <div class="inline-title">Fix Value — ${esc(f.spec_label)}</div>
+        <div class="inline-sub">You're setting this directly as the stock value —
+          no vote needed, since you're the assigned expert for this bike.</div>
+        <input type="text" id="fix-input" value="${esc(f.current_value ?? "")}">
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${fix.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-fix-save="${f.id}">Save Fix</button>
+        </div>
+      </div>`;
+    document.getElementById("fix-input").focus();
+    return;
+  }
+
+  const fixSave = e.target.closest("[data-fix-save]");
+  if(fixSave){
+    const v = document.getElementById("fix-input").value.trim();
+    if(!v){ toast("A value is required.", "error"); return; }
+    await API.post(`/api/flags/${fixSave.dataset.fixSave}/fix`, { new_value: v });
+    toast("Value updated and flag closed.", "ok");
+    await load();
+    return;
+  }
+
+  const rm = e.target.closest("[data-remove-spec]");
+  if(rm){
+    const f = STATE.flags.find(x => x.id === Number(rm.dataset.removeSpec));
+    slot(rm.dataset.slot).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Remove ${esc(f.spec_label)} from ${esc(f.bike_name)}</div>
+        <div class="inline-sub">The field comes off this bike's sheet — it has no value,
+          so nothing sourced is lost. The flag closes with it. If the machine really
+          does have this part, dismiss the flag instead.</div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${rm.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-remove-spec-go="${f.id}">Remove it</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const rmGo = e.target.closest("[data-remove-spec-go]");
+  if(rmGo){
+    const f = STATE.flags.find(x => x.id === Number(rmGo.dataset.removeSpecGo));
+    await API.del(`/api/bikes/${f.bike_id}/specs/${encodeURIComponent(f.field_key)}`);
+    toast(`${f.spec_label} removed from ${f.bike_name}.`, "ok");
+    await load();
+    return;
+  }
+
+  const dis = e.target.closest("[data-dismiss]");
+  if(dis){
+    const f = STATE.flags.find(x => x.id === Number(dis.dataset.dismiss));
+    slot(dis.dataset.slot).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Dismiss Flag — ${esc(f.spec_label)}</div>
+        <div class="inline-sub">This marks the flag as not valid — the current
+          value stays as-is. It's tracked separately from a fix, so the flagger's
+          history reflects it.</div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${dis.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-dismiss-save="${f.id}">Confirm Dismiss</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const disSave = e.target.closest("[data-dismiss-save]");
+  if(disSave){
+    await API.post(`/api/flags/${disSave.dataset.dismissSave}/dismiss`);
+    toast("Flag dismissed.", "ok");
+    await load();
+    return;
+  }
+
+  const contact = e.target.closest("[data-contact]");
+  if(contact){
+    slot(contact.dataset.slot).innerHTML = `
+      <div class="inline-box blue">
+        <div class="inline-title">Message about this flag</div>
+        <div class="inline-sub">Who needs to hear it depends on the question.
+          "Was this on a later production run?" is for the rider who raised it.
+          "This field is wrong for the whole platform" is for an admin.</div>
+        <div class="form-row"><label>Send to</label>
+          <select id="msg-to">
+            <option value="flagger">${esc(contact.dataset.name)} — who flagged it</option>
+            <option value="admin">An admin</option>
+          </select></div>
+        <textarea id="msg-input" placeholder="Ask a question or ask for more detail…"></textarea>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${contact.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-msg-send="${contact.dataset.contact}"
+                  data-slot="${contact.dataset.slot}">Send Message</button>
+        </div>
+      </div>`;
+    document.getElementById("msg-input").focus();
+    return;
+  }
+
+  const send = e.target.closest("[data-msg-send]");
+  if(send){
+    const body = document.getElementById("msg-input").value.trim();
+    if(!body) return;
+    const to = document.getElementById("msg-to")?.value || "flagger";
+    await API.post(`/api/flags/${send.dataset.msgSend}/messages`, { body, to });
+    slot(send.dataset.slot).innerHTML =
+      `<div class="inline-box blue"><div class="inline-sub" style="margin:0;color:var(--good)">${
+        to === "admin" ? "Message sent to an admin." : "Message sent."}</div></div>`;
+    return;
+  }
+
+  const prof = e.target.closest("[data-profile]");
+  if(prof){
+    const s = slot(prof.dataset.slot);
+    if(s.dataset.showing === prof.dataset.profile){ s.innerHTML = ""; s.dataset.showing = ""; return; }
+    const p = await API.get(`/api/users/${prof.dataset.profile}/profile`);
+    s.dataset.showing = prof.dataset.profile;
+    s.innerHTML = renderProfile(p, prof.dataset.slot);
+    return;
+  }
+
+  const dropAlt = e.target.closest("[data-drop-alt]");
+  if(dropAlt){
+    slot(dropAlt.dataset.slot).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Remove this alternate?</div>
+        <div class="inline-sub">Hides <strong>${esc(dropAlt.dataset.alt || "it")}</strong>
+          from the spec sheet and closes the flag as fixed. The text and its
+          votes are kept, so it can come back if this turns out to be wrong.
+          The stock value is not touched.</div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${dropAlt.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-drop-alt-go="${dropAlt.dataset.dropAlt}">Remove it</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const dropAltGo = e.target.closest("[data-drop-alt-go]");
+  if(dropAltGo){
+    await API.post(`/api/flags/${dropAltGo.dataset.dropAltGo}/remove-alternate`);
+    toast("Alternate hidden and the flag closed.", "ok");
+    await load();
+    return;
+  }
+
+  const offline = e.target.closest("[data-offline]");
+  if(offline){
+    const r = await API.post(`/api/flags/${offline.dataset.offline}/offline`,
+                             { offline: offline.dataset.to === "1" });
+    toast(r.offline
+      ? `“${r.label}” is offline — riders cannot see it while you check. The flag stays open.`
+      : `“${r.label}” is back online.`, "ok");
+    await load();
+    return;
+  }
+
+  const flagUser = e.target.closest("[data-flag-user]");
+  if(flagUser){
+    slot(flagUser.dataset.slot).innerHTML = `
+      <div class="inline-box danger">
+        <div class="inline-title">Flag @${esc(flagUser.dataset.name)} — reason?</div>
+        ${USER_FLAG_REASONS.map(r => `
+          <button class="ghost-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px"
+                  data-uf-reason="${flagUser.dataset.flagUser}" data-reason="${r.value}"
+                  data-name="${esc(flagUser.dataset.name)}" data-slot="${flagUser.dataset.slot}">${esc(r.label)}</button>`).join("")}
+        <div class="form-actions"><button class="ghost-btn" data-close="${flagUser.dataset.slot}">Cancel</button></div>
+      </div>`;
+    return;
+  }
+
+  const ufReason = e.target.closest("[data-uf-reason]");
+  if(ufReason){
+    slot(ufReason.dataset.slot).innerHTML = `
+      <div class="inline-box danger">
+        <div class="inline-title">Flag @${esc(ufReason.dataset.name)} — ${esc(ufReason.textContent.trim())}</div>
+        <textarea id="uf-detail" maxlength="150" placeholder="Add detail (optional, 150 char max)"></textarea>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${ufReason.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-uf-submit="${ufReason.dataset.ufReason}"
+                  data-reason="${esc(ufReason.dataset.reason)}" data-slot="${ufReason.dataset.slot}">Submit Flag</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const ufSubmit = e.target.closest("[data-uf-submit]");
+  if(ufSubmit){
+    await API.post(`/api/users/${ufSubmit.dataset.ufSubmit}/flags`, {
+      reason: ufSubmit.dataset.reason,
+      detail: document.getElementById("uf-detail").value.trim() || null,
+    });
+    slot(ufSubmit.dataset.slot).innerHTML =
+      `<div class="inline-box danger"><div class="inline-sub" style="margin:0">Flagged. Admin has been notified for review.</div></div>`;
+    return;
+  }
+
+  const close = e.target.closest("[data-close]");
+  if(close){ const s = slot(close.dataset.close); s.innerHTML = ""; s.dataset.showing = ""; return; }
+
+  if(e.target.closest("#propose-toggle")){
+    const f = document.getElementById("propose-form");
+    f.style.display = f.style.display === "none" ? "" : "none";
+    return;
+  }
+  if(e.target.closest("#pf-cancel")){
+    document.getElementById("propose-form").style.display = "none";
+    return;
+  }
+  if(e.target.closest("#pf-submit")){
+    const name = document.getElementById("pf-name").value.trim();
+    const reasoning = document.getElementById("pf-reason").value.trim();
+    if(!name || !reasoning){ toast("Field name and reasoning are both required.", "error"); return; }
+    await API.post("/api/proposals", {
+      field_name: name,
+      category: document.getElementById("pf-category").value,
+      value_type: document.getElementById("pf-vt").value || "text",
+      bike_id: Number(document.getElementById("pf-bike").value) || null,
+      reasoning,
+    });
+    toast("Proposal sent to admin.", "ok");
+    await load();
+    return;
+  }
+}));
+
+function renderProfile(p, slotId){
+  return `
+    <div class="inline-box">
+      <div class="inline-title">@${esc(p.username)} · ${esc(p.role)}</div>
+      <div class="profile-stat-grid">
+        <div class="profile-stat"><div class="profile-stat-num">${p.specs_entered}</div><div class="profile-stat-lbl">Specs Entered</div></div>
+        <div class="profile-stat${p.specs_flagged ? " alert" : ""}"><div class="profile-stat-num">${p.specs_flagged}</div><div class="profile-stat-lbl">Their Specs Flagged</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.flags_submitted}</div><div class="profile-stat-lbl">Flags Submitted</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.thumbs_up_given}</div><div class="profile-stat-lbl">Thumbs Up Given</div></div>
+        <div class="profile-stat"><div class="profile-stat-num">${p.garage_count}</div><div class="profile-stat-lbl">Bikes in Garage</div></div>
+        <div class="profile-stat${p.open_user_flags ? " alert" : ""}"><div class="profile-stat-num">${p.open_user_flags}</div><div class="profile-stat-lbl">Open Flags Against</div></div>
+      </div>
+      <div class="form-actions" style="justify-content:flex-start">
+        <button class="action-btn danger" data-flag-user="${p.user_id}"
+                data-name="${esc(p.username)}" data-slot="${slotId}">Flag This User</button>
+      </div>
+    </div>`;
+}
+
+(async function(){
+  await initChrome("/manager.html");
+  document.getElementById("who").innerHTML = ME.user
+    ? `Signed in as <strong>${esc(ME.user.display_name || ME.user.username)}</strong>` : "";
+  if(!requireRole("manager")) return;
+  await load();
+})();
+</script>
+</body>
+</html>

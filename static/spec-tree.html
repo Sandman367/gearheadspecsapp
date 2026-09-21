@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Tree — GearHeadSpecs</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* Only what the app.css shell does not already provide: the reference table,
+     its chips, and the coverage bar. Everything else is the site's own. */
+  .tree-stats{
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .tree-stat{ background: var(--panel); padding: 14px 16px; }
+  .tree-stat b{
+    display: block; font-family: var(--display); font-size: 26px;
+    font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .tree-stat span{
+    display: block; margin-top: 6px; font-family: var(--mono);
+    font-size: 9.5px; letter-spacing: 0.02em;
+    color: var(--text-faint);
+  }
+
+  .tree-filter{
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+    margin-bottom: 20px;
+  }
+  .tree-filter .grow{ flex: 1 1 240px; }
+  .tree-count{
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    padding-bottom: 9px;
+  }
+
+  .cat-block{ margin-bottom: 30px; }
+  .cat-bar{
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 14px; border-bottom: 2px solid var(--amber-dim);
+    padding-bottom: 7px; margin-bottom: 2px;
+  }
+  .cat-bar h3{
+    font-family: var(--display); font-weight: 600; font-size: 18px; margin: 0; letter-spacing: 0.03em;
+  }
+  .cat-bar .n{
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em; color: var(--text-faint); white-space: nowrap;
+  }
+
+  .tree-table{ width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .tree-table thead th{
+    text-align: left; font-family: var(--mono); font-weight: 500;
+    font-size: 9.5px; letter-spacing: 0.02em;
+    color: var(--text-faint); padding: 11px 12px 7px;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  .tree-table tbody tr{ border-bottom: 1px solid var(--line); }
+  .tree-table tbody tr:hover{ background: var(--panel-2); }
+  .tree-table td{ padding: 9px 12px; vertical-align: top; }
+  .tree-table .pos{
+    width: 34px; text-align: right; font-family: var(--mono); font-size: 11px;
+    color: var(--text-faint); font-variant-numeric: tabular-nums;
+  }
+  .tree-table .name{ min-width: 215px; }
+  .tree-table .name code{
+    display: block; margin-top: 2px; font-family: var(--mono);
+    font-size: 10.5px; color: var(--text-faint);
+  }
+  .tree-chip{
+    display: inline-block; font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.02em; padding: 2px 7px;
+    border: 1px solid currentColor; white-space: nowrap;
+  }
+  .tree-chip.all{ color: var(--good); }
+  .tree-chip.named{ color: var(--text-faint); }
+  .tree-chip.comm{ color: var(--pref); margin-left: 6px; }
+  .tree-chip.off{ color: var(--danger); }
+  .vis{ white-space: nowrap; }
+  .vis .tree-chip{ margin-right: 7px; }
+  .tree-vis{ font-size: 10.5px; }
+  .tree-chip.branch{
+    color: var(--amber); text-transform: none; letter-spacing: 0.01em;
+    font-size: 10.5px; white-space: normal;
+  }
+  .applies{ max-width: 300px; }
+
+  .cov{ display: flex; align-items: center; gap: 9px; width: 148px; }
+  .cov-bar{
+    flex: 1; height: 5px; min-width: 48px;
+    background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .cov-bar i{ display: block; height: 100%; background: var(--thumb-blue); }
+  .cov-n{
+    font-family: var(--mono); font-size: 11px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .cov-n .of{ color: var(--text-faint); }
+  .cov-none{ font-family: var(--mono); font-size: 10.5px; color: var(--danger); }
+
+  /* One bike's column: where the field stands there, and what to do about it. */
+  .here{ min-width: 220px; }
+  .here .st{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .here .st .tree-chip.on{ color: var(--blue); }
+  .here .st .tree-chip.part{ color: var(--amber); }
+  .here .note{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .here .acts{ display: flex; flex-wrap: wrap; gap: 5px; }
+  .here .action-btn{ font-size: 10.5px; }
+  .here .action-btn.go{ border-color: var(--good); color: var(--good); }
+  .here .action-btn.danger{ border-color: var(--danger); color: var(--danger); }
+  .here .action-btn[disabled]{ opacity: 0.45; cursor: not-allowed; }
+  .more-row td{ padding: 0 12px 12px; background: var(--panel-2); }
+  .more-box{
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px; padding: 12px 14px; border: 1px solid var(--line); background: var(--panel);
+  }
+  .more-box h4{
+    margin: 0 0 6px; font-family: var(--mono); font-weight: 500; font-size: 9.5px;
+    letter-spacing: 0.02em; color: var(--text-faint);
+  }
+  .more-box .hint{ font-size: 12px; color: var(--text-faint); margin: 0 0 8px; line-height: 1.5; }
+  .more-box select{ max-width: 100%; }
+  .cat-pick{
+    display: inline-flex; align-items: center; gap: 5px; margin: 0 8px 6px 0;
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 8px; border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .cat-pick.on{ border-color: var(--amber); color: var(--amber); }
+  .cat-pick.locked{ opacity: 0.55; cursor: default; }
+  .cat-pick small{ color: var(--text-faint); }
+  .more-box .form-actions{ margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; }
+
+  .bike-pick{ position: relative; }
+  .bike-pick .picked{
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border: 1px solid var(--amber-dim); font-size: 13px;
+  }
+  .bike-pick .picked small{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .bike-pick .picked button{ font-size: 10.5px; }
+  .bike-hits{
+    position: absolute; z-index: 5; left: 0; right: 0; top: 100%;
+    background: var(--panel); border: 1px solid var(--line); max-height: 260px; overflow: auto;
+  }
+  .bike-hits button{
+    display: block; width: 100%; text-align: left; padding: 7px 10px; font-size: 12.5px;
+    background: none; border: 0; border-bottom: 1px solid var(--line); color: inherit; cursor: pointer;
+  }
+  .bike-hits button:hover{ background: var(--panel-2); }
+  .bike-hits button small{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); margin-left: 6px; }
+  .bike-line{
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    margin: -8px 0 16px; line-height: 1.6;
+  }
+  .bike-line b{ color: var(--text); font-weight: 500; }
+
+  @media (max-width: 700px){
+    .tree-table .pos{ display: none; }
+    .cov{ width: auto; }
+    .here{ min-width: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-copy">
+      <div class="eyebrow">Spec Tree Platform</div>
+      <h1>Spec Tree</h1>
+      <div class="subhead" id="sub">Loading…</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="content"><div class="panel"><div class="loading">Loading the tree…</div></div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let TREE = null;
+let IS_ADMIN = false;
+// The bike the tree is being read against, if any. A manager sees their own
+// bikes in a select; admin, who manages every bike, searches the catalog.
+let BIKE_ID = null;
+const OPEN = new Set();   // field keys whose "more" box is open
+const TYPE_NAME = { pref: "Preference", fixed: "Fixed", community: "Community" };
+
+function treeUrl(){
+  return "/api/spec-tree" + (BIKE_ID ? "?bike=" + BIKE_ID : "");
+}
+
+async function load(){
+  try {
+    TREE = await API.get(treeUrl());
+  } catch(err){
+    // A bike that is no longer theirs, or a stale id: fall back to the plain tree.
+    if(BIKE_ID){ BIKE_ID = null; rememberBike(); TREE = await API.get(treeUrl()); }
+    else throw err;
+  }
+}
+
+function rememberBike(){
+  try {
+    if(BIKE_ID) localStorage.setItem("tree.bike", String(BIKE_ID));
+    else localStorage.removeItem("tree.bike");
+  } catch(_){}
+  const url = new URL(location.href);
+  if(BIKE_ID) url.searchParams.set("bike", BIKE_ID); else url.searchParams.delete("bike");
+  history.replaceState(null, "", url);
+}
+
+function chipFor(f){
+  if(f.universal) return `<span class="tree-chip all">every bike</span>`;
+  if(f.triggers.length){
+    // The answer's own wording. "q3=B" is precise and unreadable; "Belt drive"
+    // is what the person answering the questionnaire actually chose.
+    return f.triggers.map(t =>
+      `<span class="tree-chip branch" title="${esc(t.question_id)} = ${esc(t.option)} · ${esc(t.question)}">${esc(t.text)}</span>`
+    ).join(" ");
+  }
+  return `<span class="tree-chip named">named bikes</span>`;
+}
+
+function visibility(f){
+  if(!f.bikes) return "";
+  const allOff = f.offline === f.bikes;
+  const someOff = f.offline > 0 && !allOff;
+  const state = allOff
+    ? `<span class="tree-chip off">offline</span>`
+    : someOff
+      ? `<span class="tree-chip off">${f.offline} of ${f.bikes} offline</span>`
+      : "";
+  // The switch is admin's: it moves every bike carrying the field at once.
+  const btn = IS_ADMIN
+    ? `<button class="action-btn tree-vis" data-vis="${esc(f.field_key)}"
+         data-to="${allOff || someOff ? "1" : "0"}"
+         title="${allOff || someOff
+           ? "Show it to riders on every bike carrying it"
+           : "Hide it from riders on every bike carrying it"}">${
+         allOff || someOff ? "Put online" : "Take offline"}</button>`
+    : "";
+  return state + btn;
+}
+
+function coverage(f){
+  if(!f.bikes) return `<span class="cov-none">on no bike</span>`;
+  const pct = Math.round(100 * f.filled / f.bikes);
+  return `<div class="cov">
+      <div class="cov-bar"><i style="width:${pct}%"></i></div>
+      <span class="cov-n">${f.filled}<span class="of">/${f.bikes}</span></span>
+    </div>`;
+}
+
+// Where the field stands on the chosen bike, and the manager's controls for
+// it there: the same add / online / offline / remove admin has on the console,
+// scoped to this one machine.
+function hereCell(f){
+  const h = f.here;
+  const key = esc(f.field_key);
+  if(!h){
+    return `<div class="st"><span class="tree-chip named">not on this bike</span></div>
+      <div class="acts">
+        <button class="action-btn go" data-add="${key}" data-label="${esc(f.label)}"
+                title="Put this field on ${esc(TREE.bike.display_name)} as an empty gap">Add to this bike</button>
+      </div>`;
+  }
+  const allOn = h.online === h.rows;
+  const allOff = h.online === 0;
+  const state = allOn
+    ? `<span class="tree-chip on">online</span>`
+    : allOff
+      ? `<span class="tree-chip off">offline</span>`
+      : `<span class="tree-chip part">${h.rows - h.online} of ${h.rows} offline</span>`;
+  const notes = [];
+  notes.push(h.values ? (h.rows > 1 ? `${h.values} of ${h.rows} filled` : "has a value") : "empty");
+  if(h.rows > 1) notes.push(`${h.rows} year ranges`);
+  if(h.alternates) notes.push(`${h.alternates} alternate${h.alternates === 1 ? "" : "s"}`);
+  if(h.spec_type) notes.push(`${TYPE_NAME[h.spec_type]} here`);
+  if(h.also_in.length) notes.push(`also under ${h.also_in.join(", ")}`);
+  if(h.home_hidden) notes.push(`not under ${f.category} here`);
+
+  const loaded = h.values > 0 || h.alternates > 0;
+  const single = h.rows === 1;
+  let remove;
+  if(!loaded && single){
+    remove = `<button class="action-btn danger" data-remove="${key}" data-label="${esc(f.label)}"
+                title="Take this field off ${esc(TREE.bike.display_name)} — it has no value, so nothing is lost">Remove</button>`;
+  } else if(loaded && IS_ADMIN && single){
+    remove = `<button class="action-btn danger" data-remove-force="${key}" data-label="${esc(f.label)}"
+                title="Admin only: removing destroys the value and anything hanging off it">Remove…</button>`;
+  } else {
+    remove = `<button class="action-btn danger" disabled
+                title="${!single ? "Split by year — merge or edit it on the spec sheet"
+                  : "Holds a value or an alternate — somebody's work. Clear it on the spec sheet first" + (IS_ADMIN ? "" : ", or ask admin")}">Remove</button>`;
+  }
+  return `<div class="st">${state}<span class="note">${esc(notes.join(" · "))}</span></div>
+    <div class="acts">
+      <button class="action-btn" data-here-pause="${key}" data-to="${allOff ? "0" : "1"}" data-label="${esc(f.label)}"
+              title="${allOff ? "Show it to riders on this bike" : "Hide it from riders on this bike — the value stays"}">${
+              allOff ? "Put online" : "Take offline"}</button>
+      ${remove}
+      <button class="action-btn" data-more="${key}" aria-expanded="${OPEN.has(f.field_key)}">${
+        OPEN.has(f.field_key) ? "Less" : "More…"}</button>
+    </div>`;
+}
+
+// The quieter per-bike choices: how values work here, and which headings
+// the field sits under on this bike's sheet. Admin's site-wide headings are
+// shown locked; they are changed on the admin console, not here.
+function moreBox(f){
+  const h = f.here;
+  const key = esc(f.field_key);
+  const home = f.category;
+  const cats = TREE.categories.map(c => {
+    const siteOn = c === home ? !f.home_hidden_site : f.also_in_site.includes(c);
+    const locked = c === home ? f.home_hidden_site : f.also_in_site.includes(c);
+    const on = c === home ? (siteOn && !h.home_hidden) : (siteOn || h.also_in.includes(c));
+    return `<label class="cat-pick${on ? " on" : ""}${locked ? " locked" : ""}"
+        title="${locked ? "Set site-wide by admin" : c === home ? "Its usual heading. Untick to show it only under the others, on this bike." : ""}">
+      <input type="checkbox" name="cats-${key}" value="${esc(c)}"${on ? " checked" : ""}${locked ? " disabled" : ""}>
+      ${esc(c)}${c === home ? " <small>usual</small>" : ""}</label>`;
+  }).join("");
+  return `<div class="more-box">
+      <div>
+        <h4>How values work on this bike</h4>
+        <p class="hint">Fixed closes alternates and community values on this spec.
+          The tree says <em>${esc(TYPE_NAME[f.spec_type] || f.spec_type)}</em>; an override here changes this bike only.</p>
+        <select data-here-type="${key}" data-label="${esc(f.label)}">
+          <option value=""${!h.spec_type ? " selected" : ""}>Tree default — ${esc(TYPE_NAME[f.spec_type] || f.spec_type)}</option>
+          <option value="pref"${h.spec_type === "pref" ? " selected" : ""}>Preference — riders vary</option>
+          <option value="fixed"${h.spec_type === "fixed" ? " selected" : ""}>Fixed — one right answer</option>
+          <option value="community"${h.spec_type === "community" ? " selected" : ""}>Community — no factory value</option>
+        </select>
+      </div>
+      <div>
+        <h4>Headings on this bike</h4>
+        <p class="hint">Where the field shows on this bike's sheet. None ticked means header only.</p>
+        <div>${cats}</div>
+        <div class="form-actions">
+          <button class="primary-btn" data-cats-go="${key}" data-label="${esc(f.label)}">Save headings</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function render(){
+  const q = (document.getElementById("tree-q")?.value || "").trim().toLowerCase();
+  const only = document.getElementById("tree-only")?.value || "";
+  const onBike = !!TREE.bike;
+
+  const match = f => {
+    if(only === "branch"   && !f.triggers.length) return false;
+    if(only === "universal"&& !f.universal) return false;
+    if(only === "named"    && (f.universal || f.triggers.length)) return false;
+    if(only === "nobike"   && f.bikes) return false;
+    if(only === "gaps"     && f.bikes && f.filled === f.bikes) return false;
+    if(only === "offline"  && !f.offline) return false;
+    if(only === "here"     && !f.here) return false;
+    if(only === "nothere"  && f.here) return false;
+    if(only === "hereoff"  && !(f.here && f.here.online < f.here.rows)) return false;
+    if(only === "hereempty"&& !(f.here && f.here.values < f.here.rows)) return false;
+    if(!q) return true;
+    return f.label.toLowerCase().includes(q)
+        || f.field_key.includes(q.replace(/\s+/g, "_"))
+        || f.category.toLowerCase().includes(q)
+        || f.triggers.some(t => t.text.toLowerCase().includes(q));
+  };
+
+  const shown = TREE.fields.filter(match);
+  const byCat = {};
+  shown.forEach(f => (byCat[f.category] = byCat[f.category] || []).push(f));
+
+  document.getElementById("tree-showing").textContent =
+    shown.length === TREE.fields.length
+      ? `${TREE.fields.length} fields`
+      : `${shown.length} of ${TREE.fields.length} fields`;
+
+  const cols = onBike ? 6 : 5;
+  const body = document.getElementById("tree-body");
+  body.innerHTML = TREE.categories.filter(c => byCat[c]).map(cat => `
+    <div class="cat-block">
+      <div class="cat-bar">
+        <h3>${esc(cat)}</h3>
+        <span class="n">${byCat[cat].length} field${byCat[cat].length === 1 ? "" : "s"}${
+          onBike ? ` · ${byCat[cat].filter(f => f.here).length} on this bike` : ""}</span>
+      </div>
+      <div class="table-wrap">
+        <table class="tree-table">
+          <thead><tr>
+            <th class="pos">#</th><th>Field</th><th>Applies to</th>
+            <th>Filled in</th><th>Visible</th>${
+            onBike ? `<th>On ${esc(TREE.bike.display_name)}</th>` : ""}
+          </tr></thead>
+          <tbody>
+            ${byCat[cat].map(f => `
+              <tr>
+                <td class="pos">${TREE.fields.filter(x => x.category === cat).indexOf(f) + 1}</td>
+                <td class="name"><span>${esc(f.label)}</span>${
+                  f.spec_type === "community" ? `<span class="tree-chip comm">community</span>` : ""}
+                  <code>${esc(f.field_key)}</code></td>
+                <td class="applies">${chipFor(f)}</td>
+                <td>${coverage(f)}</td>
+                <td class="vis">${visibility(f)}</td>${
+                onBike ? `<td class="here">${hereCell(f)}</td>` : ""}
+              </tr>${onBike && f.here && OPEN.has(f.field_key)
+                ? `<tr class="more-row"><td colspan="${cols}">${moreBox(f)}</td></tr>` : ""}`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`).join("")
+    || `<div class="panel"><div class="panel-body empty">No field matches that.</div></div>`;
+}
+
+function bikePickerHTML(){
+  const b = TREE.bike;
+  const picked = b ? `
+    <span class="picked"><span>${esc(b.display_name)}</span>
+      <small>${esc(b.year_range || "")}</small>
+      <button class="ghost-btn" data-clear-bike title="Back to the plain tree">×</button></span>` : "";
+  if(IS_ADMIN){
+    // Admin manages every bike: a search rather than a list of 1,600.
+    return `<div class="bike-pick">
+        <span class="field-label">Look at one bike</span>
+        ${b ? picked : `<input type="text" id="tree-bike-q" autocomplete="off" placeholder="Find a bike, e.g. CB919">
+                        <div class="bike-hits" id="tree-bike-hits" hidden></div>`}
+      </div>`;
+  }
+  if(!TREE.my_bikes.length) return "";
+  if(TREE.my_bikes.length === 1){
+    const m = TREE.my_bikes[0];
+    return `<div class="bike-pick">
+        <span class="field-label">Your bike</span>
+        ${b ? picked : `<button class="action-btn" data-pick-bike="${m.bike_id}">Work on ${esc(m.display_name)}</button>`}
+      </div>`;
+  }
+  return `<div class="bike-pick">
+      <span class="field-label">Your bike</span>
+      <select id="tree-bike">
+        <option value="">Just the tree — no bike controls</option>
+        ${TREE.my_bikes.map(m => `<option value="${m.bike_id}"${b && b.bike_id === m.bike_id ? " selected" : ""}>${
+          esc(m.display_name)}${m.year_range ? ` · ${esc(m.year_range)}` : ""}</option>`).join("")}
+      </select>
+    </div>`;
+}
+
+function paint(){
+  const f = TREE.fields;
+  const branch = f.filter(x => x.triggers.length).length;
+  const uni = f.filter(x => x.universal).length;
+  const named = f.filter(x => !x.universal && !x.triggers.length).length;
+  const nobike = f.filter(x => !x.bikes).length;
+  const offline = f.filter(x => x.offline > 0).length;
+  const b = TREE.bike;
+  const here = b ? f.filter(x => x.here) : [];
+  const hereOff = here.filter(x => x.here.online < x.here.rows).length;
+  const hereEmpty = here.filter(x => x.here.values < x.here.rows).length;
+
+  document.getElementById("sub").textContent =
+    `${f.length} fields across ${TREE.categories.length} categories`
+    + (b ? ` · ${here.length} on ${b.display_name}` : "");
+
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Every spec the platform records</h3>
+          <p>The fields a bike can carry, in the order they appear on a spec
+             sheet. A field only reaches a bike if something puts it there — a
+             questionnaire answer, the universal flag, or someone adding it to
+             that bike by hand.${b || TREE.my_bikes.length || IS_ADMIN
+               ? " Pick a bike and each field says where it stands there — add it, take it offline, take it off — without touching any other bike."
+               : ""}</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="tree-stats">
+          <div class="tree-stat"><b>${f.length}</b><span>Fields</span></div>
+          <div class="tree-stat"><b>${TREE.categories.length}</b><span>Categories</span></div>
+          <div class="tree-stat"><b>${branch}</b><span>On a branch</span></div>
+          <div class="tree-stat"><b>${uni}</b><span>Every bike</span></div>
+          <div class="tree-stat"><b>${named}</b><span>Named bikes only</span></div>
+          <div class="tree-stat"><b>${nobike}</b><span>On no bike</span></div>
+          <div class="tree-stat"><b>${offline}</b><span>Offline somewhere</span></div>
+        </div>
+
+        <div class="tree-filter">
+          ${bikePickerHTML()}
+          <div class="grow">
+            <span class="field-label">Search</span>
+            <input type="text" id="tree-q" autocomplete="off"
+                   placeholder="chain, Suspension, belt drive…">
+          </div>
+          <div>
+            <span class="field-label">Show</span>
+            <select id="tree-only">
+              <option value="">All fields</option>
+              ${b ? `
+              <option value="here">On ${esc(b.display_name)}</option>
+              <option value="nothere">Not on ${esc(b.display_name)}</option>
+              <option value="hereoff">Offline on this bike</option>
+              <option value="hereempty">Empty on this bike</option>` : ""}
+              <option value="branch">On a questionnaire branch</option>
+              <option value="universal">Applies to every bike</option>
+              <option value="named">Named bikes only</option>
+              <option value="nobike">On no bike at all</option>
+              <option value="gaps">Has unfilled gaps</option>
+              <option value="offline">Offline — not visible to riders</option>
+            </select>
+          </div>
+          <span class="tree-count" id="tree-showing"></span>
+        </div>
+        ${b ? `<div class="bike-line"><b>${esc(b.display_name)}</b>${b.year_range ? ` · ${esc(b.year_range)}` : ""}${
+                b.bike_type ? ` · ${esc(b.bike_type)}` : ""} — ${here.length} of ${f.length} fields on its sheet,
+                ${hereOff} offline, ${hereEmpty} empty.
+                <a href="/index.html?bike=${b.bike_id}">Open its spec sheet →</a></div>` : ""}
+      </div>
+    </div>
+
+    <div id="tree-body"></div>
+
+    <div class="panel">
+      <div class="panel-body cell-dim" style="line-height:1.6">
+        <p><strong>Applies to</strong> — <em>every bike</em> is the universal
+        flag. A branch names the questionnaire answer that brings the field in;
+        hover it for the question and option code. <em>Named bikes</em> means
+        nothing triggers it automatically — it arrives only when someone adds it
+        to a bike.</p>
+        <p><strong>Filled in</strong> counts bikes holding a real value against
+        bikes carrying the field at all. <em>On no bike</em> means the field
+        exists in the tree and appears on nobody's spec sheet.</p>
+        ${b ? `<p><strong>On ${esc(b.display_name)}</strong> — what this one bike carries.
+        <em>Add</em> puts the field on its sheet as an empty gap. <em>Take offline</em>
+        hides it from riders there without losing anything; <em>Remove</em> takes it
+        off the sheet, and only while it is empty. Nothing here touches another bike.</p>` : ""}
+        <p>The internal <code>field_key</code> survives renaming, which is why
+        Dry Weight still answers to <code>curb_weight</code>.</p>
+      </div>
+    </div>`;
+
+  render();
+  document.getElementById("tree-q").addEventListener("input", render);
+  document.getElementById("tree-only").addEventListener("change", render);
+}
+
+async function reload(){
+  await load();
+  paint();
+}
+
+async function pickBike(id){
+  BIKE_ID = id ? Number(id) : null;
+  rememberBike();
+  OPEN.clear();
+  await reload();
+}
+
+document.addEventListener("change", guard(async (e) => {
+  if(e.target.id === "tree-bike"){ await pickBike(e.target.value); return; }
+
+  const typeSel = e.target.closest("[data-here-type]");
+  if(typeSel){
+    const f = TREE.fields.find(x => x.field_key === typeSel.dataset.hereType);
+    const to = typeSel.value || null;
+    for(const id of f.here.spec_ids){
+      await API.patch(`/api/specs/${id}/type`, { spec_type: to });
+    }
+    toast(to
+      ? `${typeSel.dataset.label} is ${TYPE_NAME[to]} on ${TREE.bike.display_name}.`
+      : `${typeSel.dataset.label} follows the tree default again on ${TREE.bike.display_name}.`, "ok");
+    await reload();
+  }
+}));
+
+let bikeQTimer;
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "tree-bike-q") return;
+  clearTimeout(bikeQTimer);
+  const q = e.target.value.trim();
+  const box = document.getElementById("tree-bike-hits");
+  if(q.length < 2){ box.hidden = true; box.innerHTML = ""; return; }
+  bikeQTimer = setTimeout(guard(async () => {
+    const data = await API.get("/api/bikes?limit=8&q=" + encodeURIComponent(q));
+    box.hidden = false;
+    box.innerHTML = data.bikes.length ? data.bikes.map(b => `
+      <button type="button" data-pick-bike="${b.bike_id}">${esc(b.display_name)}<small>${esc(b.year_range || "")}</small></button>`).join("")
+      : `<button type="button" disabled>No bike matches "${esc(q)}"</button>`;
+  }), 250);
+});
+
+document.addEventListener("click", guard(async (e) => {
+  const pick = e.target.closest("[data-pick-bike]");
+  if(pick){ await pickBike(pick.dataset.pickBike); return; }
+  if(e.target.closest("[data-clear-bike]")){ await pickBike(null); return; }
+
+  const vis = e.target.closest("[data-vis]");
+  if(vis){
+    const online = vis.dataset.to === "1";
+    const r = await API.post(`/api/admin/fields/${vis.dataset.vis}/visibility`,
+                             { online });
+    toast(`“${r.label}” is ${r.online ? "online" : "offline"} on ${r.changed} `
+          + `of ${r.total} bike(s).`, "ok");
+    await reload();
+    return;
+  }
+
+  // ---- one bike's controls
+  const add = e.target.closest("[data-add]");
+  if(add){
+    const r = await API.post(`/api/bikes/${TREE.bike.bike_id}/specs/${add.dataset.add}`, {});
+    toast(r.paused
+      ? `${r.label} added to ${TREE.bike.display_name} — offline to start on a ${TREE.bike.bike_type || "bike of this kind"}. Put it online when it belongs.`
+      : `${r.label} added to ${TREE.bike.display_name} as an empty gap.`
+        + (r.resolved ? ` ${r.resolved} rider request${r.resolved === 1 ? "" : "s"} answered.` : ""), "ok");
+    await reload();
+    return;
+  }
+
+  const pause = e.target.closest("[data-here-pause]");
+  if(pause){
+    const f = TREE.fields.find(x => x.field_key === pause.dataset.herePause);
+    const paused = pause.dataset.to === "1";
+    for(const id of f.here.spec_ids){
+      await API.post(`/api/specs/${id}/pause`, { paused });
+    }
+    toast(`${pause.dataset.label} is ${paused ? "offline" : "online"} on ${TREE.bike.display_name}.`, "ok");
+    await reload();
+    return;
+  }
+
+  const rm = e.target.closest("[data-remove]");
+  if(rm){
+    if(!rm.dataset.armed){
+      rm.dataset.armed = "1";
+      rm.textContent = "Remove — sure?";
+      return;
+    }
+    const r = await API.del(`/api/bikes/${TREE.bike.bike_id}/specs/${rm.dataset.remove}`);
+    toast(`${rm.dataset.label} removed from ${TREE.bike.display_name}.`
+          + (r.flags_closed ? ` ${r.flags_closed} open flag${r.flags_closed === 1 ? "" : "s"} closed with it.` : ""), "ok");
+    await reload();
+    return;
+  }
+
+  const rmF = e.target.closest("[data-remove-force]");
+  if(rmF){
+    if(!rmF.dataset.armed){
+      // One deliberate second click before anything is destroyed.
+      rmF.dataset.armed = "1";
+      rmF.textContent = "Destroy value?";
+      return;
+    }
+    const r = await API.del(`/api/admin/bikes/${TREE.bike.bike_id}/specs/${rmF.dataset.removeForce}`, { force: true });
+    toast(r.value_destroyed
+      ? `${rmF.dataset.label} removed from ${TREE.bike.display_name} — its value was destroyed.`
+      : `${rmF.dataset.label} removed from ${TREE.bike.display_name}.`, "ok");
+    await reload();
+    return;
+  }
+
+  const more = e.target.closest("[data-more]");
+  if(more){
+    const key = more.dataset.more;
+    if(OPEN.has(key)) OPEN.delete(key); else OPEN.add(key);
+    render();
+    return;
+  }
+
+  const catsGo = e.target.closest("[data-cats-go]");
+  if(catsGo){
+    const key = catsGo.dataset.catsGo;
+    const categories = [...document.querySelectorAll(`input[name="cats-${CSS.escape(key)}"]:checked`)].map(i => i.value);
+    const r = await API.post(`/api/bikes/${TREE.bike.bike_id}/categories`, { field_key: key, categories });
+    toast(r.shown.length
+      ? `${catsGo.dataset.label} now shows under ${r.shown.join(", ")} on ${TREE.bike.display_name}.`
+      : `${catsGo.dataset.label} is under no heading on ${TREE.bike.display_name} — header only.`, "ok");
+    await reload();
+    return;
+  }
+}));
+
+(async function(){
+  await initChrome("/spec-tree.html");
+  if(!requireRole("manager")) return;
+  IS_ADMIN = !!(ME.user && ME.user.role === "admin");
+  // Which bike: the link's ?bike=, else the one last worked on, else the
+  // first of the manager's own. A manager always lands ON a bike, so the
+  // controls are simply there when they arrive; "just the tree" is a choice
+  // they make from the select, not the default. Admin lands on the plain
+  // tree and searches for a bike when they want one.
+  const fromUrl = new URL(location.href).searchParams.get("bike");
+  let remembered = null;
+  try { remembered = localStorage.getItem("tree.bike"); } catch(_){}
+  BIKE_ID = Number(fromUrl || remembered) || null;
+  await load();
+  if(!IS_ADMIN && TREE.my_bikes.length
+     && !TREE.my_bikes.some(m => m.bike_id === BIKE_ID)){
+    BIKE_ID = TREE.my_bikes[0].bike_id;
+    await load();
+  }
+  rememberBike();
+  paint();
+})();
+</script>
+</body>
+</html>

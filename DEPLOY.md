@@ -3,6 +3,53 @@
 Everything is Python standard library — nothing to install beyond Python 3.10
 or newer. The whole site is one process serving one SQLite file.
 
+Two ways to run it: **Render** (push to `main`, the site updates; the way it
+is set up now) or **your own machine / VPS** (the bundle). Both are below.
+
+## Render: push to main, site updates
+
+The live site is a Render web service built from the GitHub repository
+`Sandman367/gearheadspecsapp`, branch `main`. Every push to `main` deploys.
+`render.yaml` in the repo is the shape of it:
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| runtime | Python (`PYTHON_VERSION` 3.13.4) | standard library only, nothing to build |
+| start command | `python bootstrap.py` | seeds a database if the disk is empty, then runs `app.py` |
+| `HOST` | `0.0.0.0` | Render reaches the process from outside; Render sets `PORT` itself |
+| `DATA_DIR` | `/var/data` | the persistent disk — the database and photos live there, so a deploy never touches them |
+| disk | `data`, 1 GB, mounted at `/var/data` | the only part not created from this file: add it in the dashboard under *Settings → Disks* (needs the Starter plan) |
+| `BOOTSTRAP_ADMIN_PASSWORD` | secret | the admin password of a freshly seeded database; set once, change after first sign-in |
+
+**First boot** on an empty disk: `bootstrap.py` builds a fresh database from
+`schema.sql` + `data/` (the same as `py seed.py`), then replaces every seeded
+password — admin gets `BOOTSTRAP_ADMIN_PASSWORD`, every other seeded account
+gets a random one nobody knows. Nothing can be signed into with the dev
+password on a public address.
+
+**Moving the real data up**: sign in as admin → *Admin → Backups & Restore* →
+*Restore database from a file…* and pick a `.db` snapshot (the one this was
+set up with, or a download from *Download database* on the old machine).
+Then *Restore photos from a zip…* with the photos zip. A restore checks the
+file (SQLite, passes `integrity_check`, has this app's tables, has an active
+admin) before touching anything, then signs everyone out — you sign back in
+with the accounts *in the restored file*.
+
+**Back-ups**: *Download database* and *Download photos (zip)* on the same
+panel, or `GET /api/admin/backup` with an admin cookie from a script. Keep
+them off Render.
+
+**Changing code**: commit, push to `main`, watch the deploy in the Render
+dashboard. `py -m unittest test_api` before pushing is the habit that keeps
+the live site up.
+
+**Passwords**: everyone has *Password* in the nav (own password, needs the
+current one). Admin sets anyone's from *Admin → Members → Set password* and
+can *Suspend* / *Reinstate* an account there. `set_password.py` does the same
+from a shell where you have one.
+
+## Anywhere else: the bundle
+
 ## What's in the bundle
 
 | Path | What it is |
@@ -29,41 +76,28 @@ HOST=0.0.0.0 PORT=8420 python3 app.py
   every interface, or leave it local and put nginx/Caddy in front (recommended;
   that is also where HTTPS goes).
 - `PORT` — `8420` by default.
+- `DATA_DIR` — unset, the database and photos sit beside the code
+  (`data.db`, `data/photos`). Set it to keep them elsewhere, e.g. a mounted
+  volume; `bootstrap.py` seeds a database there if none exists.
 
 On Windows the same with `set HOST=0.0.0.0` then `py app.py`.
 
-## 2. Before anyone else can reach it — change the dev passwords
+## 2. Before anyone else can reach it — the dev passwords
 
-`data.db` still carries the development accounts, **all with the password
-`gearhead`**, including `admin`. Do this first:
+A `data.db` built by `seed.py` carries the development accounts, **all with
+the password `gearhead`**, including `admin`. A database restored from the
+live site does not (their passwords were replaced when the site went up).
+If yours does:
 
 ```
 python3 set_password.py admin
+python3 set_password.py cb919_dave --disable      # or a new password
 ```
 
-Then either set new passwords for the manager accounts you keep
-(`cb919_dave`, `m.alvarez`, `SandyVmax`, `c4snakecake`) or suspend the ones you
-don't:
-
-```
-python3 set_password.py cb919_dave --disable
-```
-
-The 26 background `user` accounts (`sohc_sam`, `two_stroke_tina`, …) exist so
-votes and flags have people behind them. They can sign in with `gearhead`
-until you suspend them; a loop does it:
-
-```
-for u in airbox_ali cafe_racer_cy carb_cleaner chainlube_chan clutch_cody dyno_dana \
-         fork_seal_fran gp_hayes greasyhands highside_hana kickstart_kim moto_juno \
-         nightowl_nadia oilburner_ozzy pannier_pete rekluse_rey rider_kestrel99 \
-         sidestand_sue sohc_sam sprocket_sid t.moreno topend_toby torque_tess \
-         two_stroke_tina valveshim_vic wrenchmonkey; do
-  python3 set_password.py $u --disable
-done
-```
-
-Suspending keeps their votes and history; it only stops the sign-in.
+or sign in and use *Admin → Members → Set password / Suspend*. The 26
+background `user` accounts (`sohc_sam`, `two_stroke_tina`, …) exist so votes
+and flags have people behind them; suspending keeps their history and only
+stops the sign-in.
 
 ## 3. Keep it running
 

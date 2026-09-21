@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request a Spec — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page-crumb{ font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
+  .page-crumb a{ color: var(--text-dim); }
+  .bike-line{ font-family: var(--display); font-size: 20px; margin: 0 0 2px; }
+  .bike-sub{ font-size: 11.5px; color: var(--text-dim); }
+
+  /* the two ways in, side by side on a wide screen, stacked on a phone */
+  .ways{ display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 760px){ .ways{ grid-template-columns: 1fr; } }
+  .way{ border: 1px solid var(--line); background: var(--panel); }
+  .way.on{ border-color: var(--amber); }
+  .way-head{ padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+  .way-head h3{ margin: 0; font-family: var(--display); font-size: 16px; letter-spacing: 0.01em; }
+  .way-head p{ margin: 4px 0 0; font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+  .way-body{ padding: 14px 18px; }
+
+  .field-search{ width: 100%; margin-bottom: 8px; }
+  .field-list{ max-height: 380px; overflow-y: auto; border: 1px solid var(--line); background: var(--bg); }
+  .field-cat{
+    position: sticky; top: 0; background: var(--panel-2, var(--panel));
+    font-size: 10px; color: var(--text-faint); letter-spacing: 0.04em;
+    padding: 5px 10px; border-bottom: 1px solid var(--line);
+  }
+  .field-opt{
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: none; border: 0; border-bottom: 1px solid var(--line);
+    padding: 8px 10px; color: var(--text); font-family: var(--mono); font-size: 12px;
+    cursor: pointer;
+  }
+  .field-opt:hover{ background: rgba(217,154,43,0.06); }
+  .field-opt.on{ background: rgba(217,154,43,0.12); }
+  .field-opt .dot{
+    width: 12px; height: 12px; border: 1px solid var(--text-dim); border-radius: 50%; flex: none;
+  }
+  .field-opt.on .dot{ background: var(--amber); border-color: var(--amber); }
+  .field-opt .lbl{ flex: 1; }
+  .field-opt .asked{ font-size: 10.5px; color: var(--amber); white-space: nowrap; }
+  .field-opt .asked.mine{ color: var(--good); }
+  .field-opt .state{
+    font-size: 9.5px; letter-spacing: 0.03em; padding: 1px 6px; border: 1px solid var(--line);
+    color: var(--text-faint); white-space: nowrap;
+  }
+  .field-opt .state.online{ border-color: var(--good); color: var(--good); }
+  .field-opt .state.offline{ border-color: var(--amber); color: var(--amber); }
+  .field-opt.have{ opacity: 0.55; cursor: default; }
+  .field-opt.have:hover{ background: none; }
+  .field-list .none{ padding: 14px 10px; font-size: 11.5px; color: var(--text-faint); }
+
+  .chosen{ margin-top: 10px; font-size: 11.5px; color: var(--text-dim); min-height: 1.4em; }
+  .chosen b{ color: var(--text); }
+  .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .form-note{ font-size: 11px; color: var(--text-faint); }
+
+  .asked-list{ margin-top: 22px; }
+  .asked-row{ display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .asked-row:last-child{ border-bottom: none; }
+  .asked-row .who{ font-size: 10.5px; color: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Request a Spec</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main style="max-width:980px">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const BIKE_ID = Number(new URLSearchParams(location.search).get("bike"));
+let BIKE = null, DATA = null;
+let PICKED = null;          // field_key from the list
+let MODE = "list";          // "list" | "new"
+let FILTER = "";
+
+const load = guard(async () => {
+  if(!BIKE_ID){
+    document.getElementById("content").innerHTML =
+      `<div class="panel"><div class="panel-body empty">Open a bike first, then ask for
+         the spec from its page.</div></div>`;
+    return;
+  }
+  [BIKE, DATA] = await Promise.all([
+    API.get(`/api/bikes/${BIKE_ID}`),
+    API.get(`/api/bikes/${BIKE_ID}/field-requests`),
+  ]);
+  render();
+});
+
+function fieldList(){
+  const q = FILTER.trim().toLowerCase();
+  const fields = DATA.fields.filter(f =>
+    !q || f.label.toLowerCase().includes(q) || f.category.toLowerCase().includes(q));
+  if(!fields.length){
+    return `<div class="none">${q
+      ? `Nothing on the Spec Tree matches “${esc(FILTER)}”. If it's genuinely not there, name it on the right.`
+      : "Nothing on the Spec Tree."}</div>`;
+  }
+  let out = "", cat = null;
+  for(const f of fields){
+    if(f.category !== cat){ cat = f.category; out += `<div class="field-cat">${esc(cat)}</div>`; }
+    out += `
+      <button type="button" class="field-opt${PICKED === f.field_key ? " on" : ""}${f.status === "online" ? " have" : ""}"
+              ${f.status === "online" ? `disabled title="Already on this bike's sheet — use “Request this spec” there if it's empty."`
+                : `data-pick="${esc(f.field_key)}" role="radio" aria-checked="${PICKED === f.field_key}"`}>
+        <span class="dot"></span>
+        <span class="lbl">${esc(f.label)}</span>
+        <span class="state ${esc(f.status)}" title="${
+          f.status === "online" ? "This bike lists it, and riders can see it"
+          : f.status === "offline" ? "This bike has it, but it's offline — staged, not shown to riders. Asking for it asks the manager to put it online."
+          : "This bike doesn't list it"}">${
+          f.status === "online" ? "online on this bike" : f.status === "offline" ? "offline on this bike" : "not on this bike"}</span>
+        ${f.mine ? `<span class="asked mine">you asked ✓</span>`
+          : f.requests ? `<span class="asked">${f.requests} rider${f.requests !== 1 ? "s" : ""} asked</span>` : ""}
+      </button>`;
+  }
+  return out;
+}
+
+function render(){
+  const signedIn = !!ME.user;
+  const picked = DATA.fields.find(f => f.field_key === PICKED);
+  const asked = DATA.fields.filter(f => f.requests > 0);
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">← Back to the spec sheet</a></div>
+    <div class="panel">
+      <div class="panel-body">
+        <div class="bike-line">${esc(BIKE.display_name)}</div>
+        <div class="bike-sub">${esc(BIKE.year_range || "")} · ${BIKE.fields_triggered} fields on its sheet.
+          A spec you'd expect to see here and can't? Ask for it. The rider who maintains
+          this bike adds it (or says why not); if it's not on the Spec Tree at all, the
+          request goes to admin as a proposal.</div>
+        ${signedIn ? "" : `
+          <div class="auth-prompt" style="margin-top:12px">
+            <span>Sign in to send a request — you can still browse what's been asked for.</span>
+            <div class="auth-prompt-actions">
+              <a class="primary-btn" href="/login.html?next=${encodeURIComponent(location.pathname + location.search)}">Sign in</a>
+              <a class="ghost-btn" style="text-decoration:none" href="/register.html">Create account</a>
+            </div>
+          </div>`}
+      </div>
+    </div>
+
+    <div class="ways">
+      <div class="way${MODE === "list" ? " on" : ""}" id="way-list">
+        <div class="way-head">
+          <h3>A spec on the tree</h3>
+          <p>Every field GearHeadSpecs tracks, and where it stands on this bike: already
+             listed, offline here, or not on this bike. Pick one it doesn't list — or one
+             that's offline, to ask for it to go online. If others have asked for the
+             same, you join them.</p>
+        </div>
+        <div class="way-body">
+          <input type="text" class="field-search" id="field-search" value="${esc(FILTER)}"
+                 placeholder="Search — coolant, fuse, sprocket…" autocomplete="off">
+          <div class="field-list" role="radiogroup" id="field-list">${fieldList()}</div>
+          <div class="chosen">${picked ? `Chosen: <b>${esc(picked.label)}</b> (${esc(picked.category)})` : "Nothing chosen yet."}</div>
+        </div>
+      </div>
+
+      <div class="way${MODE === "new" ? " on" : ""}" id="way-new">
+        <div class="way-head">
+          <h3>Something not on the tree at all</h3>
+          <p>A spec nobody tracks yet. Name it and say where it belongs; admin decides
+             whether it becomes a field — for this bike, or for every bike like it.</p>
+        </div>
+        <div class="way-body">
+          <div class="form-row"><label for="new-name">Spec name</label>
+            <input type="text" id="new-name" maxlength="120" autocomplete="off"
+                   placeholder="e.g. Steering head bearing part number"></div>
+          <div class="form-row"><label for="new-cat">Belongs under</label>
+            <select id="new-cat">${DATA.categories.map(c => `<option>${esc(c)}</option>`).join("")}</select></div>
+          <div class="form-row"><label for="new-vt">What the value is</label>
+            <select id="new-vt">
+              <option value="text" selected>Text — anything typed (default)</option>
+              <option value="wire_color">Wire colour — picked from the colour list, shown in the maker's code</option>
+              <option value="fuel_octane">Fuel octane — a pump grade, AKI or RON</option>
+              <option value="ethanol">Ethanol limit — E0 to E15</option>
+            </select>
+            <div class="form-note">Left as Text, it's a text box. Pick Wire colour for a wire so riders
+              get the colour picker in the maker's own codes.</div></div>
+          <div class="form-note">Typing here switches the request to this side; clearing it switches back.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:22px">
+      <div class="panel-body">
+        <div class="form-row"><label for="reason">Why it helps (optional)</label>
+          <textarea id="reason" maxlength="500"
+                    placeholder="Where you needed it, what you were doing — one line is plenty."></textarea></div>
+        <div class="form-actions">
+          <button class="primary-btn" id="send" ${signedIn ? "" : "disabled"}>${
+            MODE === "new" ? "Send to admin as a proposal" : "Ask for this spec"}</button>
+          <a class="ghost-btn" style="text-decoration:none" href="/index.html?bike=${BIKE_ID}">Cancel</a>
+          ${signedIn ? "" : `<span class="form-note">Sign in to send.</span>`}
+        </div>
+      </div>
+    </div>
+
+    ${asked.length || DATA.proposals.length ? `
+    <div class="panel asked-list">
+      <div class="panel-head">
+        <div><h3>Already asked for on this bike</h3>
+          <p>Open requests. Picking one of these above adds your name to it.</p></div>
+        <span class="count-tag">${asked.length + DATA.proposals.length} open</span>
+      </div>
+      <div class="panel-body">
+        ${asked.map(f => `
+          <div class="asked-row">
+            <span>${esc(f.label)} <span class="who">· ${esc(f.category)}</span></span>
+            <span class="who">${f.requests} rider${f.requests !== 1 ? "s" : ""}${f.mine ? " · incl. you" : ""}</span>
+          </div>`).join("")}
+        ${DATA.proposals.map(p => `
+          <div class="asked-row">
+            <span>${esc(p.field_name)} <span class="who">· ${esc(p.category)}${
+              p.value_type && p.value_type !== "text" ? ` · ${esc(p.value_type.replace("_", " "))}` : ""} · not on the tree yet</span></span>
+            <span class="who">with admin${p.mine ? " · yours" : ""}</span>
+          </div>`).join("")}
+      </div>
+    </div>` : ""}`;
+
+  document.getElementById("field-search").addEventListener("input", e => {
+    FILTER = e.target.value;
+    document.getElementById("field-list").innerHTML = fieldList();
+  });
+  document.getElementById("new-name").addEventListener("input", e => {
+    const has = e.target.value.trim().length > 0;
+    if(has && MODE !== "new"){ MODE = "new"; syncMode(); }
+    if(!has && MODE !== "list"){ MODE = "list"; syncMode(); }
+  });
+}
+
+function syncMode(){
+  document.getElementById("way-list").classList.toggle("on", MODE === "list");
+  document.getElementById("way-new").classList.toggle("on", MODE === "new");
+  document.getElementById("send").textContent =
+    MODE === "new" ? "Send to admin as a proposal" : "Ask for this spec";
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const pick = e.target.closest("[data-pick]");
+  if(pick){
+    PICKED = pick.dataset.pick;
+    MODE = "list";
+    const name = document.getElementById("new-name");
+    if(name) name.value = "";
+    document.querySelectorAll(".field-opt").forEach(b => {
+      const on = b.dataset.pick === PICKED;
+      b.classList.toggle("on", on); b.setAttribute("aria-checked", on);
+    });
+    const f = DATA.fields.find(x => x.field_key === PICKED);
+    document.querySelector(".chosen").innerHTML =
+      `Chosen: <b>${esc(f.label)}</b> (${esc(f.category)})`;
+    syncMode();
+    return;
+  }
+
+  if(e.target.id === "send"){
+    const reasoning = document.getElementById("reason").value.trim();
+    let body;
+    if(MODE === "new"){
+      body = { field_name: document.getElementById("new-name").value.trim(),
+               category: document.getElementById("new-cat").value,
+               value_type: document.getElementById("new-vt").value || "text", reasoning };
+    } else {
+      if(!PICKED){ toast("Pick a spec from the list, or name one on the right.", "error"); return; }
+      body = { field_key: PICKED, reasoning };
+    }
+    const r = await API.post(`/api/bikes/${BIKE_ID}/field-requests`, body);
+    toast(r.kind === "proposal"
+      ? "Sent to admin as a proposal. You'll see it under “already asked for” until they decide."
+      : r.requests > 1
+        ? `Asked — ${r.requests} riders now want this on the bike.`
+        : "Asked — the rider who maintains this bike will see it.", "ok");
+    PICKED = null; MODE = "list";
+    await load();
+    return;
+  }
+}));
+
+(async () => {
+  await initChrome(null);
+  await load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GearHeadSpecs — Specs. Exactly what you need.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* ---- header: logo block, garage slot, bike photo ---- */
+  header{ display: block; padding: 20px 24px 18px; }
+  .header-inner{ display: flex; align-items: center; gap: 32px; max-width: 1900px; margin: 0 auto; }
+  .header-copy{ flex: 1; min-width: 0; }
+  .brand-logo{ max-width: 260px; width: 100%; height: auto; display: block; margin-bottom: 14px; }
+  /* The h1 is only a wrapper for the logo — it should not impose the uppercase
+     display type the other pages' headings use. */
+  .brand-h1{ font-size: 0; line-height: 0; margin: 0; letter-spacing: normal; }
+  .subhead{ color: var(--text-dim); font-size: 12.5px; }
+
+  .header-garage{
+    flex-shrink: 0; width: 270px; border: 1px solid var(--line); background: var(--panel);
+    padding: 10px 12px 12px; align-self: stretch; max-height: 210px;
+    display: flex; flex-direction: column;
+  }
+  .garage-head{
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    border-bottom: 1px solid var(--line); padding-bottom: 7px; margin-bottom: 8px;
+  }
+  .garage-title{
+    font-family: var(--display); font-size: 12px; letter-spacing: 0.02em; color: var(--amber);
+  }
+  .garage-count{ font-size: 10px; color: var(--text-faint); }
+  .garage-list{ overflow-y: auto; flex: 1; margin: 0 -4px; }
+  .garage-item{ display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+  .garage-item.current{ border-left-color: var(--amber); background: var(--panel-2); }
+  .garage-go{
+    flex: 1; min-width: 0; text-align: left; background: none; border: none;
+    color: var(--text-dim); font-family: var(--mono); font-size: 11px;
+    padding: 5px 4px 5px 7px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .garage-go:hover{ color: var(--text); }
+  .garage-item.current .garage-go{ color: var(--text); }
+  .garage-due{ font-size: 9px; color: var(--danger); padding-right: 4px; white-space: nowrap; }
+  .garage-remove{
+    background: none; border: none; color: var(--text-faint); font-size: 12px;
+    line-height: 1; padding: 4px 6px; cursor: pointer;
+  }
+  .garage-remove:hover{ color: var(--danger); }
+  .garage-add{
+    width: 100%; margin-top: 8px; background: var(--amber); border: 1px solid var(--amber);
+    color: #14120f; font-family: var(--display); font-size: 11px; letter-spacing: 0.02em; padding: 7px 8px; cursor: pointer;
+  }
+  .garage-add:hover{ filter: brightness(1.08); }
+  .garage-add:disabled{ background: none; border-color: var(--line); color: var(--text-faint); cursor: default; }
+  .garage-empty{ font-size: 10.5px; color: var(--text-faint); padding: 6px 7px; line-height: 1.5; }
+
+  /* ---- layout shell: jump-to sidebar + search column ---- */
+  main{ max-width: none; padding: 24px 0 0; }
+  .layout{
+    display: flex; align-items: flex-start; gap: 28px;
+    width: 100%; max-width: 1900px; margin: 0 auto; padding: 0 24px;
+  }
+  .layout .search-col{ flex: 1; min-width: 0; }
+  .cat-sidebar{ width: 210px; flex-shrink: 0; position: sticky; top: 18px; display: none; }
+  .cat-sidebar.visible{ display: block; }
+  .cat-sidebar-title{
+    font-size: 10px; letter-spacing: 0.02em;
+    color: var(--text-faint); padding: 0 4px 8px;
+  }
+  .cat-nav-item{
+    display: flex; justify-content: space-between; align-items: center; width: 100%;
+    background: none; border: none; border-left: 3px solid transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size: 12.5px;
+    padding: 9px 10px; cursor: pointer; text-align: left;
+  }
+  .cat-nav-item:hover{ color: var(--text); background: var(--panel-2); }
+  .cat-nav-item.active{
+    color: var(--amber); border-left-color: var(--amber);
+    background: var(--panel-2); font-weight: 600;
+  }
+  .cat-nav-count{ font-size: 10px; color: var(--text-faint); }
+  /* Ruled off from the jump list above it — these go somewhere, they do not
+     scroll you to a heading on this page. */
+  .cat-nav-tools{ margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .cat-nav-tool{ text-decoration: none; }
+  .cat-nav-tool:hover{ color: var(--amber); }
+  .cat-nav-item.active .cat-nav-count{ color: var(--amber-dim); }
+
+  /* ---- search ---- */
+  .search-panel{ border: 1px solid var(--line); background: var(--panel); padding: 16px; margin-bottom: 18px; }
+  .search-grid{ display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
+  .field-label{
+    font-size: 10px; letter-spacing: 0.02em;
+    color: var(--text-faint); margin-bottom: 5px; display: block;
+  }
+  .result-count{ font-size: 11px; color: var(--text-faint); padding: 0 0 10px; }
+
+  .result{
+    padding: 12px 18px; border: 1px solid var(--line); border-top: none;
+    background: var(--panel); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  #results .result:first-child{ border-top: 1px solid var(--line); }
+  .result:hover{ background: var(--panel-2); }
+  .result.active{ background: rgba(217,154,43,0.07); border-left: 2px solid var(--amber); }
+  .result-name{ font-size: 13.5px; }
+  .result-meta{ font-size: 10.5px; color: var(--text-faint); margin-top: 3px; }
+
+  /* ---- bike hero: general info at a glance ---- */
+  .bike-hero{ display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+  .bike-photo{
+    width: 280px; height: 210px; flex-shrink: 0;
+    background: var(--panel); border: 1px solid var(--line);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--text-faint); font-size: 11px; text-align: center; padding: 16px;
+  }
+  .bike-photo svg{ width: 84px; height: 84px; stroke: var(--text-faint); opacity: 0.55; }
+  .bike-photo{ position: relative; }
+  .bike-photo.has-photo{ padding: 0; overflow: hidden; }
+  .bike-photo img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* The controls sit over the picture and show on hover, so a photo is a
+     photo until you reach for it; where there is no photo they just sit
+     under the placeholder. */
+  .photo-tools{ display: flex; gap: 6px; margin-top: 10px; }
+  .has-photo .photo-tools{
+    position: absolute; left: 8px; bottom: 8px; margin: 0;
+    opacity: 0; transition: opacity .12s ease;
+  }
+  .has-photo:hover .photo-tools, .has-photo:focus-within .photo-tools{ opacity: 1; }
+  .has-photo .photo-tools .action-btn{ background: rgba(0,0,0,0.65); }
+  @media (hover: none){ .has-photo .photo-tools{ opacity: 1; } }
+  .bike-meta{ flex: 1; min-width: 280px; }
+  .hero-title{
+    font-family: var(--display); font-size: 26px; font-weight: 600; letter-spacing: 0.01em; margin: 0 0 6px;
+  }
+  .alt-name{ color: var(--text-dim); font-size: 12.5px; margin-bottom: 12px; }
+  .chip-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .chip{
+    font-size: 11px; padding: 4px 10px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text-dim);
+  }
+  .chip.type{ color: var(--amber); border-color: var(--amber-dim); }
+  .chip.warn{ color: var(--danger); border-color: var(--danger); }
+  .quicklist{
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px 22px; font-size: 13px;
+  }
+  .quicklist div span{
+    display: block; color: var(--text-faint); font-size: 10px; letter-spacing: 0.02em; margin-bottom: 2px;
+  }
+  .ql-gap{ color: var(--text-faint); font-size: 12px; }
+
+  /* ---- wire colours ----
+     The drawn wire is the value; the abbreviation is how the rider's own
+     manual writes it, and the words are for anyone who does not read either. */
+  .wire{ display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .wire-svg{ width: 88px; height: 20px; flex: none; }
+  .wire-abbr{ font-family: var(--mono); font-weight: 600; font-size: 13px; }
+  .wire-name{ color: var(--text-dim); font-size: 12px; }
+
+  .wire-picker{
+    border: 1px solid var(--line); background: var(--panel-2);
+    padding: 12px 14px; display: grid; gap: 12px; width: 100%;
+  }
+  .wp-preview{
+    display: flex; align-items: center; gap: 16px;
+    border-bottom: 1px solid var(--line); padding-bottom: 11px; min-height: 40px;
+  }
+  .wp-preview .wire-svg{ width: 150px; height: 34px; }
+  .wp-big{ font-family: var(--mono); font-size: 22px; font-weight: 600; line-height: 1; }
+  .wp-desc{ color: var(--text-dim); font-size: 12px; margin-top: 3px; }
+  .wp-empty{ color: var(--text-faint); font-size: 12.5px; font-style: italic; }
+  .wp-label{
+    font-size: 10px; letter-spacing: 0.02em;
+    color: var(--text-faint); margin-bottom: 7px;
+  }
+  .wp-label em{ font-style: normal; text-transform: none; letter-spacing: 0; }
+  .wp-swatches{ display: flex; flex-wrap: wrap; gap: 7px 6px; }
+  .wp-sw{
+    width: 42px; padding: 4px 0 15px; position: relative; cursor: pointer;
+    background: none; border: 2px solid var(--line); display: grid;
+    justify-items: center;
+  }
+  .wp-sw:hover{ border-color: var(--text-faint); }
+  .wp-sw.on{ border-color: var(--amber); background: rgba(217,154,43,0.1); }
+  .wp-sw:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+  .wp-chip{
+    width: 26px; height: 14px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+  }
+  .wp-sw.none .wp-chip{
+    background: repeating-linear-gradient(45deg, transparent 0 4px,
+                                          var(--line) 4px 6px);
+  }
+  .wp-k{
+    position: absolute; bottom: 2px; left: 0; right: 0; text-align: center;
+    font-family: var(--mono); font-size: 9px; color: var(--text-faint);
+  }
+  .wp-note{ font-size: 11px; color: var(--text-faint); line-height: 1.5; }
+
+  /* The wires added so far. Shown only once there are two — around a single
+     wire it is chrome with nothing to organise. */
+  .wp-list{ display: grid; gap: 5px; }
+  .wp-item{
+    display: flex; align-items: center; gap: 9px; cursor: pointer;
+    padding: 5px 8px; border: 1px solid var(--line); background: var(--panel);
+  }
+  .wp-item:hover{ border-color: var(--text-faint); }
+  .wp-item.on{ border-color: var(--amber); background: rgba(217,154,43,0.08); }
+  .wp-item .wire-svg{ width: 54px; height: 14px; flex: none; }
+  .wp-i{
+    font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+    width: 12px; flex: none;
+  }
+  .wp-empty-item{ font-size: 11px; color: var(--text-faint); font-style: italic; flex: 1; }
+  .wp-role{
+    flex: 1; min-width: 90px; font-size: 11.5px; padding: 3px 6px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  }
+  .wp-del{
+    background: none; border: 0; color: var(--text-faint); cursor: pointer;
+    font-size: 15px; line-height: 1; padding: 0 3px;
+  }
+  .wp-del:hover{ color: var(--danger); }
+  .wp-which{
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; color: var(--amber); margin-bottom: 2px;
+  }
+  .wp-actions{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .wp-actions .wp-note{ flex: 1; min-width: 180px; }
+  .wp-add{
+    font-size: 11.5px; padding: 5px 11px; cursor: pointer;
+    background: none; border: 1px dashed var(--line); color: var(--text-dim);
+  }
+  .wp-add:hover:not(:disabled){ border-color: var(--amber); color: var(--amber); }
+  .wp-add:disabled{ opacity: 0.4; cursor: not-allowed; }
+
+  /* A value that is several wires reads as several rows. */
+  .wire-set{ display: grid; gap: 5px; }
+  .wire-n{
+    font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+    width: 12px; flex: none;
+  }
+  /* A field whose value changed partway through the bike's life. The ranges
+     are printed together, the way a manual prints them. */
+  .spec-group{
+    border: 1px solid var(--amber-dim); background: var(--panel);
+    margin-bottom: 14px;
+  }
+  .spec-group-head{
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .spec-group-note{
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em; color: var(--amber); white-space: nowrap;
+  }
+  .spec-variant{ border-bottom: 1px solid var(--line); }
+  .spec-variant:last-of-type{ border-bottom: 0; }
+  .variant-years{
+    font-family: var(--mono); font-size: 10.5px; color: var(--amber);
+    padding: 8px 14px 0; letter-spacing: 0.04em;
+  }
+  .spec-group .spec-row{ border: 0; margin: 0; }
+  .spec-group-foot{ padding: 9px 14px; border-top: 1px solid var(--line); }
+  .spec-group-foot .inline-box{ margin: 0; }
+
+  .wire-role{
+    font-size: 11px; color: var(--amber); border: 1px solid var(--amber-dim);
+    padding: 1px 6px; white-space: nowrap;
+  }
+  .wire-propose{ display: block; }
+
+  /* ---- fuel octane and ethanol ---- */
+  .octane, .ethanol{ display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .octane-stated b, .ethanol b{ font-size: 15px; font-family: var(--mono); }
+  .octane-lbl{ color: var(--text-dim); font-size: 12px; }
+  .octane-sys{ white-space: nowrap; }
+  /* The equivalence sits visibly softer than the stated value: it is a
+     lookup, not what the manual said. A formula-derived one, softer still. */
+  .octane-eq{ font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  .octane-eq.formula{ color: var(--text-faint); }
+  .octane-eq em{
+    font-style: normal; font-family: var(--mono); font-size: 9px;
+    letter-spacing: 0.02em; margin-left: 5px;
+    border: 1px solid var(--text-faint); padding: 0 4px; color: var(--text-faint);
+  }
+  .octane-min{
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; color: var(--amber-dim);
+  }
+  .fuel-picker{
+    border: 1px solid var(--line); background: var(--panel-2);
+    padding: 12px 14px; display: grid; gap: 14px; width: 100%; margin-top: 10px;
+  }
+  .fp-label{ font-size: 10px; letter-spacing: 0.02em;
+             color: var(--text-faint); margin-bottom: 7px; }
+  .fp-label em{ font-style: normal; text-transform: none; letter-spacing: 0; }
+  .fp-sub{ font-size: 9.5px; letter-spacing: 0.02em;
+           color: var(--text-faint); margin: 10px 0 5px; }
+  .fp-systems{ display: flex; gap: 6px; }
+  .fp-sys{
+    font-family: var(--mono); font-size: 11.5px; padding: 6px 12px; cursor: pointer;
+    background: none; border: 1px solid var(--line); color: var(--text-dim);
+  }
+  .fp-sys.on{ border-color: var(--amber); color: var(--amber); }
+  .fp-grades{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .fp-grade{
+    display: grid; gap: 2px; text-align: left; cursor: pointer;
+    padding: 7px 10px; min-width: 118px; background: var(--panel);
+    border: 1px solid var(--line); color: var(--text);
+  }
+  .fp-grade:hover{ border-color: var(--text-faint); }
+  .fp-grade.on{ border-color: var(--amber); background: rgba(217,154,43,0.1); }
+  .fp-grade.rare{ opacity: .8; }
+  .fp-num{ font-family: var(--mono); font-size: 15px; font-weight: 600; }
+  .fp-name{ font-size: 10.5px; color: var(--text-dim); }
+  .fp-eq{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .fp-eq.formula::after{ content: " est."; }
+  .fp-note{ font-size: 11px; color: var(--text-faint); line-height: 1.5; }
+  .wire-propose .wire-picker{ margin-top: 10px; }
+  /* Offline. Stated rather than implied by a grey-out, because a rider needs to
+     know the value is withheld on purpose and not simply missing. */
+  .paused-note{
+    font-size: 11.5px; color: var(--text-dim); line-height: 1.5;
+    border-left: 2px solid var(--amber-dim); background: var(--panel-2);
+    padding: 8px 11px; margin: 8px 0;
+  }
+  .paused-note.mine{ border-left-color: var(--danger); }
+  .action-btn.tag-toggle.on.danger{ color: var(--danger); border-color: var(--danger); }
+  /* Sits on the pinned row, quiet until you look for it. The row is a grid
+     cell rather than a control, so the button is the only clickable part. */
+  .quicklist .ql-pinned{ position: relative; padding-right: 18px; }
+  .ql-unpin{
+    position: absolute; top: 0; right: 0;
+    background: none; border: 0; padding: 0 2px; line-height: 1;
+    font-size: 15px; color: var(--text-faint); cursor: pointer;
+    opacity: 0; transition: opacity .12s ease, color .12s ease;
+  }
+  .quicklist .ql-pinned:hover .ql-unpin,
+  .ql-unpin:focus-visible{ opacity: 1; }
+  .ql-unpin:hover{ color: var(--danger); }
+  .ql-unpin:focus-visible{ outline: 1px solid var(--amber); outline-offset: 2px; }
+  /* Touch has no hover, so there it stays visible rather than unreachable. */
+  @media (hover: none){ .ql-unpin{ opacity: 0.75; } }
+  .hero-foot{ margin-top: 16px; font-size: 11px; color: var(--text-faint); }
+  .hero-tools{ display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: -6px 0 12px; }
+  /* ---- a spec echoed under another heading ---- */
+  .echo-head{
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.02em;
+    color: var(--text-faint); margin: 18px 0 6px; padding-top: 10px; border-top: 1px dashed var(--line);
+  }
+  .mirror{ border-left: 2px dashed var(--line); padding-left: 14px; margin-bottom: 8px; }
+  .mirror-head{ display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 11.5px; margin: 8px 0 -4px; }
+  .spec-row.flash{ outline: 1px solid var(--amber); outline-offset: 4px; transition: outline-color 1.4s ease; }
+  /* ---- the "where should this show" choices: radio first, then the words ---- */
+  .place-opts{ display: grid; gap: 10px; margin-top: 4px; }
+  .place{
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px;
+    align-items: start; padding: 12px 14px;
+    border: 1px solid var(--line); background: var(--panel); cursor: pointer;
+  }
+  .place:hover{ border-color: var(--text-faint); }
+  .place.on{ border-color: var(--amber); background: rgba(217,154,43,0.07); }
+  .place input{ width: auto; margin: 2px 0 0; }
+  .place > span{ display: block; }
+  .place b{ font-size: 13px; font-weight: 500; display: block; }
+  .place span span{ display: block; font-size: 11.5px; color: var(--text-dim);
+                    line-height: 1.5; margin-top: 3px; }
+  .cat-picks{ display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .cat-pick{
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer;
+    border: 1px solid var(--line); font-size: 12px; color: var(--text-dim);
+  }
+  .cat-pick input{ width: auto; margin: 0; }
+  .cat-pick.on, .cat-pick:has(input:checked){ border-color: var(--amber); color: var(--amber); }
+  .cat-pick.site{ opacity: .75; cursor: default; }
+  .cat-pick small{ font-family: var(--mono); font-size: 9px; letter-spacing: 0.02em; }
+  .hero-note{ font-size: 11.5px; color: var(--text-dim); }
+  .hero-note a{ color: var(--amber); }
+  .bn-row{ display: grid; grid-template-columns: 1fr 90px 28px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .bn-row .ql-unpin{ position: static; }
+  .split-result{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  #bs-preview{ margin-top: 4px; font-family: var(--mono); font-size: 11.5px; }
+  /* Pinned by this bike's manager, as opposed to General, which every bike
+     shows. Marked so the hero does not imply the two are the same decision. */
+  .quicklist .ql-only span::after{ content: " · header only"; }
+  .quicklist .ql-pinned span::after{
+    content: " · pinned";
+    color: var(--text-faint);
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- spec sheet ---- */
+  .cat-head{
+    padding: 12px 18px; background: var(--panel-2); border-bottom: 1px solid var(--line);
+    font-family: var(--display); font-size: 24px;
+    letter-spacing: 0.01em; color: var(--amber); scroll-margin-top: 14px;
+    line-height: 1.1;
+    /* it is a button now: the heading is the fold */
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .cat-head:hover{ background: var(--panel); }
+  .cat-head:focus-visible{ outline: 1px solid var(--amber); outline-offset: -1px; }
+  .cat-head-meta{
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; text-transform: none;
+    color: var(--text-faint); display: inline-flex; align-items: center; gap: 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .cat-head .chev{ display: inline-block; transition: transform .15s ease; font-size: 14px; }
+  .cat-section.open .cat-head .chev{ transform: rotate(180deg); }
+  .cat-body{ display: none; }
+  .cat-section.open .cat-body{ display: block; }
+  .spec-row{ padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .spec-row:last-child{ border-bottom: none; }
+  .spec-top{ display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .spec-label{ font-size: 12px; color: var(--text-dim); min-width: 190px; flex: 0 0 auto; }
+  .spec-value{ flex: 1 1 260px; }
+  .spec-value .val{ font-size: 13.5px; }
+  .spec-value .val.gap{ color: var(--text-faint); font-style: italic; }
+  .spec-badges{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; align-items: center; }
+  .spec-tools{ font-size: 10.5px; color: var(--text-faint); margin-top: 6px; }
+  .spec-actions{ display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* ---- value lines: stock + alternates, each with its own counts ---- */
+  .spec-label-row{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+  .spec-label-strong{ font-size: 19px; color: var(--text); line-height: 1.2; }
+  .value-line{
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .value-line.hidden-row{ display: none; }
+  .value-line.show{ display: flex; }
+  .value-source{
+    flex-shrink: 0; width: 38px; font-size: 9px;
+    letter-spacing: 0.02em; color: var(--text-faint);
+  }
+  .value-text{ flex: 1; font-size: 13px; min-width: 0; }
+  .value-text.missing{ color: var(--text-faint); font-style: italic; font-size: 12px; }
+  .fit-check{ color: var(--good); font-size: 12px; flex-shrink: 0; }
+  /* .icon-btn / .badge-n live in app.css — the mockup's borderless icon with
+     a floating count, shared with the Enrich page. */
+  /* Vote and flag lead the row, before the value they act on, so they read as
+     part of the spec rather than as trailing decoration. */
+  .value-actions{ display: flex; gap: 14px; flex-shrink: 0; padding: 0 6px 0 4px; }
+
+  .tag-toggle{ font-size: 9.5px; padding: 3px 8px; }
+  .tag-toggle.on{ border-color: var(--good); color: var(--good); }
+  .fixed-note{
+    font-size: 10.5px; color: var(--text-dim); line-height: 1.5;
+    border-left: 2px solid var(--good); padding: 5px 0 5px 9px; margin: 6px 0 2px;
+  }
+  .fixed-note strong{ color: var(--good); }
+
+  .show-more{
+    background: none; border: none; color: var(--blue); cursor: pointer;
+    font-family: var(--mono); font-size: 11px; padding: 6px 0 2px;
+  }
+  .show-more:hover{ color: #6ba8e8; }
+
+  .request-row{ display: flex; align-items: center; gap: 10px; padding: 7px 0 2px; flex-wrap: wrap; }
+  .request-status{ font-size: 10.5px; color: var(--amber); }
+  .request-btn{
+    background: none; border: 1px dashed var(--amber-dim); color: var(--amber);
+    font-family: var(--mono); font-size: 10.5px; padding: 4px 10px; cursor: pointer;
+  }
+  .request-btn:hover{ background: rgba(217,154,43,0.08); }
+  .request-btn.requested{ border-style: solid; border-color: var(--good); color: var(--good); }
+
+  .stock-row{ display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 9px; }
+  .row-cap{ font-size: 11px; color: var(--text-dim); }
+  .alt-cap{ font-size: 11px; color: var(--text-dim); margin-top: 10px; }
+  .alt-cap b{ font-family: var(--mono); font-weight: 600; }
+  .propose-row{ display: flex; gap: 8px; margin-top: 5px; }
+  .propose-input{ flex: 1; font-size: 12px; padding: 6px 8px; }
+  .spec-foot{ display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+
+  /* ---- service log, shown on a bike you own ---- */
+  .svc-inst{ border-bottom: 1px solid var(--line); padding: 14px 18px; }
+  .svc-inst:last-child{ border-bottom: none; }
+  .svc-inst-head{ display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .svc-task{ border: 1px solid var(--line); background: var(--bg); padding: 10px 12px; margin-top: 8px; }
+  .svc-head{ display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .svc-name{ font-size: 12.5px; }
+  .svc-spec{ font-size: 10.5px; color: var(--text-faint); margin-top: 4px; }
+  .svc-spec b{ color: var(--text-dim); font-weight: 400; }
+  .odo{ width: 120px; }
+
+  footer{
+    max-width: 700px; margin: 26px auto 0; padding: 0 16px;
+    color: var(--text-faint); font-size: 10.5px; line-height: 1.6;
+  }
+
+  @media (max-width: 1000px){
+    .header-inner{ flex-direction: column; align-items: stretch; gap: 16px; }
+    .header-garage{ width: 100%; max-width: 420px; max-height: none; }
+    .layout{ flex-direction: column; align-items: stretch; padding: 0 16px; }
+    .layout .search-col{ width: 100%; }
+    .cat-sidebar{ display: none !important; }
+    .search-grid{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-copy">
+      <!-- The logo carries the site name, so it is the h1 rather than sitting
+           beside one: dropping the heading entirely would leave the page with
+           no top-level landmark for anyone navigating by heading. -->
+      <h1 class="brand-h1"><img class="brand-logo" src="/img/brand-logo.png"
+          alt="GearHeadSpecs"></h1>
+      <div class="eyebrow">Motorcycles — Specs. Exactly what you need.</div>
+      <div class="subhead" id="total-count">Loading…</div>
+    </div>
+
+    <section class="header-garage" id="my-garage" aria-label="My Garage">
+      <div class="garage-head">
+        <span class="garage-title">My Garage</span>
+        <span class="garage-count" id="garage-count"></span>
+      </div>
+      <div class="garage-list" id="garage-list"></div>
+      <button class="garage-add" id="garage-add" type="button" disabled>Select a bike</button>
+    </section>
+
+  </div>
+</header>
+
+<main>
+  <div class="layout">
+    <nav class="cat-sidebar" id="cat-sidebar" aria-label="Jump to section">
+      <div class="cat-sidebar-title">Jump to section</div>
+      <div id="cat-nav-list"></div>
+      <!-- A tool rather than a section, so it is separated from the jump list
+           and opens in its own tab: the bike you are reading is held in memory,
+           not in the URL, so navigating away would lose it. -->
+      <div class="cat-nav-tools">
+        <a class="cat-nav-item cat-nav-tool" href="/calculator.html"
+           target="_blank" rel="noopener">
+          <span>Mix Ratio Calculator</span>
+          <span class="cat-nav-count">opens ↗</span>
+        </a>
+      </div>
+    </nav>
+
+    <div class="search-col">
+      <div class="search-panel">
+        <div class="search-grid">
+          <div>
+            <span class="field-label">Make</span>
+            <select id="make-select" autocomplete="off"><option value="">All makes</option></select>
+          </div>
+          <div>
+            <span class="field-label">Year</span>
+            <select id="year-select" autocomplete="off"><option value="">All Years</option></select>
+          </div>
+          <div>
+            <span class="field-label">Model (ordered by CC)</span>
+            <select id="model-select" autocomplete="off"><option value="">All Models</option></select>
+          </div>
+        </div>
+        <div class="form-actions" style="justify-content:flex-start;margin-top:12px;gap:14px">
+          <button class="ghost-btn" id="clear-filters">Clear filters</button>
+          <a href="/request-bike.html" style="font-size:11.5px;color:var(--text-dim)"
+             title="Ask for a bike the catalogue doesn't have">Can't find your bike? Ask for it →</a>
+        </div>
+      </div>
+
+      <div class="result-count" id="result-count">Loading…</div>
+      <div id="results"></div>
+      <div id="detail-container"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  CC values are inferred from model naming convention for sort ordering — not a
+  verified spec field. Prototype build, part numbers/specs pending community +
+  admin verification.
+</footer>
+
+<script src="/api.js"></script>
+<script src="/wire.js"></script>
+<script src="/fuel.js"></script>
+<script>
+let SPECS = null;
+// Whether the signed-in user manages the bike currently open. Drives the
+// Fixed-spec toggle, which is theirs alone.
+let MANAGES_THIS_BIKE = false;
+let BIKE = null;
+// Sections open on the sheet. Every heading starts closed when a bike is
+// opened; what the reader unfolds stays unfolded across the re-renders a vote
+// or an edit causes, and is forgotten when they open another bike.
+let OPEN_CATS = new Set();
+let OPEN_CATS_BIKE = null;
+let GARAGE = [];
+
+const FLAG_REASONS = [
+  { value: "incorrect",     label: "Incorrect — this value is wrong" },
+  { value: "irrelevant",    label: "Irrelevant — doesn't apply to this bike" },
+  { value: "inappropriate", label: "Inappropriate content" },
+  { value: "other",         label: "Other" },
+];
+
+const els = {
+  make: byId("make-select"),
+  year: byId("year-select"),
+  model: byId("model-select"),
+  results: byId("results"),
+  count: byId("result-count"),
+};
+
+/* ---------------------------------------------------------------- search */
+function currentQuery(){
+  const p = new URLSearchParams();
+  if(els.make.value) p.set("make", els.make.value);
+  if(els.year.value) p.set("year", els.year.value);
+  if(els.model.value) p.set("model", els.model.value);
+  return p;
+}
+
+const loadFilters = guard(async () => {
+  const p = new URLSearchParams();
+  if(els.make.value) p.set("make", els.make.value);
+  if(els.year.value) p.set("year", els.year.value);
+  const f = await API.get("/api/catalog/filters?" + p.toString());
+  fill(els.make, f.makes.map(m => ({ value: m, label: m })), "All makes");
+  fill(els.year, f.years.map(y => ({ value: y, label: y })), "All Years");
+  // Ordered by engine size, not alphabetically — the server sorts it. The
+  // option shows the model only; the field label says how the list is ordered.
+  fill(els.model, f.models.map(m => ({ value: m.model_code, label: m.model_code })),
+       "All Models");
+});
+
+function fill(select, options, allLabel){
+  const keep = select.value;
+  select.innerHTML = `<option value="">${esc(allLabel)}</option>` +
+    options.map(o => `<option value="${esc(o.value)}"${
+      String(o.value) === keep ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+  if(keep && !options.map(o => String(o.value)).includes(keep)) select.value = "";
+}
+
+/* autoOpen: when the filters narrow to exactly one bike there is nothing left
+   to choose, so open it rather than making the reader click the single row.
+
+   Only on a dropdown change, not on typing. The text search fires per
+   keystroke, and a partial query passes through "one match" on its way to the
+   real one — auto-opening there would yank the page to a bike you were still
+   typing past. */
+function anyFilter(){
+  return !!(els.make.value || els.year.value || els.model.value);
+}
+
+const search = guard(async (autoOpen = false) => {
+  els.count.textContent = "Searching…";
+  const data = await API.get("/api/bikes?" + currentQuery().toString());
+
+  if(autoOpen && data.bikes.length === 1){
+    const only = data.bikes[0];
+    // Skip if it is already open: re-filtering down to the same bike should
+    // not refetch it and scroll the page out from under you.
+    if(!BIKE || BIKE.bike_id !== only.bike_id) openBike(only.bike_id);
+  }
+
+  // The dropdowns are a drill-down, not a way to dump 261 rows onto the page:
+  // narrowing them opens the bike as soon as only one is left, and until then
+  // the Model select is the thing to reach for. The list appears only when the
+  // drill-down cannot go further — Model chosen and more than one bike still
+  // shares it, as the two VT1100C Shadows do — because hiding it there would
+  // leave nothing to click at all.
+  const stuck = !!els.model.value && data.bikes.length > 1;
+  const bikes = `${data.total} bike${data.total === 1 ? "" : "s"}`;
+
+  if(!stuck){
+    // Counting is still worth saying — it is how you can tell the filters are
+    // biting — but "Showing 200 of 261" would be a lie next to an empty list.
+    els.count.textContent = bikes;
+    els.results.innerHTML =
+      data.bikes.length === 1
+        ? ""                       // it opened below; saying more is noise
+        : anyFilter()
+          ? `<div class="empty">${bikes} match. Narrow it down with Model.</div>`
+          : `<div class="empty">Pick a make, then a model, to open a bike.</div>`;
+    return;
+  }
+
+  els.count.textContent = data.bikes.length < data.total
+    ? `Showing ${data.bikes.length} of ${data.total} bikes`
+    : bikes;
+  els.results.innerHTML = data.bikes.length
+    ? data.bikes.map(b => `
+        <div class="result" data-bike="${b.bike_id}">
+          <div>
+            <div class="result-name">${esc(b.display_name)}</div>
+            <div class="result-meta">${esc(b.year_range || "year unknown")}
+              · ${b.specs_filled}/${b.fields_triggered} specs filled${
+                b.years_verified ? "" : " · years unconfirmed"}</div>
+          </div>
+          <div class="progress"><div class="progress-fill" style="width:${
+            b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0}%"></div></div>
+        </div>`).join("")
+    : `<div class="empty">Nothing matches those filters.
+         <a href="/request-bike.html">Can't find your bike? Ask for it to be added →</a></div>`;
+});
+
+[els.make, els.year].forEach(s =>
+  s.addEventListener("change", () => { loadFilters(); search(true); }));
+els.model.addEventListener("change", () => search(true));
+
+els.results.addEventListener("click", (e) => {
+  const row = e.target.closest(".result");
+  if(!row) return;
+  document.querySelectorAll(".result").forEach(r => r.classList.remove("active"));
+  row.classList.add("active");
+  openBike(Number(row.dataset.bike));
+});
+
+function resetFilters(){
+  els.make.value = els.year.value = els.model.value = "";
+}
+
+/* ---------------------------------------------------------------- detail */
+const openBike = guard(async (bikeId, opts = {}) => {
+  const box = byId("detail-container");
+  box.innerHTML = `<div class="panel"><div class="loading">Loading spec sheet…</div></div>`;
+  const [bike, specs] = await Promise.all([
+    API.get(`/api/bikes/${bikeId}`),
+    API.get(`/api/bikes/${bikeId}/specs`),
+  ]);
+  BIKE = bike; SPECS = specs;
+  // Abbreviations are per manufacturer, so the vocabulary is fetched for THIS
+  // bike's make before anything draws a wire.
+  const every = [...specs.categories.flatMap(c => c.specs), ...(specs.unplaced || [])];
+  if(every.some(x => x.value_type === "wire_color")){
+    await loadWireVocabulary(bike.make);
+  }
+  if(every.some(x => x.value_type === "fuel_octane" || x.value_type === "ethanol")){
+    await loadFuelVocabulary();
+  }
+  MANAGES_THIS_BIKE = !!(ME.user && (ME.user.role === 'admin' ||
+    (ME.manages || []).includes(bike.bike_id)));
+  if(OPEN_CATS_BIKE !== bike.bike_id){ OPEN_CATS = new Set(); OPEN_CATS_BIKE = bike.bike_id; }
+  renderDetail();
+  renderCatNav();
+  renderGarage();
+  // Put the bike in the address bar. Until now a bike page could not be linked
+  // to at all — which is why "View page" on My Bikes could only drop you on the
+  // catalog — and back/forward did nothing once you had opened one.
+  if(!opts.silent){
+    const url = `${location.pathname}?bike=${bikeId}`;
+    if(opts.replace) history.replaceState({bikeId}, "", url);
+    else if(location.search !== `?bike=${bikeId}`) history.pushState({bikeId}, "", url);
+  }
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// The photo goes up as itself -- the file is the body -- so the server reads
+// its type from the bytes rather than trusting a filename.
+document.addEventListener("change", guard(async (e) => {
+  if(e.target.id !== "photo-file") return;
+  const file = e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  if(!["image/jpeg", "image/png", "image/webp"].includes(file.type)){
+    toast("JPEG, PNG or WebP only.", "error"); return;
+  }
+  if(file.size > 5 * 1024 * 1024){
+    toast("That photo is over 5 MB. Resize it and try again.", "error"); return;
+  }
+  const res = await fetch(`/api/bikes/${BIKE.bike_id}/photo`, {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": file.type }, body: file });
+  const data = await res.json().catch(() => ({}));
+  if(!res.ok){ const err = new Error(data.error || res.statusText); err.status = res.status; throw err; }
+  toast("Photo saved." + (data.notified_admin ? " Admin has been told." : ""), "ok");
+  await openBike(BIKE.bike_id, { silent: true });
+}));
+
+// Back and forward move between the bike you were looking at and the catalog,
+// rather than leaving the site.
+window.addEventListener("popstate", (e) => {
+  const id = e.state && e.state.bikeId;
+  if(id) openBike(id, {silent: true});
+  else {
+    BIKE = null; SPECS = null;
+    byId("detail-container").innerHTML = "";
+    byId("cat-sidebar").classList.remove("visible");
+  }
+});
+
+/* Every spec on the sheet, whichever heading it is under -- or under none. */
+function allSpecs(){
+  return [...SPECS.categories.flatMap(c => c.specs), ...(SPECS.unplaced || [])];
+}
+
+/* Find a spec anywhere in the sheet by its field key, for the summary chips. */
+function specByKey(key){
+  const hit = allSpecs().find(s => s.field_key === key);
+  return hit && hit.value ? hit.value : null;
+}
+
+/* The at-a-glance block: the General category lifted to the top of the page.
+   Dry weight, wheelbase and seat height are what someone checks first, and
+   they were previously buried behind a scroll among sixty other fields.
+
+   It is a SUMMARY, not a replacement — General still renders in the sheet
+   below, because the quicklist has no vote, flag or request controls and
+   removing the section would take those away from exactly these specs. */
+// The seven headings, in page order — the same list the Spec Tree uses.
+const SPEC_CATEGORIES = ["General", "Engine", "Drive", "Fuel and Air", "Controls", "Suspension", "Electrical", "Gear and Accessories"];
+
+function otherNameRow(name, market){
+  return `<div class="bn-row">
+    <input type="text" class="bn-n" maxlength="80" placeholder="Name" value="${esc(name)}">
+    <input type="text" class="bn-m" maxlength="10" placeholder="Market" title="Where it was sold under this name — US, EU, JP… blank for everywhere" value="${esc(market)}">
+    <button type="button" class="ql-unpin" data-bn-del title="Remove this name" aria-label="Remove ${esc(name || "this name")}">×</button>
+  </div>`;
+}
+
+function renderHero(){
+  const bike = BIKE;
+  const alsoKnown = bike.names.filter(n => !n.is_primary);
+  const general = SPECS.categories.find(c => c.name === "General");
+  const unplaced = SPECS.unplaced || [];
+  // General is the site-wide default hero. Anything the bike's manager pinned
+  // rides on top of it, so a hero is never emptier than the default and a
+  // pinned field keeps its own section below as well. A spec under no heading
+  // at all is here and only here -- that is what "no heading" is for.
+  const pinned = [
+    ...SPECS.categories.filter(c => c.name !== "General").flatMap(c => c.specs.filter(x => x.in_header)),
+    ...unplaced.filter(x => x.category !== "General" && x.in_header),
+  ];
+  // General is the site-wide default, minus whatever this bike's manager took
+  // out of THIS header. The field itself is still in its section below.
+  const shownGeneral = [...(general ? general.specs : []),
+                        ...unplaced.filter(x => x.category === "General")]
+    .filter(x => !x.header_hidden);
+  const heroSpecs = [...shownGeneral, ...pinned];
+
+  // The bike type is internal -- it routes the bike to the right admin and
+  // groups the questionnaire -- so it is not a chip on the page.
+  const chips = [
+    specByKey("engine_displacement"),
+    specByKey("transmission"),
+    specByKey("drive_type"),
+  ].filter(Boolean);
+
+  return `
+    <div class="bike-hero">
+      <div class="bike-photo${bike.photo ? " has-photo" : ""}">
+        ${bike.photo
+          ? `<img src="${esc(bike.photo.url)}" alt="${esc(bike.display_name)}">`
+          : `<svg viewBox="0 0 64 64" fill="none" stroke-width="2">
+              <circle cx="16" cy="46" r="9"/><circle cx="48" cy="46" r="9"/>
+              <path d="M16 46 28 26h14l10 20M28 26l6-8h9"/></svg>
+            <div style="margin-top:8px">Photo pending</div>`}
+        ${MANAGES_THIS_BIKE ? `
+          <div class="photo-tools">
+            <button class="action-btn" data-photo-pick
+                    title="JPEG, PNG or WebP, up to 5 MB">${bike.photo ? "Change photo" : "Add a photo"}</button>
+            ${bike.photo ? `<button class="action-btn danger" data-photo-remove>Remove</button>` : ""}
+            <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden>
+          </div>` : ""}
+      </div>
+      <div class="bike-meta">
+        <h1 class="hero-title">${esc(bike.display_name)}</h1>
+        <div class="alt-name">${esc(bike.year_range || "years unknown")}${
+          alsoKnown.length
+            ? " · Also sold as " + alsoKnown.map(n =>
+                esc(n.name) + (n.market ? ` (${esc(n.market)})` : "")).join(", ")
+            : ""}</div>
+        ${MANAGES_THIS_BIKE ? `
+        <div class="hero-tools">
+          <button class="action-btn" data-bike-rename title="Change the name riders see, and the other names it was sold under">Rename</button>
+          <button class="action-btn" data-bike-split title="Make the later model years their own bike">Split at a year</button>
+          ${BIKE.split_from_bike_id ? `<span class="hero-note">Split from
+            <a href="?bike=${BIKE.split_from_bike_id}" data-open-bike="${BIKE.split_from_bike_id}">the earlier ${esc(bike.display_name)}</a>
+            at ${esc(String(BIKE.split_at_year))}</span>` : ""}
+        </div>
+        <div id="bike-form"></div>` : ""}
+        <div class="chip-row">
+          ${chips.map((c, i) => `<span class="chip${i === 0 ? " type" : ""}">${esc(c)}</span>`).join("")}
+          <span class="chip">${bike.specs_filled}/${bike.fields_triggered} specs filled</span>
+          ${bike.years_verified ? "" : `<span class="chip warn">year span unconfirmed</span>`}
+        </div>
+        ${heroSpecs.length ? `
+          <div class="quicklist">
+            ${heroSpecs.map(s => `
+              <div${s.in_header ? ' class="ql-pinned' + (s.header_only ? " ql-only" : "") + '"' : ""}><span>${esc(s.label)}</span>${
+                s.value ? esc(s.value)
+                  // Only this bike's manager ever sees a paused spec, and for
+                  // them "not yet sourced" would misreport a value that exists
+                  // and is simply off the public sheet.
+                  : s.paused ? `<em class="ql-gap">offline</em>`
+                  : `<em class="ql-gap">not yet sourced</em>`}${
+                // Removing it from here is the obvious move when you are
+                // looking at the header and decide it does not belong. The
+                // spec row far below still carries the same toggle.
+                MANAGES_THIS_BIKE
+                  ? (s.in_header
+                    ? `<button class="ql-unpin" data-header="${esc(s.field_key)}" data-to="0"
+                         title="Take ${esc(s.label)} back out of the header"
+                         aria-label="Remove ${esc(s.label)} from the header">×</button>`
+                    : `<button class="ql-unpin" data-hide-general="${esc(s.field_key)}"
+                         title="Take ${esc(s.label)} out of this bike's header. It stays in General below."
+                         aria-label="Hide ${esc(s.label)} from this bike's header">×</button>`)
+                  : ""}</div>`).join("")}
+          </div>` : ""}
+        <div class="hero-foot">
+          ${bike.managers.length
+            ? `Maintained by ${bike.managers.map(m => esc(m.username)).join(", ")}`
+            : "No manager assigned yet."}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDetail(){
+  const bike = BIKE;
+  byId("detail-container").innerHTML = `
+    ${renderHero()}
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Full spec sheet</h3>
+          <p>Every field this bike has, including the General values summarised
+             above. Add the stock value to a gap, suggest an alternative you run
+             instead, or flag, vote and request any of them here.
+             Missing a spec altogether?
+             <a id="request-spec-link" href="/request-spec.html?bike=${bike.bike_id}">Ask for one this bike doesn't list</a>.</p></div>
+        <div class="btn-row">
+          <span class="field-label" style="margin:0 6px 0 0;align-self:center">Year</span>
+          <select id="garage-year" style="width:auto">${
+            bike.years.map(y => `<option value="${y.bike_year_id}">${y.year}</option>`).join("")
+          }</select>
+        </div>
+      </div>
+      ${SPECS.categories.map(renderCategory).join("")}
+      ${renderUnplaced()}
+    </div>
+    <div id="service-log-slot"></div>`;
+  renderServiceLog();
+}
+
+/* Specs under no heading. Riders see them in the header if they are pinned
+   there (or General); the manager sees them here as well, so they can still
+   be edited, voted on, and given a heading back. */
+function renderUnplaced(){
+  const list = SPECS.unplaced || [];
+  if(!MANAGES_THIS_BIKE || !list.length) return "";
+  const groups = [];
+  list.forEach(s => {
+    const last = groups[groups.length - 1];
+    if(last && last[0].field_key === s.field_key) last.push(s);
+    else groups.push([s]);
+  });
+  const invisible = groups.filter(g => !(g[0].in_header || (g[0].category === "General" && !g[0].header_hidden)));
+  return catSection("No heading", `${groups.length} · only you see this`,
+    `<div class="inline-sub" style="margin:8px 0 12px">Only you see this section.
+      These show in the header if pinned there (or General), and under no heading
+      below.${invisible.length ? ` <b>${invisible.length} of them ${invisible.length === 1 ? "is" : "are"} not
+      in the header either, so riders cannot see ${invisible.length === 1 ? "it" : "them"} at all</b> —
+      pin ${invisible.length === 1 ? "it" : "them"} or tick a heading.` : ""}</div>` +
+    groups.map(g => g.length === 1 ? renderSpec(g[0]) : renderSpecGroup(g)).join(""));
+}
+
+function renderCategory(cat){
+  // A field with year variants arrives as several rows, already adjacent and
+  // in year order. They belong in one block under one heading — the reader is
+  // looking up "chain length", not "chain length (1975-77)".
+  const groups = [];
+  // A spec pinned "header only" has already been printed at the top. Leaving
+  // it here as well is the thing the manager asked it not to do.
+  cat.specs.filter(s => !(s.header_only && !MANAGES_THIS_BIKE)).forEach(s => {
+    const last = groups[groups.length - 1];
+    if(last && last[0].field_key === s.field_key) last.push(s);
+    else groups.push([s]);
+  });
+  const echoes = (cat.echoes || []).filter(s => !s.paused || MANAGES_THIS_BIKE);
+  // One echo per field: a year-split field arrives as several rows, and the
+  // pointer is to the field, not to each range.
+  const seen = new Set();
+  const uniq = echoes.filter(s => !seen.has(s.field_key) && seen.add(s.field_key));
+  const gaps = cat.specs.filter(s => s.value === null || s.value === "").length;
+  return catSection(cat.name, `${cat.specs.length}${gaps ? ` · ${gaps} gap${gaps > 1 ? "s" : ""}` : ""}${
+      uniq.length ? ` · +${uniq.length} also` : ""}`,
+    groups.map(g => g.length === 1 ? renderSpec(g[0]) : renderSpecGroup(g)).join("") +
+    (uniq.length ? `<div class="echo-head">Also shown here</div>` +
+      uniq.map(s => renderEcho(s, cat.name)).join("") : ""));
+}
+
+/* A heading that folds. Closed when the bike is opened, so the sheet reads as
+   a table of contents first; the sidebar's "jump" opens the one it lands on. */
+function catSection(name, count, body){
+  const id = "cat-" + name.replace(/\W+/g, "-");
+  const open = OPEN_CATS.has(name);
+  return `<div class="cat-section${open ? " open" : ""}" data-cat-section="${esc(name)}">
+      <button class="cat-head" id="${esc(id)}" data-cat-toggle="${esc(name)}"
+              aria-expanded="${open ? "true" : "false"}">
+        <span>${esc(name)}</span>
+        <span class="cat-head-meta">${esc(count)}<span class="chev">▾</span></span>
+      </button>
+      <div class="cat-body">${body}</div>
+    </div>`;
+}
+
+/* A spec that lives under another heading, mirrored here in full. It is the
+   same row -- same id, same votes, same flags -- printed a second time, so
+   anything done here happens to the spec, not to a copy. The ids inside it
+   are therefore duplicates of the original's; byId() in api.js resolves them
+   to whichever copy the click landed in. */
+function renderEcho(s, here){
+  const variants = allSpecs().filter(x => x.field_key === s.field_key);
+  return `
+    <div class="mirror">
+      <div class="mirror-head">
+        <span class="cell-dim">Mirror of the ${esc(s.lead)} spec — the same row, not a copy;
+          votes, flags and edits here are its votes, flags and edits.</span>
+        ${MANAGES_THIS_BIKE ? (s.also_in_site.includes(here)
+          ? `<span class="cell-dim" title="Set by admin for every bike">site-wide</span>`
+          : `<button class="action-btn tag-toggle on" data-echo-remove="${esc(s.field_key)}"
+            data-here="${esc(here)}" data-also="${esc([s.lead, ...s.also_in].join("|"))}"
+            title="Stop showing ${esc(s.label)} under ${esc(here)}. It stays under ${esc(s.lead)}.">✓ Also here</button>`) : ""}
+      </div>
+      ${variants.length > 1 ? renderSpecGroup(variants) : renderSpec(s)}
+    </div>`;
+}
+
+/* A field whose value changed partway through the bike's life.
+
+   Printed the way a manual prints it — every range visible at once — rather
+   than behind a year selector. Somebody reading this has a particular bike in
+   front of them, and "8.8 L (1976-77) · 12 L (1978-89)" answers them faster
+   than a control they have to operate first. */
+function renderSpecGroup(variants){
+  const first = variants[0];
+  const iManage = MANAGES_THIS_BIKE;
+  return `<div class="spec-group">
+      <div class="spec-group-head">
+        <span class="spec-label-strong">${esc(first.label)}</span>
+        <span class="spec-group-note">${variants.length} year ranges</span>
+      </div>
+      ${variants.map(v => `
+        <div class="spec-variant">
+          <div class="variant-years">${yearLabel(v)}</div>
+          ${renderSpec(v, {inGroup: true})}
+        </div>`).join("")}
+      ${iManage ? `<div class="spec-group-foot">
+        <button class="action-btn" data-merge-years="${variants[variants.length - 1].id}"
+                data-label="${esc(first.label)}">Merge back into one value</button>
+      </div>` : ""}
+    </div>`;
+}
+
+function yearLabel(s){
+  if(s.year_from === null || s.year_from === undefined) return "All years";
+  return s.year_from === s.year_to
+    ? String(s.year_from)
+    : `${s.year_from}–${s.year_to}`;
+}
+
+/* One row of a spec: the stock value, then each alternate, each carrying its
+   own vote and flag counts. Source is labelled ("Stock" / "Alt") because
+   without it a list of competing part numbers gives no clue which one the
+   manual actually says. */
+function valueLine(opts){
+  const { label, text, votes, flags, myVote, myFlag, voteAction, flagAction,
+          confirmedFit, hidden, missing } = opts;
+  return `
+    <div class="value-line${hidden ? " hidden-row" : ""}">
+      <span class="value-actions">
+        <button class="icon-btn thumb${myVote ? " voted" : ""}${missing ? " muted" : ""}"
+                ${missing ? "disabled title='Nothing to upvote yet'" : `data-vote-target="${esc(voteAction)}" data-auth-kind="vote"${authAttr()}`}>
+          ${THUMB_SVG}<span class="badge-n">${votes}</span>
+        </button>
+        <button class="icon-btn flag${myFlag ? " flagged" : ""}"
+                data-flag-target="${esc(flagAction)}" data-auth-kind="flag"${authAttr()}${
+                myFlag ? ` data-my-flag="${esc(String(myFlag))}"` : ""}
+                title="${myFlag ? "You flagged this — click to withdraw it if it was a mistake"
+                  : missing ? "Flag this spec — it doesn't belong on this bike, or something else is wrong with it"
+                  : "Flag this value"}">
+          ${FLAG_SVG}<span class="badge-n">${flags}</span>
+        </button>
+      </span>
+      <span class="value-source">${esc(label)}</span>
+      <span class="value-text${missing ? " missing" : ""}">${
+        missing ? "not yet sourced"
+        : opts.wire ? wireValueHTML(text, opts.wireId || "w")
+        : opts.vtype === "fuel_octane" ? octaneValueHTML(text, { alt: label !== "Stock" })
+        : opts.vtype === "ethanol" ? ethanolValueHTML(text, { alt: label !== "Stock" })
+        : esc(text)}</span>
+      ${confirmedFit ? `<span class="fit-check" title="Confirmed fit">✓</span>` : ""}
+    </div>`;
+}
+
+// The Max Ethanol row on this bike, so setting the octane can set it too.
+function ethanolSibling(){
+  return allSpecs().find(x => x.value_type === "ethanol");
+}
+
+function renderSpec(s, opts = {}){
+  const hasValue = s.value !== null && s.value !== "";
+  const iManage = MANAGES_THIS_BIKE;
+  // Inside a group the field name is the group's heading, and the years are
+  // printed above each variant, so the row does not repeat either.
+  const inGroup = !!opts.inGroup;
+  // Two different things, deliberately:
+  //   isFixed  — the effective type, inherited from the Spec Tree. Almost every
+  //              field is fixed by default; it means "one right answer", and it
+  //              is what refuses alternates.
+  //   locked   — the manager's explicit per-bike tag. Only this closes the spec
+  //              to community values. Treating the inherited default as a lock
+  //              would shut the community out of nearly every empty spec.
+  const isFixed = s.spec_type === "fixed";
+  const locked  = isFixed && s.type_overridden;
+  const canAlt = !isFixed;
+  const canAddValue = !locked || iManage;
+  const alts = s.alternates;
+  const [top, ...rest] = alts;
+
+  const isWire = s.value_type === "wire_color";
+  let lines = valueLine({
+    label: "Stock", text: s.value, votes: s.votes, flags: s.open_flags,
+    myVote: s.my_vote, myFlag: s.my_flag, missing: !hasValue,
+    voteAction: `spec:${s.id}`, flagAction: `spec:${s.id}`,
+    wire: isWire, wireId: `s${s.id}`, vtype: s.value_type,
+  });
+  if(top) lines += valueLine({
+    label: "Alt", text: top.text, votes: top.votes, flags: top.flags,
+    myVote: top.my_vote, myFlag: top.my_flag, confirmedFit: top.confirmed_fit,
+    voteAction: `alt:${top.id}`, flagAction: `alt:${top.id}`,
+    wire: isWire, wireId: `a${top.id}`, vtype: s.value_type,
+  });
+  // Only the best-supported alternate is shown; the rest collapse. A spec with
+  // six competing suggestions otherwise buries the manual's value in noise.
+  rest.forEach(a => { lines += valueLine({
+    label: "Alt", text: a.text, votes: a.votes, flags: a.flags,
+    myVote: a.my_vote, myFlag: a.my_flag, confirmedFit: a.confirmed_fit,
+    voteAction: `alt:${a.id}`, flagAction: `alt:${a.id}`, hidden: true,
+    wire: isWire, wireId: `a${a.id}`, vtype: s.value_type,
+  }); });
+
+  return `
+    <div class="spec-row" id="spec-${s.id}">
+      <div class="spec-label-row">
+        ${inGroup ? "" : `<span class="spec-label-strong">${esc(s.label)}</span>`}
+        ${confidenceBadge(s.confidence)}
+        ${typeBadge(s.spec_type)}
+        ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
+        ${s.entered_by_username ? `<span class="cell-dim">entered by ${esc(s.entered_by_username)}</span>` : ""}
+        ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
+            data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
+            title="${locked
+              ? "Remove the Fixed tag — reopens this spec to community values"
+              : "Tag Fixed — only you set this value; closes it to community submissions"}">${
+            locked ? "✓ Fixed spec" : "+ Tag Fixed"}</button>` : ""}
+        ${iManage ? (s.category === "General"
+          ? (s.header_hidden
+            ? `<button class="action-btn tag-toggle" data-show-general="${esc(s.field_key)}"
+                 title="Put ${esc(s.label)} back in this bike's header">+ Show in header</button>`
+            : `<button class="action-btn tag-toggle on" data-hide-general="${esc(s.field_key)}"
+                 title="Take ${esc(s.label)} out of this bike's header. Only this bike — General still shows it everywhere else.">✓ In header</button>`)
+          : `<button class="action-btn tag-toggle${s.in_header ? " on" : ""}"
+              data-pin-open="${s.id}" data-key="${esc(s.field_key)}"
+              data-label="${esc(s.label)}"
+              title="${s.in_header
+                ? "Change where this shows, or take it out of the header."
+                : "Show this at the top of the page, alongside the General specs."}">${
+              s.in_header
+                ? (s.header_only ? "✓ Header only" : "✓ In header")
+                : "+ Pin to header"}</button>`) : ""}
+        ${iManage && !inGroup ? `<button class="action-btn tag-toggle${s.also_in.length || !s.home_shown ? " on" : ""}"
+            data-cats-open="${s.id}" data-key="${esc(s.field_key)}" data-label="${esc(s.label)}"
+            data-home="${esc(s.category)}" data-shown="${esc((s.lead ? [s.lead, ...s.also_in] : []).join("|"))}"
+            data-site="${esc(s.also_in_site.join("|"))}" data-home-locked="${s.home_locked ? 1 : 0}"
+            title="${!s.lead ? "Under no heading — header only. Change where."
+              : s.also_in.length || !s.home_shown
+              ? "Shown under " + esc([s.lead, ...s.also_in].join(", ")) + ". Change where."
+              : "Show this under other headings on this bike as well — or move it out of " + esc(s.category) + "."}">${
+            !s.lead ? "✓ No heading"
+            : !s.home_shown ? "✓ Shown in " + esc([s.lead, ...s.also_in].join(", "))
+            : s.also_in.length ? "✓ Also in " + esc(s.also_in.join(", "))
+            : "+ Also show under…"}</button>` : ""}
+        ${iManage && !inGroup && BIKE.year_start && BIKE.year_end
+          && BIKE.year_end > BIKE.year_start
+          ? `<button class="action-btn" data-split-year="${s.id}"
+               data-label="${esc(s.label)}"
+               title="This value changed partway through ${BIKE.year_start}–${BIKE.year_end}. Give the later years their own value without splitting the whole bike.">⋮ Changed in a later year</button>`
+          : ""}
+        ${iManage ? `<button class="action-btn tag-toggle${s.paused ? " on danger" : ""}"
+            data-pause-spec="${s.id}" data-to="${s.paused ? "0" : "1"}"
+            title="${s.paused
+              ? "Put it back online — riders can read and vote on it again"
+              : "Take it offline while you check it. Riders keep seeing the field, not the value; nothing is deleted."}">${
+            s.paused ? "▶ Put back online" : "❙❙ Take offline"}</button>` : ""}
+      </div>
+      ${s.header_only && iManage ? `<div class="paused-note mine"><strong>Header
+          only.</strong> Riders see this in the header at the top and not in this
+          section. You still see it here so you can edit or unpin it — and note
+          the header carries no vote, flag or request controls, so nobody can
+          vote on or flag this spec while it sits up there alone.</div>` : ""}
+      ${s.paused ? `<div class="paused-note mine"><strong>Offline.</strong> Nobody
+           but you can see this spec — it is off the sheet entirely, not greyed
+           out on it${s.paused_by_username
+             ? `, taken down by ${esc(s.paused_by_username)}` : ""}. Votes, flags
+           and submissions are closed until you put it back.</div>` : ""}
+      ${locked ? `<div class="fixed-note">Tagged <strong>Fixed spec</strong>${
+        iManage ? " by you" : " by this bike's manager"} — one correct value.
+        ${iManage ? "Only you set it." : "Closed to community values; flag it if you think it's wrong."}</div>` : ""}
+      ${lines}
+      ${rest.length ? `<button class="show-more" data-toggle-more="${s.id}">
+          +${rest.length} more submitted <span class="arrow">▾</span></button>` : ""}
+      ${!hasValue ? renderRequestRow(s) : ""}
+      ${s.tools ? `<div class="spec-tools">⚒ <b>Tools required</b> ${esc(s.tools)}</div>` : ""}
+      ${!hasValue && canAddValue ? `
+        <div class="stock-row">
+          <button class="action-btn approve" data-add-value="${s.id}" data-auth-kind="value"${authAttr()}
+                  title="The factory figure or part number for this bike, as the manual or parts list gives it. Shows as Unsourced until the bike's manager confirms it.">+ Add the stock value</button>
+          <span class="row-cap">what the manual gives — the value this spec is missing</span>
+        </div>` : ""}
+      ${canAlt ? `
+        <div class="alt-cap">${hasValue
+          ? "Run something else? Suggest an alternative — it lists under the stock value as an <b>Alt</b> for riders to vote on, and never replaces it."
+          : "Run something else? An alternative lists under the stock value as an <b>Alt</b> for riders to vote on. It is not the manual's value — that goes above."}</div>` : ""}
+      ${canAlt ? (isWire ? `
+        <div class="propose-row wire-propose">
+          <button class="action-btn" data-open-wire="${s.id}" data-slot="alt${s.id}"
+                  data-auth-kind="value"${authAttr()}
+                  title="Listed as an Alt under the stock colour, for riders to vote on.">+ Suggest a different wire colour</button>
+          <div id="wire-alt-${s.id}"></div>
+        </div>` : (s.value_type === "fuel_octane" || s.value_type === "ethanol") ? `
+        <div class="propose-row wire-propose">
+          <button class="action-btn" data-open-fuel="${s.id}" data-vtype="${esc(s.value_type)}"
+                  data-auth-kind="value"${authAttr()}
+                  title="Listed as an Alt under the stock value, for riders to vote on.">${
+            s.value_type === "fuel_octane" ? "+ I run a different grade" : "+ Suggest a different ethanol limit"}</button>
+          <div id="fuel-alt-${s.id}"></div>
+        </div>` : `
+        <div class="propose-row">
+          <input type="text" class="propose-input" id="propose-${s.id}"
+                 placeholder="Alternative part number or value you run instead…" maxlength="200" autocomplete="off">
+          <button class="action-btn" data-save-alt="${s.id}" data-auth-kind="value"${authAttr()}
+                  title="Listed as an Alt under the stock value, for riders to vote on. Never replaces the stock value.">Suggest alternative</button>
+        </div>`) : ""}
+      <div class="spec-foot">
+        <a class="action-btn" href="/enrich.html?bike=${BIKE.bike_id}&field=${encodeURIComponent(s.field_key)}"
+           title="Tools and links for this spec">⚒ Guides</a>
+      </div>
+      <div id="spec-form-${s.id}"></div>
+    </div>`;
+}
+
+/* On a gap, "request this" is the only thing a reader can usefully do — it
+   tells the manager which of their empty fields anyone actually wants. */
+function renderRequestRow(s){
+  return `
+    <div class="request-row">
+      ${s.requests > 0
+        ? `<span class="request-status">${s.requests} rider${s.requests !== 1 ? "s" : ""} requested this</span>`
+        : ""}
+      <button class="request-btn${s.my_request ? " requested" : ""}"
+              data-request="${s.id}" data-auth-kind="value"${authAttr()}>
+        ${s.my_request ? "Requested ✓" : (s.requests > 0 ? "+ Request this too" : "Request this spec")}
+      </button>
+    </div>`;
+}
+
+/* ------------------------------------------------------- jump-to sidebar */
+
+/* Which section is "current" is just: the last heading that has scrolled past
+   a line near the top of the viewport. Computing it directly beats an
+   IntersectionObserver here — the observer fires for every heading that sweeps
+   through its band during a smooth scroll, so the last one to cross wins and
+   jumping to the bottom section leaves the highlight two sections behind. */
+function updateActiveCat(){
+  const heads = [...document.querySelectorAll(".cat-head")];
+  if(!heads.length) return;
+  const line = 140;
+  let current = heads[0];
+  for(const h of heads){
+    if(h.getBoundingClientRect().top <= line) current = h;
+  }
+  // At the bottom of the page the last section can never cross the line —
+  // there is no scroll left to give — so it would be permanently unreachable
+  // in the sidebar even while filling the screen. Once we're against the
+  // bottom, the last heading is the one being read.
+  const atBottom = window.innerHeight + window.scrollY >=
+                   document.documentElement.scrollHeight - 4;
+  if(atBottom) current = heads[heads.length - 1];
+
+  document.querySelectorAll(".cat-nav-item").forEach(b =>
+    b.classList.toggle("active", b.dataset.jump === current.id));
+}
+
+let catTick = false;
+window.addEventListener("scroll", () => {
+  if(catTick) return;
+  catTick = true;
+  requestAnimationFrame(() => { updateActiveCat(); catTick = false; });
+}, { passive: true });
+
+function renderCatNav(){
+  const nav = byId("cat-nav-list");
+  const side = byId("cat-sidebar");
+  if(!SPECS || !SPECS.categories.length){ side.classList.remove("visible"); return; }
+
+  nav.innerHTML = SPECS.categories.map(c => {
+    const id = "cat-" + c.name.replace(/\W+/g, "-");
+    const gaps = c.specs.filter(s => s.value === null || s.value === "").length;
+    const also = new Set((c.echoes || []).map(s => s.field_key)).size;
+    return `<button class="cat-nav-item" data-jump="${esc(id)}">
+        <span>${esc(c.name)}</span>
+        <span class="cat-nav-count">${c.specs.length}${gaps ? ` · ${gaps} gap${gaps > 1 ? "s" : ""}` : ""}${
+          also ? ` · +${also} also` : ""}</span>
+      </button>`;
+  }).join("");
+  side.classList.add("visible");
+  updateActiveCat();
+}
+
+document.addEventListener("click", (e) => {
+  const toggle = e.target.closest("[data-cat-toggle]");
+  if(toggle){
+    const name = toggle.dataset.catToggle;
+    const sec = toggle.closest(".cat-section");
+    const open = !sec.classList.contains("open");
+    sec.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open) OPEN_CATS.add(name); else OPEN_CATS.delete(name);
+    return;
+  }
+
+  const jump = e.target.closest("[data-jump]");
+  if(!jump) return;
+  const target = byId(jump.dataset.jump);
+  if(!target) return;
+  // Jumping to a folded section opens it: landing on a closed heading with
+  // nothing under it is not what "jump to Engine" means.
+  const sec = target.closest(".cat-section");
+  if(sec && !sec.classList.contains("open")){
+    sec.classList.add("open");
+    target.setAttribute("aria-expanded", "true");
+    OPEN_CATS.add(sec.dataset.catSection);
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+/* ---------------------------------------------------------------- garage */
+const loadGarage = guard(async () => {
+  if(!signedIn()){ GARAGE = []; renderGarage(); return; }
+  const data = await API.get("/api/garage");
+  GARAGE = data.garage;
+  renderGarage();
+});
+
+function renderGarage(){
+  const list = byId("garage-list");
+  const countEl = byId("garage-count");
+  const addBtn = byId("garage-add");
+
+  if(!signedIn()){
+    countEl.textContent = "";
+    list.innerHTML = `<div class="garage-empty">Sign in to keep your bikes and
+      service history here.</div>`;
+    addBtn.textContent = BIKE ? `+ Add ${BIKE.display_name}` : "Select a bike";
+    addBtn.disabled = false;
+    addBtn.dataset.authKind = "garage";
+    addBtn.setAttribute("data-needs-auth", "");
+    return;
+  }
+
+  addBtn.removeAttribute("data-needs-auth");
+  countEl.textContent = GARAGE.length ? `${GARAGE.length} bike${GARAGE.length === 1 ? "" : "s"}` : "";
+  list.innerHTML = GARAGE.length
+    ? GARAGE.map(g => `
+        <div class="garage-item${BIKE && g.bike_id === BIKE.bike_id ? " current" : ""}">
+          <button class="garage-go" data-go="${g.bike_id}"
+                  title="${esc(g.nickname || g.display_name)}">${
+            esc(g.nickname || `${g.year} ${g.display_name}`)}</button>
+          <button class="garage-remove" data-remove="${g.id}" title="Remove">×</button>
+        </div>`).join("")
+    : `<div class="garage-empty">No bikes yet. Open one below and add it.</div>`;
+
+  addBtn.disabled = !BIKE;
+  addBtn.textContent = BIKE ? `+ Add ${BIKE.display_name}` : "Select a bike";
+}
+
+/* ------------------------------------------------------------ service log */
+function ownedInstances(){
+  return BIKE ? GARAGE.filter(g => g.bike_id === BIKE.bike_id) : [];
+}
+
+const renderServiceLog = guard(async () => {
+  const slot = byId("service-log-slot");
+  if(!slot) return;
+  const mine = ownedInstances();
+  if(!mine.length){ slot.innerHTML = ""; return; }
+
+  const blocks = await Promise.all(mine.map(g => API.get(`/api/garage/${g.id}/service`)));
+  slot.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Service Log</h3>
+          <p>Intervals are read from this bike's spec sheet, so correcting a
+             spec moves your next-due mileage with it.</p></div>
+      </div>
+      ${mine.map((g, i) => renderInstance(g, blocks[i].tasks)).join("")}
+    </div>`;
+});
+
+function renderInstance(g, tasks){
+  return `
+    <div class="svc-inst">
+      <div class="svc-inst-head">
+        <div>
+          <div class="result-name">${esc(g.nickname || `${g.year} ${g.display_name}`)}</div>
+          <div class="result-meta">${g.year} · ${esc(g.display_name)}</div>
+        </div>
+        <div class="btn-row">
+          <span class="field-label" style="margin:0 4px 0 0;align-self:center">Odometer</span>
+          <input class="odo" type="number" value="${g.mileage ?? ""}" placeholder="miles" data-odo="${g.id}">
+        </div>
+      </div>
+      ${tasks.length ? tasks.map(t => {
+        const last = t.history[0];
+        const badge = {
+          overdue: `<span class="badge status-overdue">Overdue by ${Math.abs(t.due_in_miles)} mi</span>`,
+          soon:    `<span class="badge status-soon">Due in ${t.due_in_miles} mi</span>`,
+          ok:      `<span class="badge status-ok">Due in ${t.due_in_miles} mi</span>`,
+          logged:  `<span class="badge">Logged</span>`,
+          never:   `<span class="badge amber">Never logged</span>`,
+        }[t.status] || "";
+        return `
+          <div class="svc-task">
+            <div class="svc-head">
+              <div>
+                <div class="svc-name">${esc(t.name)}</div>
+                ${t.specs.filter(s => s.value).map(s =>
+                  `<div class="svc-spec"><b>${esc(s.label)}:</b> ${esc(s.value)}</div>`).join("")}
+                ${t.interval_miles ? `<div class="svc-spec"><b>Interval:</b> every ${
+                  t.interval_miles.toLocaleString()} mi</div>` : ""}
+                ${last ? `<div class="svc-spec"><b>Last done:</b> ${esc(last.performed_on)}${
+                  last.miles != null ? ` at ${Number(last.miles).toLocaleString()} mi` : ""
+                } · ${t.history.length} entr${t.history.length === 1 ? "y" : "ies"}</div>` : ""}
+              </div>
+              <div class="btn-row">
+                ${badge}
+                <button class="action-btn approve" data-log="${g.id}|${esc(t.task_key)}">Log</button>
+              </div>
+            </div>
+            <div id="svcform-${g.id}-${esc(t.task_key)}"></div>
+          </div>`;
+      }).join("") : `<div class="empty">No service tasks apply to this bike yet.</div>`}
+    </div>`;
+}
+
+/* --------------------------------------------------------------- actions */
+document.addEventListener("click", guard(async (e) => {
+  const go = e.target.closest("[data-go]");
+  if(go){ openBike(Number(go.dataset.go)); return; }
+
+  const rm = e.target.closest("[data-remove]");
+  if(rm){
+    await API.del(`/api/garage/${rm.dataset.remove}`);
+    toast("Removed from garage.", "ok");
+    await loadGarage();
+    renderServiceLog();
+    return;
+  }
+
+  if(e.target.closest("#garage-add")){
+    const sel = byId("garage-year");
+    if(!sel){ toast("Open a bike first.", "error"); return; }
+    await API.post("/api/garage", { bike_year_id: Number(sel.value) });
+    toast("Added to your garage.", "ok");
+    await loadGarage();
+    renderServiceLog();
+    return;
+  }
+
+  if(e.target.closest("#clear-filters")){
+    resetFilters(); await loadFilters(); await search(); return;
+  }
+
+  const addValue = e.target.closest("[data-add-value]");
+  if(addValue){
+    const id = addValue.dataset.addValue;
+    const spec = allSpecs()
+                   .find(x => String(x.id) === String(id));
+    const wire = spec && spec.value_type === "wire_color";
+    const octane = spec && spec.value_type === "fuel_octane";
+    const ethanol = spec && spec.value_type === "ethanol";
+    const sib = octane ? ethanolSibling() : null;
+    byId(`spec-form-${id}`).innerHTML = `
+      <div class="inline-box good" style="margin-top:10px">
+        <div class="inline-title">Add the stock value</div>
+        <div class="inline-sub">The factory figure or part number, as the service
+          manual or parts list gives it. It shows as <em>Unsourced</em> until the
+          rider who maintains this bike confirms it. If you run something else
+          instead, don't put it here — suggest it as an alternative under the spec.</div>
+        ${wire
+          ? wirePickerHTML(`val${id}`, "")
+          : octane
+            ? fuelPickerHTML(`val${id}`, "", { withEthanol: !!sib, ethanol: sib ? (sib.value || "") : "" })
+            : ethanol
+              ? fuelPickerEthanolOnlyHTML(`val${id}`, "")
+              : `<input type="text" id="value-input-${id}" maxlength="500"
+                        placeholder="e.g. Yuasa YTX12-BS" autocomplete="off">`}
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel="${id}">Cancel</button>
+          <button class="primary-btn" data-save-value="${id}"${
+            wire ? ` data-wire="val${id}"` : octane ? ` data-fuel="val${id}"${sib ? ` data-fuel-sib="${sib.id}"` : ""}`
+            : ethanol ? ` data-fuel-eth-only="val${id}"` : ""}>Save stock value</button>
+        </div>
+      </div>`;
+    if(!wire && !octane && !ethanol) byId(`value-input-${id}`).focus();
+    return;
+  }
+
+  const saveValue = e.target.closest("[data-save-value]");
+  if(saveValue){
+    const id = saveValue.dataset.saveValue;
+    let value;
+    if(saveValue.dataset.wire){
+      value = wirePickerValue(saveValue.dataset.wire);
+      if(!value){ toast("Choose a base colour first.", "error"); return; }
+    } else if(saveValue.dataset.fuel){
+      value = fuelPickerValue(saveValue.dataset.fuel);
+      if(!value){ toast("Choose the minimum grade the manual names.", "error"); return; }
+    } else if(saveValue.dataset.fuelEthOnly){
+      value = fuelPickerEthanol(saveValue.dataset.fuelEthOnly);
+      if(!value){ toast("Choose an ethanol limit.", "error"); return; }
+    } else {
+      value = byId(`value-input-${id}`).value.trim();
+      if(!value){ toast("Enter a value first.", "error"); return; }
+    }
+    await API.post(`/api/specs/${id}/value`, { value });
+    // Octane and ethanol are answered together. The sibling is written only
+    // if a limit was chosen and the sibling is still empty — a filled
+    // ethanol value is somebody's sourced fact and is not overwritten from
+    // the octane form.
+    if(saveValue.dataset.fuel && saveValue.dataset.fuelSib){
+      const eth = fuelPickerEthanol(saveValue.dataset.fuel);
+      const sib = ethanolSibling();
+      if(eth && sib && !sib.value){
+        await API.post(`/api/specs/${sib.id}/value`, { value: eth });
+      }
+    }
+    toast("Thanks — saved as the stock value, Unsourced until the bike's manager confirms it.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  // Vote targets are "spec:<id>" or "alt:<id>" — the stock value and an
+  // alternate are different rows in different tables, but one control.
+  const setType = e.target.closest("[data-set-type]");
+  if(setType){
+    // data-to is "" when clearing, which sends null and lets the field fall
+    // back to the Spec Tree default rather than sticking at the last choice.
+    const to = setType.dataset.to || null;
+    await API.patch(`/api/specs/${setType.dataset.setType}/type`, { spec_type: to });
+    toast(to === "fixed"
+      ? "Marked Fixed — alternates and community values are closed on this spec."
+      : "Fixed tag removed — this spec is open to contributions again.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const splitYear = e.target.closest("[data-split-year]");
+  if(splitYear){
+    const id = splitYear.dataset.splitYear;
+    const years = [];
+    for(let y = BIKE.year_start + 1; y <= BIKE.year_end; y++) years.push(y);
+    byId(`spec-form-${id}`).innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">From which year does “${esc(splitYear.dataset.label)}” change?</div>
+        <div class="inline-sub">The bike is not split — it is the same machine.
+          Only this spec gains a second value, for ${BIKE.year_start}–<span id="sy-before">…</span>
+          and the year you pick onward. Everything else stays shared.</div>
+        <div class="form-row"><label for="sy-${id}">Changed from</label>
+          <select id="sy-${id}">
+            ${years.map(y => `<option value="${y}">${y}</option>`).join("")}
+          </select></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel="${id}">Cancel</button>
+          <button class="primary-btn" data-split-go="${id}">Split this spec</button>
+        </div>
+      </div>`;
+    const sel = byId(`sy-${id}`);
+    const show = () => byId("sy-before").textContent = Number(sel.value) - 1;
+    sel.addEventListener("change", show); show();
+    return;
+  }
+
+  const splitGo = e.target.closest("[data-split-go]");
+  if(splitGo){
+    const id = splitGo.dataset.splitGo;
+    const at = Number(byId(`sy-${id}`).value);
+    const r = await API.post(`/api/specs/${id}/split-year`, { at_year: at });
+    toast(`“${r.label}” now has one value for ${r.earlier.year_from}–${r.earlier.year_to}`
+          + ` and another for ${r.later.year_from}–${r.later.year_to}.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const mergeYears = e.target.closest("[data-merge-years]");
+  if(mergeYears){
+    // Merging keeps one variant's value and discards the rest, so the reader
+    // gets to see exactly which values are about to go and which one survives
+    // — the server refuses an unconfirmed merge for the same reason.
+    const keepId = Number(mergeYears.dataset.mergeYears);
+    const all = allSpecs();
+    const keep = all.find(x => x.id === keepId);
+    const family = all.filter(x => x.field_key === keep.field_key);
+    const dropped = family.filter(x => x.id !== keepId);
+
+    mergeYears.closest(".spec-group").querySelector(".spec-group-foot").innerHTML = `
+      <div class="inline-box danger" style="margin-top:0">
+        <div class="inline-title">Merge “${esc(mergeYears.dataset.label)}” back into one value?</div>
+        <div class="inline-sub">Keeps <strong>${esc(keep.value || "the empty value")}</strong>
+          (${yearLabel(keep)}) for every year, and discards:
+          <ul style="margin:6px 0 0;padding-left:18px">
+            ${dropped.map(d => `<li>${esc(d.value || "empty")} — ${yearLabel(d)}</li>`).join("")}
+          </ul>
+          Any alternates, votes and flags on the discarded ranges go with them.</div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-merge-cancel="1">Cancel</button>
+          <button class="primary-btn" data-merge-go="${keepId}"
+                  data-label="${esc(mergeYears.dataset.label)}">Merge and discard</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if(e.target.closest("[data-merge-cancel]")){ await refreshSpecs(); return; }
+
+  const mergeGo = e.target.closest("[data-merge-go]");
+  if(mergeGo){
+    const r = await API.post(`/api/specs/${mergeGo.dataset.mergeGo}/merge-years`,
+                             { force: true });
+    toast(`“${r.label}” covers every year again.`
+          + (r.dropped.length ? ` ${r.dropped.length} year range(s) discarded.` : ""), "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const pauseSpec = e.target.closest("[data-pause-spec]");
+  if(pauseSpec){
+    const on = pauseSpec.dataset.to === "1";
+    const r = await API.post(`/api/specs/${pauseSpec.dataset.pauseSpec}/pause`,
+                             { paused: on });
+    toast(r.paused
+      ? `“${r.label}” is offline — riders see the field, not the value.`
+      : `“${r.label}” is back online.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const hideGeneral = e.target.closest("[data-hide-general]");
+  if(hideGeneral){
+    const key = hideGeneral.dataset.hideGeneral;
+    const r = await API.post(`/api/bikes/${BIKE.bike_id}/header`,
+                             { field_key: key, hidden: true });
+    toast(`“${r.label}” is out of this bike's header. It is still in General below,`
+          + ` and still in the header on every other bike.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const showGeneral = e.target.closest("[data-show-general]");
+  if(showGeneral){
+    const key = showGeneral.dataset.showGeneral;
+    await API.del(`/api/bikes/${BIKE.bike_id}/header/${encodeURIComponent(key)}`);
+    toast("Back in the header.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  // ---- the bike's photo ---------------------------------------------------
+  const photoPick = e.target.closest("[data-photo-pick]");
+  if(photoPick){ byId("photo-file").click(); return; }
+  const photoRemove = e.target.closest("[data-photo-remove]");
+  if(photoRemove){
+    if(!confirm("Remove this bike's photo? The page goes back to “Photo pending”.")) return;
+    await API.del(`/api/bikes/${BIKE.bike_id}/photo`);
+    toast("Photo removed.", "ok");
+    await openBike(BIKE.bike_id, { silent: true });
+    return;
+  }
+
+  // ---- the bike's own identity: name, and splitting at a year ------------
+  const openBikeLink = e.target.closest("[data-open-bike]");
+  if(openBikeLink){
+    e.preventDefault();
+    openBike(Number(openBikeLink.dataset.openBike));
+    return;
+  }
+
+  const renameBike = e.target.closest("[data-bike-rename]");
+  if(renameBike){
+    const box = byId("bike-form");
+    if(box.dataset.mode === "rename"){ box.innerHTML = ""; box.dataset.mode = ""; return; }
+    box.dataset.mode = "rename";
+    const others = BIKE.names.filter(n => !n.is_primary);
+    box.innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">Rename “${esc(BIKE.display_name)}”</div>
+        <div class="inline-sub">The name riders see at the top of this page and
+          in the catalog. The other names are what it was sold as elsewhere —
+          searching any of them finds this bike.${
+          ME.user.role === "admin" ? "" : " Admin is told when you change it."}</div>
+        <div class="form-row"><label>Name
+          <input type="text" id="bn-name" maxlength="80" value="${esc(BIKE.display_name)}"></label></div>
+        <div class="form-row"><label>Also sold as</label>
+          <div id="bn-others">${others.map(n => otherNameRow(n.name, n.market)).join("")}</div>
+          <button type="button" class="ghost-btn" data-bn-add>+ Another name</button>
+        </div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-bike-cancel>Cancel</button>
+          <button class="primary-btn" data-bike-rename-go>Save name</button>
+        </div>
+      </div>`;
+    byId("bn-name").focus();
+    return;
+  }
+  const bnAdd = e.target.closest("[data-bn-add]");
+  if(bnAdd){
+    byId("bn-others").insertAdjacentHTML("beforeend", otherNameRow("", ""));
+    const rowsEl = document.querySelectorAll("#bn-others .bn-row input.bn-n");
+    rowsEl[rowsEl.length - 1].focus();
+    return;
+  }
+  const bnDel = e.target.closest("[data-bn-del]");
+  if(bnDel){ bnDel.closest(".bn-row").remove(); return; }
+
+  const bikeCancel = e.target.closest("[data-bike-cancel]");
+  if(bikeCancel){
+    const box = byId("bike-form");
+    box.innerHTML = ""; box.dataset.mode = "";
+    return;
+  }
+
+  const renameGo = e.target.closest("[data-bike-rename-go]");
+  if(renameGo){
+    const name = byId("bn-name").value.trim();
+    if(!name){ toast("The bike needs a name.", "error"); return; }
+    const other_names = [...document.querySelectorAll("#bn-others .bn-row")].map(r => ({
+      name: r.querySelector(".bn-n").value.trim(),
+      market: r.querySelector(".bn-m").value.trim().toUpperCase(),
+    })).filter(o => o.name);
+    const r = await API.patch(`/api/bikes/${BIKE.bike_id}/name`, { name, other_names });
+    toast(`Now “${r.display_name}”.` + (r.notified_admin ? " Admin has been told." : ""), "ok");
+    await openBike(BIKE.bike_id, { silent: true });
+    return;
+  }
+
+  const splitBike = e.target.closest("[data-bike-split]");
+  if(splitBike){
+    const box = byId("bike-form");
+    if(box.dataset.mode === "split"){ box.innerHTML = ""; box.dataset.mode = ""; return; }
+    box.dataset.mode = "split";
+    const years = BIKE.years.map(y => y.year);
+    const start = BIKE.year_start ?? (years.length ? Math.min(...years) : null);
+    const end = BIKE.year_end ?? (years.length ? Math.max(...years) : null);
+    if(start === null || end === null || end <= start){
+      box.innerHTML = `
+        <div class="inline-box" style="margin-top:10px">
+          <div class="inline-title">Nothing to split</div>
+          <div class="inline-sub">${
+            start === null ? "This bike has no year span on record yet."
+                           : `This bike covers a single model year, ${esc(String(start))}.`}</div>
+          <div class="form-actions"><button class="ghost-btn" data-bike-cancel>Close</button></div>
+        </div>`;
+      return;
+    }
+    const choices = [];
+    for(let y = start + 1; y <= end; y++) choices.push(y);
+    box.innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">Split “${esc(BIKE.display_name)}” (${esc(BIKE.year_range || "")})</div>
+        <div class="inline-sub"><b>Split when it is a different machine</b> — a
+          different engine, a different frame. The identity changed, so the specs
+          should not share a page. If it is the same machine with one different
+          part, do not split: scope that one spec to its years instead, from its
+          row below.<br><br>
+          The later years become their own bike with a copy of this spec sheet,
+          and the model years move across — a rider's garage entry for a later
+          year follows it. Your name stays on both.${
+          ME.user.role === "admin" ? "" : " Admin is told when you do this."}</div>
+        <div class="form-row"><label>First model year of the new bike
+          <select id="bs-year">${choices.map(y => `<option value="${y}">${y}</option>`).join("")}</select></label>
+          <div class="cell-dim" id="bs-preview"></div></div>
+        <div class="form-row"><label>Name for the later bike
+          <input type="text" id="bs-name" maxlength="80" value="${esc(BIKE.display_name)}"></label>
+          <div class="cell-dim">Leave it as is if the name did not change; the
+            year range tells them apart.</div></div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-bike-cancel>Cancel</button>
+          <button class="primary-btn" data-bike-split-go>Split</button>
+        </div>
+      </div>`;
+    const prev = () => {
+      const at = Number(byId("bs-year").value);
+      byId("bs-preview").textContent =
+        `${start}–${at - 1} stays here · ${at}–${end} becomes the new bike`;
+    };
+    byId("bs-year").addEventListener("change", prev);
+    prev();
+    return;
+  }
+
+  const bikeSplitGo = e.target.closest("[data-bike-split-go]");
+  if(bikeSplitGo){
+    const at_year = Number(byId("bs-year").value);
+    const name = byId("bs-name").value.trim();
+    const r = await API.post(`/api/bikes/${BIKE.bike_id}/split`, { at_year, name });
+    byId("bike-form").innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">Split done</div>
+        <div class="inline-sub">${r.specs_copied + r.specs_cut} spec${r.specs_copied + r.specs_cut === 1 ? "" : "s"} copied,
+          ${r.specs_moved} moved, ${r.model_years_moved} model year${r.model_years_moved === 1 ? "" : "s"} moved.${
+          r.notified_admin ? " Admin has been told." : ""}</div>
+        <div class="split-result">
+          <button class="action-btn" data-open-bike="${r.earlier.bike_id}">${esc(r.earlier.display_name)} · ${esc(r.earlier.year_range)}</button>
+          <button class="action-btn" data-open-bike="${r.later.bike_id}">${esc(r.later.display_name)} · ${esc(r.later.year_range)}</button>
+        </div>
+      </div>`;
+    toast(`Split at ${at_year}.`, "ok");
+    // the hero's year range and chips are stale now; redraw around the result
+    const keep = byId("bike-form").innerHTML;
+    await openBike(BIKE.bike_id, { silent: true });
+    const box = byId("bike-form");
+    if(box){ box.innerHTML = keep; box.dataset.mode = "done"; }
+    return;
+  }
+
+  // ---- a spec under more heading than one -------------------------------
+  const catsOpen = e.target.closest("[data-cats-open]");
+  if(catsOpen){
+    const id = catsOpen.dataset.catsOpen;
+    const home = catsOpen.dataset.home;
+    const shown = new Set(catsOpen.dataset.shown.split("|").filter(Boolean));
+    const site = new Set(catsOpen.dataset.site.split("|").filter(Boolean));
+    const homeLocked = catsOpen.dataset.homeLocked === "1";
+    byId(`spec-form-${id}`).innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">Where should “${esc(catsOpen.dataset.label)}” show?</div>
+        <div class="inline-sub">Tick every heading it should appear under on this
+          bike. It is one spec wherever it shows — the same votes, flags and
+          value. <b>${esc(home)}</b> is its usual place; untick it to move the spec
+          out of there. Untick <em>everything</em> and it shows in the header only —
+          if it is pinned there, or is a General field — and nowhere below.</div>
+        <div class="cat-picks">
+          ${SPEC_CATEGORIES.map(c => {
+            const fixed = site.has(c) || (c === home && homeLocked);
+            const on = shown.has(c);
+            return fixed
+              ? `<label class="cat-pick${on ? " on" : ""} site" title="Set by admin for every bike; only admin can change it">
+                  <input type="checkbox"${on ? " checked" : ""} disabled> ${esc(c)} <small>site-wide</small></label>`
+              : `<label class="cat-pick${on ? " on" : ""}">
+                  <input type="checkbox" name="cats-${id}" value="${esc(c)}"${on ? " checked" : ""}> ${esc(c)}${
+                  c === home ? ` <small>usual</small>` : ""}</label>`;
+          }).join("")}
+        </div>${site.size && ME.user.role === "admin"
+          ? `<div class="inline-sub">Site-wide headings are changed in Admin → Manage the Spec Tree.</div>` : ""}
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel="${id}">Cancel</button>
+          <button class="primary-btn" data-cats-go="${id}" data-key="${esc(catsOpen.dataset.key)}">Save</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const catsGo = e.target.closest("[data-cats-go]");
+  if(catsGo){
+    const id = catsGo.dataset.catsGo;
+    const categories = [...scopeAll(`input[name="cats-${id}"]:checked`)].map(i => i.value);
+    const r = await API.post(`/api/bikes/${BIKE.bike_id}/categories`,
+                             { field_key: catsGo.dataset.key, categories });
+    toast(r.shown.length ? `Now under ${r.shown.join(", ")}.` : "Under no heading now — header only.", "ok");
+    await refreshSpecs();
+    return;
+  }
+  const echoRemove = e.target.closest("[data-echo-remove]");
+  if(echoRemove){
+    const categories = echoRemove.dataset.also.split("|").filter(c => c && c !== echoRemove.dataset.here);
+    await API.post(`/api/bikes/${BIKE.bike_id}/categories`,
+                   { field_key: echoRemove.dataset.echoRemove, categories });
+    toast(`No longer shown under ${echoRemove.dataset.here}.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+  const jumpSpec = e.target.closest("[data-jump-spec]");
+  if(jumpSpec){
+    e.preventDefault();
+    const row = byId(jumpSpec.dataset.jumpSpec);
+    if(row){
+      const sec = row.closest(".cat-section");
+      if(sec && !sec.classList.contains("open")){
+        sec.classList.add("open"); OPEN_CATS.add(sec.dataset.catSection);
+      }
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.classList.add("flash");
+      setTimeout(() => row.classList.remove("flash"), 1600);
+    }
+    return;
+  }
+
+  const pinOpen = e.target.closest("[data-pin-open]");
+  if(pinOpen){
+    const id = pinOpen.dataset.pinOpen;
+    const spec = allSpecs()
+                   .find(x => String(x.id) === String(id));
+    const key = pinOpen.dataset.key;
+    byId(`spec-form-${id}`).innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">Where should “${esc(pinOpen.dataset.label)}” show?</div>
+        <div class="inline-sub">The header is a summary and carries no vote,
+          flag or request controls. A spec that shows <em>only</em> there cannot
+          be voted on or flagged by anyone — worth it for a headline figure
+          nobody argues about, not for one people will want to correct.</div>
+        <div class="place-opts" style="margin-top:4px">
+          <label class="place${spec && spec.in_header && !spec.header_only ? " on" : ""}">
+            <input type="radio" name="pin-${id}" value="both"
+                   ${spec && spec.in_header && !spec.header_only ? "checked" : ""}>
+            <span><b>Header and its section</b>
+              <span>Shown at the top as a summary, and again below where it can
+                be voted on, flagged and corrected.</span></span>
+          </label>
+          <label class="place${spec && spec.header_only ? " on" : ""}">
+            <input type="radio" name="pin-${id}" value="header"
+                   ${spec && spec.header_only ? "checked" : ""}>
+            <span><b>Header only</b>
+              <span>Shown once, at the top. Riders will not find it in
+                ${esc(spec ? spec.category : "its section")}, and cannot vote on
+                or flag it.</span></span>
+          </label>
+          ${spec && spec.in_header ? `
+          <label class="place">
+            <input type="radio" name="pin-${id}" value="off">
+            <span><b>Not in the header</b>
+              <span>Back to its section only.</span></span>
+          </label>` : ""}
+        </div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel="${id}">Cancel</button>
+          <button class="primary-btn" data-pin-go="${id}" data-key="${esc(key)}">Save</button>
+        </div>
+      </div>`;
+    scopeAll(`input[name="pin-${id}"]`).forEach(r =>
+      r.addEventListener("change", () =>
+        scopeAll(`#spec-form-${id} .place`).forEach(p =>
+          p.classList.toggle("on", p.querySelector("input").checked))));
+    return;
+  }
+
+  const pinGo = e.target.closest("[data-pin-go]");
+  if(pinGo){
+    const id = pinGo.dataset.pinGo;
+    const key = pinGo.dataset.key;
+    const choice = scopeOne(`input[name="pin-${id}"]:checked`)?.value;
+    if(!choice){ toast("Pick where it should show.", "error"); return; }
+    if(choice === "off"){
+      await API.del(`/api/bikes/${BIKE.bike_id}/header/${encodeURIComponent(key)}`);
+      toast("Removed from the header.", "ok");
+    } else {
+      const r = await API.post(`/api/bikes/${BIKE.bike_id}/header`,
+                               { field_key: key, hide_below: choice === "header" });
+      toast(r.hide_below
+        ? `“${r.label}” now shows in the header only.`
+        : `“${r.label}” shows in the header and in its section.`, "ok");
+    }
+    await refreshSpecs();
+    return;
+  }
+
+  const header = e.target.closest("[data-header]");
+  if(header){
+    const key = header.dataset.header;
+    const on = header.dataset.to === "1";
+    if(on) await API.post(`/api/bikes/${BIKE.bike_id}/header`, { field_key: key });
+    else   await API.del(`/api/bikes/${BIKE.bike_id}/header/${encodeURIComponent(key)}`);
+    toast(on ? "Pinned to the header." : "Removed from the header.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const vote = e.target.closest("[data-vote-target]");
+  if(vote){
+    const [kind, id] = vote.dataset.voteTarget.split(":");
+    const url = kind === "spec" ? `/api/specs/${id}/vote` : `/api/alternates/${id}/vote`;
+    const r = await API.post(url);
+    // Every copy of this button -- a mirrored spec prints the row twice -- so
+    // the count agrees wherever the reader looks.
+    document.querySelectorAll(`[data-vote-target="${CSS.escape(vote.dataset.voteTarget)}"]`).forEach(b => {
+      b.classList.toggle("voted", r.voted);
+      b.querySelector(".badge-n").textContent = r.votes;
+    });
+    // Matches the mockup's little scale bounce on a registered vote.
+    vote.classList.remove("pop"); void vote.offsetWidth; vote.classList.add("pop");
+    return;
+  }
+
+  const req = e.target.closest("[data-request]");
+  if(req){
+    const r = await API.post(`/api/specs/${req.dataset.request}/request`);
+    toast(r.requested
+      ? "Requested — the bike's manager will see it."
+      : "Request withdrawn.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const more = e.target.closest("[data-toggle-more]");
+  if(more){
+    const row = byId(`spec-${more.dataset.toggleMore}`);
+    const hidden = [...row.querySelectorAll(".value-line.hidden-row")];
+    const showing = hidden[0] && hidden[0].classList.contains("show");
+    hidden.forEach(h => h.classList.toggle("show", !showing));
+    more.querySelector(".arrow").textContent = showing ? "▾" : "▴";
+    return;
+  }
+
+  // The picker is a wall of swatches. On a spec sheet with several wire
+  // fields it would be most of the page, offered to everyone whether or not
+  // anybody wants to propose anything — so it waits to be asked for, the way
+  // the text box it replaced was one line until you typed in it.
+  // Alternates on the fuel fields. "I run 93 where the manual says 91" is a
+  // proposal, not a correction: the stated value is a minimum. One below the
+  // minimum is allowed as well, and the votes decide.
+  const openFuel = e.target.closest("[data-open-fuel]");
+  if(openFuel){
+    const id = openFuel.dataset.openFuel;
+    const slot = byId(`fuel-alt-${id}`);
+    if(slot.innerHTML.trim()){ slot.innerHTML = ""; return; }
+    const octane = openFuel.dataset.vtype === "fuel_octane";
+    slot.innerHTML = `
+      ${octane ? fuelPickerHTML(`alt${id}`, "", {}) : fuelPickerEthanolOnlyHTML(`alt${id}`, "")}
+      <div class="form-actions">
+        <button class="ghost-btn" data-close-fuel="${id}">Cancel</button>
+        <button class="action-btn" data-save-alt="${id}"
+                data-fuel-alt="alt${id}" data-vtype="${esc(openFuel.dataset.vtype)}">Submit</button>
+      </div>`;
+    slot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+  const closeFuel = e.target.closest("[data-close-fuel]");
+  if(closeFuel){ byId(`fuel-alt-${closeFuel.dataset.closeFuel}`).innerHTML = ""; return; }
+
+  const openWire = e.target.closest("[data-open-wire]");
+  if(openWire){
+    const id = openWire.dataset.openWire;
+    const slot = byId(`wire-alt-${id}`);
+    if(slot.innerHTML.trim()){          // already open — put it away again
+      slot.innerHTML = "";
+      openWire.textContent = "+ Propose a wire colour";
+      return;
+    }
+    slot.innerHTML = `
+      ${wirePickerHTML(openWire.dataset.slot, "")}
+      <div class="form-actions">
+        <button class="ghost-btn" data-close-wire="${id}">Cancel</button>
+        <button class="action-btn" data-save-alt="${id}"
+                data-wire="${esc(openWire.dataset.slot)}">Submit this wire colour</button>
+      </div>`;
+    openWire.textContent = "− Cancel";
+    slot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+
+  const closeWire = e.target.closest("[data-close-wire]");
+  if(closeWire){
+    const id = closeWire.dataset.closeWire;
+    byId(`wire-alt-${id}`).innerHTML = "";
+    const opener = scopeOne(`[data-open-wire="${id}"]`);
+    if(opener) opener.textContent = "+ Propose a wire colour";
+    return;
+  }
+
+  const saveAlt = e.target.closest("[data-save-alt]");
+  if(saveAlt){
+    const id = saveAlt.dataset.saveAlt;
+    let text;
+    if(saveAlt.dataset.wire){
+      text = wirePickerValue(saveAlt.dataset.wire);
+      if(!text){ toast("Choose a base colour first.", "error"); return; }
+    } else if(saveAlt.dataset.fuelAlt){
+      text = saveAlt.dataset.vtype === "fuel_octane"
+        ? fuelPickerValue(saveAlt.dataset.fuelAlt)
+        : fuelPickerEthanol(saveAlt.dataset.fuelAlt);
+      if(!text){ toast("Pick one from the list first.", "error"); return; }
+    } else {
+      text = byId(`propose-${id}`).value.trim();
+      if(!text){ toast("Type the alternative first.", "error"); return; }
+    }
+    await API.post(`/api/specs/${id}/alternates`, { text });
+    toast("Submitted — listed as an Alt under the stock value for riders to vote on.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  // Flag targets carry which value they mean: "spec:<id>" for the stock value,
+  // "alt:<id>" for one alternate. The spec row's form slot is reused for both.
+  const flag = e.target.closest("[data-flag-target]");
+  if(flag && flag.dataset.myFlag){
+    // Already flagged by you: the only thing left to do is take it back.
+    const slot = flag.closest(".spec-row").querySelector('[id^="spec-form-"]');
+    slot.innerHTML = `
+      <div class="inline-box" style="margin-top:10px">
+        <div class="inline-title">You flagged this</div>
+        <div class="inline-sub">It's with the rider who manages this bike. Flagged by
+          mistake? Withdrawing takes it out of their queue as if it never happened.</div>
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel-slot>Keep the flag</button>
+          <button class="action-btn danger" data-withdraw-flag="${esc(flag.dataset.myFlag)}">Flagged by mistake — withdraw</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const withdraw = e.target.closest("[data-withdraw-flag]");
+  if(withdraw){
+    await API.del(`/api/flags/${withdraw.dataset.withdrawFlag}`);
+    toast("Flag withdrawn.", "ok");
+    await refreshSpecs();
+    return;
+  }
+  if(flag){
+    const target = flag.dataset.flagTarget;
+    const slot = flag.closest(".spec-row").querySelector('[id^="spec-form-"]');
+    const flaggedSpec = target.startsWith("spec:")
+      ? allSpecs().find(x => String(x.id) === target.slice(5)) : null;
+    const empty = !!flaggedSpec && (flaggedSpec.value === null || flaggedSpec.value === "");
+    // On an empty spec the usual complaint is that the field is on the wrong
+    // bike, so that reason leads.
+    const reasons = empty
+      ? [...FLAG_REASONS].sort((a, b) => (a.value === "irrelevant" ? -1 : b.value === "irrelevant" ? 1 : 0))
+      : FLAG_REASONS;
+    slot.innerHTML = `
+      <div class="inline-box danger" style="margin-top:10px">
+        <div class="inline-title">Flag this ${target.startsWith("alt:") ? "alternative" : empty ? "spec" : "value"} — reason?</div>
+        <div class="inline-sub">${empty
+          ? "No value yet — flag the spec itself if it shouldn't be on this bike at all (a coolant spec on an air-cooled engine, a belt on a chain-drive bike). "
+          : ""}This goes to the rider who manages this bike,
+          not to a global moderation pile.</div>
+        ${reasons.map(r => `
+          <button class="ghost-btn" style="display:block;width:100%;text-align:left;margin-bottom:6px"
+                  data-flag-reason="${esc(target)}" data-reason="${r.value}">${esc(r.label)}</button>`).join("")}
+        <div class="form-actions"><button class="ghost-btn" data-cancel-slot>Cancel</button></div>
+      </div>`;
+    return;
+  }
+
+  const reason = e.target.closest("[data-flag-reason]");
+  if(reason){
+    const target = reason.dataset.flagReason;
+    const slot = reason.closest(".spec-row").querySelector('[id^="spec-form-"]');
+    slot.innerHTML = `
+      <div class="inline-box danger" style="margin-top:10px">
+        <div class="inline-title">${esc(reason.textContent.trim())}</div>
+        <textarea id="flag-detail" maxlength="150"
+          placeholder="Add detail (optional, 150 characters max)"></textarea>
+        <div class="form-actions">
+          <button class="ghost-btn" data-cancel-slot>Cancel</button>
+          <button class="primary-btn" data-flag-submit="${esc(target)}"
+                  data-reason="${esc(reason.dataset.reason)}">Submit flag</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const flagSubmit = e.target.closest("[data-flag-submit]");
+  if(flagSubmit){
+    const [kind, id] = flagSubmit.dataset.flagSubmit.split(":");
+    const url = kind === "spec" ? `/api/specs/${id}/flags` : `/api/alternates/${id}/flag`;
+    await API.post(url, {
+      reason: flagSubmit.dataset.reason,
+      detail: byId("flag-detail").value.trim() || null,
+    });
+    toast("Flag sent to this bike's manager.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const cancelSlot = e.target.closest("[data-cancel-slot]");
+  if(cancelSlot){
+    cancelSlot.closest(".spec-row").querySelector('[id^="spec-form-"]').innerHTML = "";
+    return;
+  }
+
+  const cancel = e.target.closest("[data-cancel]");
+  if(cancel){
+    byId(`spec-form-${cancel.dataset.cancel}`).innerHTML = "";
+    return;
+  }
+
+  const logBtn = e.target.closest("[data-log]");
+  if(logBtn){
+    const [ub, task] = logBtn.dataset.log.split("|");
+    byId(`svcform-${ub}-${task}`).innerHTML = `
+      <div class="form-actions" style="justify-content:flex-start;margin-top:8px">
+        <input type="date" style="width:auto" id="d-${ub}-${task}" value="${new Date().toISOString().slice(0,10)}">
+        <input type="number" style="width:120px" id="m-${ub}-${task}" placeholder="miles">
+        <button class="primary-btn" data-save-log="${ub}|${task}">Save</button>
+      </div>`;
+    return;
+  }
+
+  const saveLog = e.target.closest("[data-save-log]");
+  if(saveLog){
+    const [ub, task] = saveLog.dataset.saveLog.split("|");
+    await API.post(`/api/garage/${ub}/service`, {
+      task_key: task,
+      performed_on: byId(`d-${ub}-${task}`).value,
+      miles: Number(byId(`m-${ub}-${task}`).value) || null,
+    });
+    toast("Service logged.", "ok");
+    await loadGarage();
+    renderServiceLog();
+    return;
+  }
+}));
+
+document.addEventListener("change", guard(async (e) => {
+  const odo = e.target.closest("[data-odo]");
+  if(odo){
+    await API.patch(`/api/garage/${odo.dataset.odo}`, { mileage: Number(odo.value) || null });
+    toast("Odometer updated.", "ok");
+    await loadGarage();
+    renderServiceLog();
+  }
+}));
+
+async function refreshSpecs(){
+  SPECS = await API.get(`/api/bikes/${BIKE.bike_id}/specs`);
+  BIKE = await API.get(`/api/bikes/${BIKE.bike_id}`);
+  if(allSpecs().some(x => x.value_type === "wire_color")){
+    await loadWireVocabulary(BIKE.make);
+  }
+  if(allSpecs().some(x => x.value_type === "fuel_octane" || x.value_type === "ethanol")){
+    await loadFuelVocabulary();
+  }
+  MANAGES_THIS_BIKE = !!(ME.user && (ME.user.role === 'admin' ||
+    (ME.manages || []).includes(BIKE.bike_id)));
+  renderDetail();
+  renderCatNav();
+}
+
+/* ------------------------------------------------------------------ boot */
+(async function(){
+  await initChrome("/index.html");
+  await loadGarage();
+  resetFilters();
+  await loadFilters();
+  await search();
+  const st = await API.get("/api/stats");
+  byId("total-count").textContent =
+    `${st.bikes.toLocaleString()} bikes · ${st.specs.toLocaleString()} specs · ${
+      st.values.toLocaleString()} values in the database`;
+
+  // Arrived with a bike named — from My Bikes, a shared link, a bookmark.
+  const wanted = Number(new URLSearchParams(location.search).get("bike"));
+  if(wanted){
+    await openBike(wanted, {replace: true});
+    // openBike runs inside guard(), which reports the error and returns rather
+    // than throwing — so whether it worked is read from the result, not from a
+    // catch. A link to a bike that has been removed should leave a usable
+    // catalog, not a stuck "Loading spec sheet…" and a URL that repeats it.
+    if(!BIKE || BIKE.bike_id !== wanted){
+      byId("detail-container").innerHTML =
+        `<div class="panel"><div class="panel-body empty">
+           That bike is no longer here. It may have been removed, or split into
+           separate years — pick its make and model above.</div></div>`;
+      history.replaceState({}, "", location.pathname);
+    }
+  }
+})();
+</script>
+</body>
+</html>

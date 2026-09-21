@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Add a Spec — GearHeadSpecs</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* Placement is the part that goes wrong, so it gets the room. Each choice
+     states what it does to real bikes before it is picked, not after. */
+  .place-opts{ display: grid; gap: 10px; margin-top: 4px; }
+  .place{
+    display: grid; grid-template-columns: 22px 1fr; gap: 10px;
+    align-items: start; padding: 12px 14px;
+    border: 1px solid var(--line); background: var(--panel-2); cursor: pointer;
+  }
+  .place:hover{ border-color: var(--text-faint); }
+  .place.on{ border-color: var(--amber); background: rgba(217,154,43,0.07); }
+  .place input{ width: auto; margin: 2px 0 0; }
+  .place b{ font-size: 13px; font-weight: 500; }
+  .place span{ display: block; font-size: 11.5px; color: var(--text-dim);
+               line-height: 1.5; margin-top: 3px; }
+  .place-detail{ margin: 10px 0 0 32px; display: none; }
+  .place.on + .place-detail{ display: block; }
+
+  .picked{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .picked:empty{ display: none; }
+  .picked-tag{
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 6px 3px 9px;
+    border: 1px solid var(--amber-dim); color: var(--amber);
+  }
+  .picked-tag button{
+    background: none; border: 0; color: inherit; cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0 2px;
+  }
+  .impact{
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    margin-top: 8px;
+  }
+  .impact b{ color: var(--amber); }
+  .preview{
+    border-left: 2px solid var(--amber-dim); background: var(--panel-2);
+    padding: 10px 13px; margin-top: 16px; font-size: 12.5px; line-height: 1.6;
+  }
+  .preview .none{ color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Add a Spec</h1>
+    <div class="subhead" id="sub">Loading…</div>
+  </div>
+</header>
+
+<main style="max-width:720px">
+  <div id="content"><div class="panel"><div class="loading">Loading…</div></div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let BRANCHES = null, BIKES = [], PICKED = [], PICKED_BIKES = [];
+
+const CATEGORIES = ["General", "Engine", "Drive", "Fuel and Air",
+                    "Controls", "Suspension", "Electrical", "Gear and Accessories"];
+
+function placement(){
+  const el = document.querySelector('input[name="place"]:checked');
+  return el ? el.value : "branch";
+}
+
+function impact(){
+  const box = document.getElementById("impact");
+  if(!box) return;
+  const mode = placement();
+  if(mode === "universal"){
+    box.innerHTML = `Adds one row to <b>all ${BRANCHES.bikes_total}</b> bikes now,
+      and to every bike created later.`;
+  } else if(mode === "branch"){
+    const n = PICKED.reduce((sum, t) => sum + (t.bikes || 0), 0);
+    box.innerHTML = PICKED.length
+      ? `<b>${n}</b> bike(s) have already answered that way. Back-filling adds
+         the row to them now; without it the field waits for the next bike that
+         answers this way.`
+      : "Pick at least one branch.";
+  } else {
+    box.innerHTML = PICKED_BIKES.length
+      ? `Adds the row to <b>${PICKED_BIKES.length}</b> named bike(s) and nothing else.`
+      : "Pick at least one bike.";
+  }
+}
+
+function renderPicked(){
+  document.getElementById("picked").innerHTML = PICKED.map((t, i) =>
+    `<span class="picked-tag">${esc(t.question_id)}=${esc(t.option)} · ${esc(t.text)}
+       <button data-drop="${i}" title="Remove">×</button></span>`).join("");
+  document.getElementById("picked-bikes").innerHTML = PICKED_BIKES.map((b, i) =>
+    `<span class="picked-tag">${esc(b.name)}
+       <button data-drop-bike="${i}" title="Remove">×</button></span>`).join("");
+  impact();
+  preview();
+}
+
+function preview(){
+  const label = document.getElementById("f-label").value.trim();
+  const cat = document.getElementById("f-category").value;
+  const mode = placement();
+  const box = document.getElementById("preview");
+  if(!label){ box.innerHTML = `<span class="none">Name the spec to see what will be created.</span>`; return; }
+  const key = label.toLowerCase().replace(/×/g, " x ").replace(/&/g, " and ")
+                   .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  const where = mode === "universal" ? "every bike"
+    : mode === "branch"
+      ? (PICKED.length ? PICKED.map(t => `${t.question_id}=${t.option}`).join(", ")
+                       : "— no branch picked —")
+      : (PICKED_BIKES.length ? PICKED_BIKES.map(b => b.name).join(", ")
+                             : "— no bike picked —");
+  const off = document.getElementById("f-offline")?.checked;
+  box.innerHTML = `Creates <strong>${esc(label)}</strong> in <strong>${esc(cat)}</strong>,
+    internally <code>${esc(key)}</code>, reaching <strong>${esc(where)}</strong>.`
+    + (off ? ` <span class="none">Offline — nobody sees it until you switch it
+        on from the Spec Tree.</span>` : "");
+}
+
+function paint(){
+  document.getElementById("sub").textContent =
+    `${BRANCHES.bikes_total} bikes on the platform`;
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Add a spec to the tree</h3>
+          <p>Creates the field for real, across the platform. A manager asking
+             for one files a branch proposal instead; this is the door for the
+             person who decides.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row"><label for="f-label">Spec name — as riders will see it</label>
+          <input type="text" id="f-label" maxlength="120" autocomplete="off"
+                 placeholder="e.g. Steering Damper Preload"></div>
+
+        <div class="form-row"><label for="f-category">Category</label>
+          <select id="f-category">
+            ${CATEGORIES.map(c => `<option${c === "Engine" ? " selected" : ""}>${esc(c)}</option>`).join("")}
+          </select></div>
+
+        <div class="form-row"><label for="f-type">How values work</label>
+          <select id="f-type">
+            <option value="pref">Preference — riders legitimately vary</option>
+            <option value="fixed">Fixed — one correct value</option>
+            <option value="community">Community — no manufacturer value exists</option>
+          </select></div>
+
+        <div class="form-row"><label for="f-value-type">What the value is</label>
+          <select id="f-value-type">
+            <option value="text" selected>Text — anything typed (default)</option>
+            <option value="wire_color">Wire colour — picked from the colour list, shown in the maker's code</option>
+            <option value="fuel_octane">Fuel octane — a pump grade, AKI or RON</option>
+            <option value="ethanol">Ethanol limit — E0 to E15</option>
+          </select>
+          <div class="cell-dim" id="f-value-type-hint" style="margin-top:4px;display:none">
+            The name says wire — if it's a wire colour, choose <b>Wire colour</b> so riders get the colour
+            picker instead of a text box. Left as Text, it will be a text box.</div></div>
+
+        <div class="form-row">
+          <label>Which bikes get it?</label>
+          <div class="place-opts">
+            <label class="place on">
+              <input type="radio" name="place" value="branch" checked>
+              <span><b>Bikes that answered a certain way</b>
+                <span>The usual case. The field arrives on any bike answering
+                  this branch, including bikes added later.</span></span>
+            </label>
+            <div class="place-detail" id="d-branch">
+              <div class="tag-input-row">
+                <select id="b-question"><option value="">— choose a question —</option>
+                  ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
+                    esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="tag-input-row" id="b-option-row" style="display:none;margin-top:8px">
+                <select id="b-option"></select>
+                <button type="button" class="action-btn approve" id="b-add">+ Add branch</button>
+              </div>
+              <div class="picked" id="picked"></div>
+              <label style="margin-top:10px;display:flex;gap:7px;align-items:center;font-size:12px">
+                <input type="checkbox" id="f-backfill" style="width:auto" checked>
+                Add it to bikes that already answered this way
+              </label>
+            </div>
+
+            <label class="place">
+              <input type="radio" name="place" value="universal">
+              <span><b>Every bike</b>
+                <span>For specs no answer controls — road trip tools, say.
+                  Cannot be combined with a branch.</span></span>
+            </label>
+            <div class="place-detail" id="d-universal"></div>
+
+            <label class="place">
+              <input type="radio" name="place" value="named">
+              <span><b>Named bikes only</b>
+                <span>A one-off, or a catalog bike that never answered the
+                  questionnaire and so no branch can reach.</span></span>
+            </label>
+            <div class="place-detail" id="d-named">
+              <div class="tag-input-row">
+                <select id="k-bike"><option value="">— choose a bike —</option>
+                  ${BIKES.map(b => `<option value="${b.bike_id}">${esc(b.display_name)}</option>`).join("")}
+                </select>
+                <button type="button" class="action-btn approve" id="k-add">+ Add bike</button>
+              </div>
+              <div class="picked" id="picked-bikes"></div>
+            </div>
+          </div>
+          <div class="impact" id="impact"></div>
+        </div>
+
+        <div class="form-row" style="margin-top:4px">
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;
+                        font-weight:400;text-transform:none;letter-spacing:0">
+            <input type="checkbox" id="f-offline" style="width:auto;margin-top:3px">
+            <span><b style="font-weight:500">Create it offline</b>
+              <span style="display:block;font-size:11.5px;color:var(--text-dim);
+                           line-height:1.5;margin-top:3px">
+                The spec goes onto the tree and attaches to its bikes, but no
+                rider sees it until you switch it on. Use it while you are still
+                working out the wording, or to check the branch caught the right
+                bikes before it lands on their spec sheets.</span></span>
+          </label>
+        </div>
+
+        <div class="preview" id="preview"></div>
+
+        <div class="form-actions" style="margin-top:16px">
+          <button class="primary-btn" id="go">Create spec</button>
+        </div>
+      </div>
+    </div>`;
+
+  wire();
+  renderPicked();
+}
+
+function wire(){
+  const on = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
+
+  document.querySelectorAll('input[name="place"]').forEach(r =>
+    r.addEventListener("change", () => {
+      document.querySelectorAll(".place").forEach(p =>
+        p.classList.toggle("on", p.querySelector("input").checked));
+      impact(); preview();
+    }));
+
+  on("f-label", "input", preview);
+  // A nudge, not a default: the type stays Text unless the admin picks
+  // otherwise, but a name with "wire" in it almost certainly wants the picker.
+  on("f-label", "input", (e) => {
+    const hint = document.getElementById("f-value-type-hint");
+    const sel = document.getElementById("f-value-type");
+    if(!hint || !sel) return;
+    hint.style.display = /wire/i.test(e.target.value) && sel.value === "text" ? "" : "none";
+  });
+  on("f-value-type", "change", () => {
+    const hint = document.getElementById("f-value-type-hint");
+    const label = document.getElementById("f-label");
+    const sel = document.getElementById("f-value-type");
+    if(hint) hint.style.display = /wire/i.test(label.value) && sel.value === "text" ? "" : "none";
+  });
+  on("f-category", "change", preview);
+  on("f-offline", "change", preview);
+
+  on("b-question", "change", (e) => {
+    const b = BRANCHES.branches.find(x => x.question_id === e.target.value);
+    const row = document.getElementById("b-option-row");
+    if(!b){ row.style.display = "none"; return; }
+    document.getElementById("b-option").innerHTML = b.options.map(o =>
+      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${
+        o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
+    row.style.display = "";
+  });
+
+  on("b-add", "click", () => {
+    const qid = document.getElementById("b-question").value;
+    const opt = document.getElementById("b-option").value;
+    if(!qid || !opt){ toast("Choose a question and an answer first.", "error"); return; }
+    if(PICKED.some(t => t.question_id === qid && t.option === opt)){
+      toast("That branch is already on the list.", "error"); return;
+    }
+    const b = BRANCHES.branches.find(x => x.question_id === qid);
+    const o = b.options.find(x => x.label === opt);
+    PICKED.push({question_id: qid, option: opt, text: o.text, bikes: o.bikes});
+    renderPicked();
+  });
+
+  on("k-add", "click", () => {
+    const sel = document.getElementById("k-bike");
+    const id = Number(sel.value);
+    if(!id){ toast("Choose a bike first.", "error"); return; }
+    if(PICKED_BIKES.some(b => b.bike_id === id)){
+      toast("That bike is already on the list.", "error"); return;
+    }
+    PICKED_BIKES.push({bike_id: id, name: sel.options[sel.selectedIndex].textContent});
+    renderPicked();
+  });
+
+  document.getElementById("content").addEventListener("click", (e) => {
+    const d = e.target.closest("[data-drop]");
+    if(d){ PICKED.splice(Number(d.dataset.drop), 1); renderPicked(); return; }
+    const db = e.target.closest("[data-drop-bike]");
+    if(db){ PICKED_BIKES.splice(Number(db.dataset.dropBike), 1); renderPicked(); }
+  });
+
+  on("go", "click", guard(async () => {
+    const label = document.getElementById("f-label").value.trim();
+    if(!label){ toast("Give the spec a name.", "error"); return; }
+    const mode = placement();
+    const body = {
+      label,
+      category: document.getElementById("f-category").value,
+      spec_type: document.getElementById("f-type").value,
+      value_type: document.getElementById("f-value-type").value || "text",
+      universal: mode === "universal",
+      triggers: mode === "branch"
+        ? PICKED.map(t => ({question: t.question_id, option: t.option})) : [],
+      bike_ids: mode === "named" ? PICKED_BIKES.map(b => b.bike_id) : [],
+      backfill: mode === "branch" && document.getElementById("f-backfill").checked,
+      offline: document.getElementById("f-offline").checked,
+    };
+    const btn = document.getElementById("go");
+    btn.disabled = true;
+    try {
+      const r = await API.post("/api/admin/fields", body);
+      toast(r.offline
+        ? `“${r.label}” created offline on ${r.rows_added} bike(s). Switch it on from the Spec Tree when it is ready.`
+        : `“${r.label}” added to ${r.category} — ${r.rows_added} bike(s) now carry it.`,
+        "ok");
+      // Reset for the next one rather than navigating away: adding several in
+      // a row is the common case.
+      PICKED = []; PICKED_BIKES = [];
+      document.getElementById("f-label").value = "";
+      renderPicked();
+      document.getElementById("f-label").focus();
+    } finally {
+      btn.disabled = false;
+    }
+  }));
+}
+
+(async function(){
+  await initChrome("/add-spec.html");
+  if(!requireRole("admin")) return;
+  const [branches, bikes] = await Promise.all([
+    API.get("/api/admin/branches"),
+    API.get("/api/bikes?limit=400"),
+  ]);
+  BRANCHES = branches;
+  BIKES = bikes.bikes;
+  paint();
+})();
+</script>
+</body>
+</html>

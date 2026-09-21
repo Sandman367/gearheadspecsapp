@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request a Bike — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page-crumb{ font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
+  .page-crumb a{ color: var(--text-dim); }
+
+  .ways{ display: grid; grid-template-columns: 3fr 2fr; gap: 22px; align-items: start; }
+  @media (max-width: 800px){ .ways{ grid-template-columns: 1fr; } }
+  .way{ border: 1px solid var(--line); background: var(--panel); }
+  .way-head{ padding: 14px 18px 10px; border-bottom: 1px solid var(--line); }
+  .way-head h3{ margin: 0; font-family: var(--display); font-size: 16px; letter-spacing: 0.01em; }
+  .way-head p{ margin: 4px 0 0; font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+  .way-body{ padding: 14px 18px; }
+
+  .two{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row{ margin-bottom: 12px; }
+  .form-row label{ display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 4px; }
+  .form-row input, .form-row select, .form-row textarea{ width: 100%; }
+  .form-row textarea{ min-height: 72px; }
+  .form-note{ font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5; }
+  .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+
+  /* "Is it one of these?" — bikes already here that look like what was typed */
+  .maybe{ margin-top: 6px; border: 1px solid var(--amber-dim); background: rgba(217,154,43,0.06); padding: 8px 10px; }
+  .maybe .t{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--amber); margin-bottom: 4px; }
+  .maybe a{ display: block; font-size: 12px; padding: 3px 0; }
+  .maybe a small{ color: var(--text-faint); margin-left: 6px; }
+  .maybe .join{ display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; padding: 3px 0; }
+
+  .req{ display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .req:last-child{ border-bottom: none; }
+  .req .name{ font-family: var(--display); font-size: 15px; letter-spacing: 0.01em; }
+  .req .meta{ font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+  .req .meta .why{ color: var(--text-faint); font-style: italic; }
+  .req .side{ text-align: right; white-space: nowrap; }
+  .req .riders{ font-family: var(--mono); font-size: 10.5px; color: var(--amber); display: block; margin-bottom: 4px; }
+  .req .riders.mine{ color: var(--good); }
+  .req .state{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.03em; padding: 1px 6px; border: 1px solid var(--line); color: var(--text-faint); }
+  .req .state.added{ border-color: var(--good); color: var(--good); }
+  .req .state.declined{ border-color: var(--danger); color: var(--danger); }
+  .req .note{ grid-column: 1 / -1; font-size: 11.5px; color: var(--text-dim); border-left: 2px solid var(--line); padding-left: 8px; }
+  .action-btn.on{ border-color: var(--good); color: var(--good); }
+  .empty-note{ font-size: 12px; color: var(--text-faint); padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Request a Bike</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main style="max-width:1040px">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+let DATA = null;
+let OTHER_MAKE = false;      // "another make" chosen in the select
+let maybeTimer = null;
+const draft = {};            // what's typed survives a re-render
+
+const load = guard(async () => {
+  DATA = await API.get("/api/bike-requests");
+  render();
+});
+
+function val(id){ const el = document.getElementById(id); return el ? el.value : ""; }
+
+function yearsOf(r){
+  if(!r.year_from) return "years not given";
+  return r.year_to && r.year_to !== r.year_from ? `${r.year_from}–${r.year_to}` : String(r.year_from);
+}
+
+function requestRow(r, signedIn){
+  const decided = r.status !== "pending";
+  const meta = [yearsOf(r), r.displacement, r.bike_type].filter(Boolean).join(" · ");
+  return `
+    <div class="req">
+      <div>
+        <div class="name">${esc(r.make)} ${esc(r.model)}</div>
+        <div class="meta">${esc(meta)}${r.reasoning ? ` — <span class="why">“${esc(r.reasoning)}”</span>` : ""}
+          <br>asked by ${esc(r.asked_by)}</div>
+      </div>
+      <div class="side">
+        ${decided
+          ? `<span class="state ${esc(r.status)}">${r.status === "added" ? "added" : "declined"}</span>`
+          : `<span class="riders${r.mine ? " mine" : ""}">${r.riders} rider${r.riders !== 1 ? "s" : ""} waiting${r.mine ? " · incl. you" : ""}</span>
+             <button class="action-btn${r.mine ? " on" : ""}" data-support="${r.id}" data-on="${r.mine ? "0" : "1"}"
+                     ${signedIn ? "" : `data-needs-auth title="Sign in to add your name"`}>${
+               r.mine ? "✓ You're waiting — take my name off" : "+ Me too"}</button>`}
+      </div>
+      ${decided && r.status === "added" && r.bike_id
+        ? `<div class="note">Now in the catalogue: <a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name || (r.make + " " + r.model))}${
+            r.bike_years ? ` · ${esc(r.bike_years)}` : ""}</a>${r.admin_note ? ` — ${esc(r.admin_note)}` : ""}</div>`
+        : decided && r.admin_note ? `<div class="note">${esc(r.admin_note)}</div>` : ""}
+    </div>`;
+}
+
+function render(){
+  const signedIn = !!ME.user;
+  const pending = DATA.pending;
+  const decided = DATA.decided;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-crumb"><a href="/index.html">← Back to Browse</a></div>
+    <div class="panel">
+      <div class="panel-body">
+        <div style="font-family:var(--display);font-size:20px;margin-bottom:2px">Can't find your bike?</div>
+        <div style="font-size:11.5px;color:var(--text-dim);line-height:1.5">Ask for it to be added. Tell us what you
+          know — make, model, the years — and admin creates it in the catalogue, or points you at it if it's
+          already here under another name. Others waiting on the same bike add their name to your request
+          rather than filing again. <strong>A wrong bike is worse than a missing one</strong>, so if you're not
+          sure of a year, leave it blank rather than guess.</div>
+        ${signedIn ? "" : `
+          <div class="auth-prompt" style="margin-top:12px">
+            <span>Sign in to send a request — you can still see what's been asked for.</span>
+            <div class="auth-prompt-actions">
+              <a class="primary-btn" href="/login.html?next=${encodeURIComponent(location.pathname)}">Sign in</a>
+              <a class="ghost-btn" style="text-decoration:none" href="/register.html">Create account</a>
+            </div>
+          </div>`}
+      </div>
+    </div>
+
+    <div class="ways">
+      <div class="way">
+        <div class="way-head">
+          <h3>The bike</h3>
+          <p>Make and model are needed; the rest helps admin get it right first time.</p>
+        </div>
+        <div class="way-body">
+          <div class="two">
+            <div class="form-row"><label for="rb-make">Make</label>
+              <select id="rb-make">
+                <option value="">— pick a make —</option>
+                ${DATA.makes.map(m => `<option${draft.make === m ? " selected" : ""}>${esc(m)}</option>`).join("")}
+                <option value="__other"${OTHER_MAKE ? " selected" : ""}>Another make…</option>
+              </select>
+              <input type="text" id="rb-make-other" maxlength="60" autocomplete="off" placeholder="Make, e.g. Royal Enfield"
+                     style="margin-top:6px${OTHER_MAKE ? "" : ";display:none"}" value="${esc(draft.makeOther || "")}"></div>
+            <div class="form-row"><label for="rb-model">Model</label>
+              <input type="text" id="rb-model" maxlength="80" autocomplete="off" placeholder="e.g. KLR650, CB750 Nighthawk"
+                     value="${esc(draft.model || "")}">
+              <div id="rb-maybe"></div></div>
+          </div>
+          <div class="two">
+            <div class="form-row"><label for="rb-y0">First model year</label>
+              <input type="number" id="rb-y0" min="1885" max="${new Date().getFullYear() + 2}" placeholder="e.g. 2008" value="${esc(draft.y0 || "")}"></div>
+            <div class="form-row"><label for="rb-y1">Last model year</label>
+              <input type="number" id="rb-y1" min="1885" max="${new Date().getFullYear() + 2}" placeholder="blank if still made, or one year" value="${esc(draft.y1 || "")}"></div>
+          </div>
+          <div class="two">
+            <div class="form-row"><label for="rb-cc">Engine size</label>
+              <input type="text" id="rb-cc" maxlength="40" autocomplete="off" placeholder="e.g. 651cc single" value="${esc(draft.cc || "")}"></div>
+            <div class="form-row"><label for="rb-type">Kind of bike</label>
+              <select id="rb-type">
+                <option value="">Not sure</option>
+                ${DATA.bike_types.map(t => `<option${draft.type === t ? " selected" : ""}>${esc(t)}</option>`).join("")}
+              </select></div>
+          </div>
+          <div class="form-row"><label for="rb-why">Why it helps (optional)</label>
+            <textarea id="rb-why" maxlength="500" placeholder="You own one, you're working on one, the specs are scattered across three forums…">${esc(draft.why || "")}</textarea></div>
+          <div class="form-row"><label for="rb-src">A source for the years or specs (optional)</label>
+            <input type="url" id="rb-src" maxlength="300" autocomplete="off" placeholder="https://… — a manual, the maker's page, a parts fiche" value="${esc(draft.src || "")}"></div>
+          <div class="form-actions">
+            <button class="primary-btn" id="rb-send" ${signedIn ? "" : "disabled"}>Ask for this bike</button>
+            <a class="ghost-btn" style="text-decoration:none" href="/index.html">Cancel</a>
+            ${signedIn ? "" : `<span class="form-note">Sign in to send.</span>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="way">
+        <div class="way-head">
+          <h3>Asked for so far</h3>
+          <p>Open requests, most riders first. If yours is here, add your name instead of filing again.</p>
+        </div>
+        <div class="way-body">
+          ${pending.length ? pending.map(r => requestRow(r, signedIn)).join("")
+            : `<div class="empty-note">Nothing waiting right now.</div>`}
+        </div>
+        ${decided.length ? `
+        <div class="way-head" style="border-top:1px solid var(--line)">
+          <h3>Recently decided</h3>
+        </div>
+        <div class="way-body">
+          ${decided.map(r => requestRow(r, signedIn)).join("")}
+        </div>` : ""}
+      </div>
+    </div>`;
+
+  document.getElementById("rb-make").addEventListener("change", e => {
+    OTHER_MAKE = e.target.value === "__other";
+    draft.make = OTHER_MAKE ? "" : e.target.value;
+    const other = document.getElementById("rb-make-other");
+    other.style.display = OTHER_MAKE ? "" : "none";
+    if(OTHER_MAKE) other.focus();
+    checkMaybe();
+  });
+  ["rb-make-other", "rb-model", "rb-y0", "rb-y1", "rb-cc", "rb-type", "rb-why", "rb-src"].forEach(id => {
+    document.getElementById(id).addEventListener("input", e => {
+      draft[{ "rb-make-other": "makeOther", "rb-model": "model", "rb-y0": "y0", "rb-y1": "y1",
+              "rb-cc": "cc", "rb-type": "type", "rb-why": "why", "rb-src": "src" }[id]] = e.target.value;
+      if(id === "rb-model" || id === "rb-make-other") checkMaybe();
+    });
+  });
+  if(draft.model) checkMaybe();
+}
+
+function makeValue(){
+  return OTHER_MAKE ? val("rb-make-other").trim() : val("rb-make");
+}
+
+// As the model is typed: bikes already in the catalogue that look like it,
+// and open requests for the same thing — so a duplicate is caught before it
+// is sent, not after.
+function checkMaybe(){
+  clearTimeout(maybeTimer);
+  const box = document.getElementById("rb-maybe");
+  const model = val("rb-model").trim();
+  if(model.length < 2){ box.innerHTML = ""; return; }
+  maybeTimer = setTimeout(guard(async () => {
+    const make = makeValue();
+    const p = new URLSearchParams({ q: model, limit: "5" });
+    if(make && !OTHER_MAKE) p.set("make", make);
+    const data = await API.get("/api/bikes?" + p.toString());
+    const norm = s => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");   // "KLR 650" is "klr650", as on the server
+    const open = DATA.pending.filter(r =>
+      norm(r.model).includes(norm(model)) && (!make || norm(r.make) === norm(make)));
+    let html = "";
+    if(data.bikes.length){
+      html += `<div class="maybe"><div class="t">Already in the catalogue — is it one of these?</div>
+        ${data.bikes.map(b => `<a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}<small>${esc(b.year_range || "")}</small></a>`).join("")}
+      </div>`;
+    }
+    if(open.length){
+      html += `<div class="maybe"><div class="t">Already asked for</div>
+        ${open.map(r => `<div class="join"><span>${esc(r.make)} ${esc(r.model)} <small style="color:var(--text-faint)">· ${esc(yearsOf(r))} · ${r.riders} waiting</small></span>
+          ${r.mine ? `<span style="color:var(--good);font-size:11px">you're on it</span>`
+                   : `<button class="action-btn" data-support="${r.id}" data-on="1" ${ME.user ? "" : "data-needs-auth"}>+ Me too</button>`}</div>`).join("")}
+      </div>`;
+    }
+    box.innerHTML = html;
+  }), 250);
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const sup = e.target.closest("[data-support]");
+  if(sup && ME.user){
+    const r = await API.post(`/api/bike-requests/${sup.dataset.support}/support`, { on: sup.dataset.on === "1" });
+    toast(r.withdrawn ? "Request withdrawn — nobody was left waiting on it."
+          : r.on ? `Added your name — ${r.riders} rider${r.riders !== 1 ? "s" : ""} waiting now.`
+          : "Your name is off it.", "ok");
+    await load();
+    return;
+  }
+
+  if(e.target.id === "rb-send"){
+    const body = {
+      make: makeValue(), model: val("rb-model").trim(),
+      year_from: val("rb-y0") || null, year_to: val("rb-y1") || null,
+      displacement: val("rb-cc").trim(), bike_type: val("rb-type"),
+      reasoning: val("rb-why").trim(), source_url: val("rb-src").trim(),
+    };
+    if(!body.make || !body.model){ toast("Make and model are both needed.", "error"); return; }
+    const r = await API.post("/api/bike-requests", body);
+    toast(r.kind === "joined"
+      ? (r.already ? "You'd already asked for that one — it's still waiting."
+                   : `Someone had already asked — your name is added, ${r.riders} riders waiting now.`)
+      : "Sent to admin. You'll see it under “asked for so far” until they decide.", "ok");
+    Object.keys(draft).forEach(k => delete draft[k]);
+    OTHER_MAKE = false;
+    await load();
+    return;
+  }
+}));
+
+(async () => {
+  await initChrome(null);
+  await load();
+})();
+</script>
+</body>
+</html>
