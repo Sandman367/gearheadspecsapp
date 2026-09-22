@@ -198,7 +198,7 @@ function threadHTML(){
       </div>
       ${OPEN.posts.map(p => `
         <div class="post${p.first ? " first" : ""}" id="post-${p.id}">
-          <div class="who"><b>${memberName(p.author_id, p.author, p.author_role, p.author_retired)}</b>${p.author_role === "admin" ? `<span class="role">admin</span>` : ""}
+          <div class="who"><b>${memberName(p.author_id, p.author, p.author_role, p.author_retired, p.author_founder)}</b>${p.author_role === "admin" ? `<span class="role">admin</span>` : ""}
             <span>${esc(fmt(p.created_at))}${p.edited_at ? " · edited" : ""}</span>
             ${EDITING !== p.id ? `<span class="tools">
               ${!p.mine ? `<a class="action-btn" style="text-decoration:none" href="/messages.html?with=${p.author_id}" title="Message ${esc(p.author)} directly">Message</a>` : ""}

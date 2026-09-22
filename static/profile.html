@@ -84,12 +84,13 @@ const load = guard(async () => {
   document.getElementById("content").innerHTML = `
     <div class="panel">
       <div class="panel-body who">
-        <h2>${st.retired && !st.tier ? retiredMark(st.retired.tier, 26) : st.tier ? managerMark(st.tier, 26) : ""}${esc(st.username)}${
-          st.retired && !st.tier ? `<span class="tier-pill t-${esc(st.retired.tier)}">Retired · ${esc(TIER_NAME[st.retired.tier])}</span>`
-          : st.tier && st.tier !== "admin" ? tierPill(st.tier) : ""}${st.founder ? founderMark(24) : ""}</h2>
+        <h2>${memberMarks(st.tier || (st.retired ? "manager" : null), st.retired && !st.tier ? st.retired.tier : null, st.founder, 26)}${esc(st.username)}</h2>
         <span class="sub">${st.role === "admin" ? "Site admin"
-          : st.is_manager ? `Bike manager · ${st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(" · ")}`
-          : st.retired ? `Retired bike manager · stepped back ${esc(String(st.retired.at || "").slice(0, 10))} as ${esc(TIER_NAME[st.retired.tier])}`
+          : st.is_manager ? `${esc(TIER_NAME[st.tier] || "")} bike manager${st.founder ? " · Founding Manager" : ""}${
+              st.lead_of.length ? ` · lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""} · ${
+              st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(" · ")}`
+          : st.retired ? `Retired bike manager${st.founder ? " · Founding Manager" : ""} · stepped back ${esc(String(st.retired.at || "").slice(0, 10))} as ${esc(TIER_NAME[st.retired.tier])}${
+              st.lead_of.length ? ` · still named lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""}`
           : "Rider"}</span>
       </div>
     </div>
@@ -103,6 +104,7 @@ const load = guard(async () => {
           <div class="panel-body">
             <div class="stats">
               <div class="stat"><b>${st.bikes.length}</b><span>Bikes managed</span></div>
+              <div class="stat"><b>${st.lead_of.length}</b><span>Lead manager of</span></div>
               <div class="stat"><b>${s.specs_entered}</b><span>Values entered</span></div>
               <div class="stat"><b>${s.confirmed_share === null ? "—" : s.confirmed_share + "%"}</b><span>Confirmed share</span></div>
               <div class="stat"><b>${s.flags_resolved}</b><span>Flags resolved</span></div>
@@ -124,7 +126,7 @@ const load = guard(async () => {
         <div class="panel">
           <div class="panel-head"><div><h3>Bikes</h3></div></div>
           <div class="panel-body">
-            ${st.bikes.map(b => `<div class="bikes-row"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}</a>
+            ${st.bikes.map(b => `<div class="bikes-row"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}${b.lead ? ` <span class="cell-dim">· lead</span>` : ""}</a>
               <span class="cell-dim">${b.specs_filled} / ${b.fields_triggered}<span class="bar"><i style="width:${b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0}%"></i></span></span></div>`).join("")}
           </div>
         </div>

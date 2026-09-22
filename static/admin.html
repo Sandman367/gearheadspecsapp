@@ -831,15 +831,14 @@ function renderMembers(list){
     <thead><tr><th>Account</th><th>Email</th><th>Role</th><th>Joined</th><th>Activity</th></tr></thead>
     <tbody>${list.length ? list.map(u => `
       <tr${u.suspended ? ' class="suspended"' : ""}>
-        <td data-label="Account"><strong>${memberName(u.user_id, u.username, u.tier || (u.role === "admin" ? "admin" : null), u.retired_tier)}</strong>${
-          u.retired_tier && !u.tier ? `<span class="tier-pill t-${esc(u.retired_tier)}">Retired · ${esc(TIER_NAME[u.retired_tier])}</span>`
-          : u.tier && u.tier !== "admin" ? tierPill(u.tier) : ""}${u.founder ? founderMark(14) : ""}${
+        <td data-label="Account"><strong>${memberName(u.user_id, u.username, u.tier || (u.role === "admin" ? "admin" : null), u.retired_tier, u.founder)}</strong>${
           u.display_name ? `<div class="cell-dim">${esc(u.display_name)}</div>` : ""}${
           u.suspended ? ` <span class="badge danger">suspended</span>` : ""}</td>
         <td data-label="Email">${u.email
           ? `<a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`
           : `<span class="cell-dim">—</span>`}</td>
-        <td data-label="Role">${esc(u.role)}${
+        <td data-label="Role">${esc(u.role)}${u.tier && u.tier !== "admin" ? ` · ${esc(TIER_NAME[u.tier])}` : ""}${
+          u.retired_tier && !u.tier ? ` · retired as ${esc(TIER_NAME[u.retired_tier])}` : ""}${u.founder ? " · Founding Manager" : ""}${
           u.bikes_managed ? `<div class="cell-dim">${u.bikes_managed} bike${u.bikes_managed === 1 ? "" : "s"}: ${
             esc((u.bikes || []).slice(0, 4).join(", "))}${(u.bikes || []).length > 4 ? ` +${u.bikes.length - 4}` : ""}</div>` : ""}</td>
         <td data-label="Joined" class="cell-dim">${esc(String(u.created_at || "").slice(0, 10))}</td>

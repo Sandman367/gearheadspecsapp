@@ -5733,6 +5733,32 @@ class ApiTest(unittest.TestCase):
         s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
         self.assertEqual((s, r["retired"]), (200, None))
 
+    def test_t03_the_first_manager_is_the_bikes_lead_manager_for_good(self):
+        """The first person assigned to a bike is its lead manager; a
+        later manager is a manager; the lead stays named on the bike after
+        handing it on; admin can move it."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "LEAD TEST", 2012, 2012)
+        first, second = self._uid("gp_hayes"), self._uid("m.alvarez")
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": first})
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": second})
+        s, b = self.anon().get(f"/api/bikes/{bike}")
+        self.assertEqual((b["lead_manager"]["username"], b["lead_manager"]["current"]), ("gp_hayes", True))
+        self.assertEqual([(m["username"], m["lead"]) for m in b["managers"]], [("gp_hayes", True), ("m.alvarez", False)])
+        st = self.anon().get(f"/api/users/{first}/standing")[1]
+        self.assertIn(bike, [x["bike_id"] for x in st["lead_of"]])
+        self.assertTrue(next(x for x in st["bikes"] if x["bike_id"] == bike)["lead"])
+        # handed on: still named, no longer current
+        adm.delete(f"/api/admin/bikes/{bike}/manager/{first}")
+        s, b = self.anon().get(f"/api/bikes/{bike}")
+        self.assertEqual((b["lead_manager"]["username"], b["lead_manager"]["current"]), ("gp_hayes", False))
+        self.assertEqual([m["username"] for m in b["managers"]], ["m.alvarez"])
+        # admin can move it
+        self.assertEqual(self.as_("m.alvarez").post(f"/api/admin/bikes/{bike}/lead", {"user_id": second})[0], 403)
+        s, r = adm.post(f"/api/admin/bikes/{bike}/lead", {"user_id": second})
+        self.assertEqual(s, 200, r)
+        self.assertEqual(self.anon().get(f"/api/bikes/{bike}")[1]["lead_manager"]["username"], "m.alvarez")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

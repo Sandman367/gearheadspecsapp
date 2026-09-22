@@ -42,6 +42,12 @@ CREATE TABLE bikes (
   split_from_bike_id  INTEGER REFERENCES bikes(id) ON DELETE SET NULL,
   split_at_year       INTEGER,
 
+  -- The bike's lead manager: the first person assigned to it, named on the
+  -- bike for good -- after they hand it on, after they retire. Set when the
+  -- first manager is assigned; admin can move it.
+  lead_manager_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  lead_since          TEXT,
+
   created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (make, model_code, year_start)
 );

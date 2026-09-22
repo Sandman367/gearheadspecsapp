@@ -924,10 +924,17 @@ function renderHero(){
                   : ""}</div>`).join("")}
           </div>` : ""}
         <div class="credit">
-          <span class="lbl">Maintained by</span>
-          ${bike.managers.length
-            ? bike.managers.map(m => `<span class="person">${memberName(m.id, m.username, m.tier)}${tierPill(m.tier)}${m.founder ? founderMark(16) : ""}</span>`).join("")
-            : `<span class="cell-dim">nobody yet — <a href="/request-spec.html?bike=${bike.bike_id}">ask for a spec</a> and admin will find one</span>`}
+          ${bike.lead_manager ? `
+            <span class="lbl">Lead manager</span>
+            <span class="person" title="First manager of this bike, since ${esc(String(bike.lead_manager.since || "").slice(0, 10))}${
+              bike.lead_manager.current ? "" : bike.lead_manager.retired ? " — retired" : " — handed on"}">${
+              memberName(bike.lead_manager.id, bike.lead_manager.username, bike.lead_manager.tier || "manager",
+                         bike.lead_manager.retired ? bike.lead_manager.retired.tier : null, bike.lead_manager.founder)}${
+              bike.lead_manager.current ? "" : `<span class="cell-dim" style="margin-left:6px">${bike.lead_manager.retired ? "retired" : "handed on"}</span>`}</span>` : ""}
+          ${bike.managers.filter(m => !m.lead).length
+            ? `<span class="lbl">${bike.lead_manager ? "Also" : "Maintained by"}</span>` +
+              bike.managers.filter(m => !m.lead).map(m => `<span class="person">${memberName(m.id, m.username, m.tier, null, m.founder)}</span>`).join("")
+            : bike.lead_manager ? "" : `<span class="cell-dim">nobody yet — <a href="/request-spec.html?bike=${bike.bike_id}">ask for a spec</a> and admin will find one</span>`}
           <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
         </div>
@@ -1224,7 +1231,7 @@ function renderSpec(s, opts = {}){
         ${confidenceBadge(s.confidence)}
         ${typeBadge(s.spec_type)}
         ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
-        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role, s.entered_by_retired)}</span>` : ""}
+        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role, s.entered_by_retired, s.entered_by_founder)}</span>` : ""}
         ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
             data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
             title="${locked

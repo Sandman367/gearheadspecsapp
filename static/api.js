@@ -294,7 +294,7 @@ function managerMark(tier, size){
   if(!tier) return "";
   const s = size || 16;
   const label = tier === "admin" ? "admin" : tier === "plain" ? "bike manager" : `${TIER_NAME[tier] || tier} bike manager`;
-  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="${esc(label)}" role="img"><path fill="currentColor" d="${SHIELD}"/>${INSIDE[tier] || ""}</svg>`;
+  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="${esc(label)}" role="img"><title>${esc(label)}</title><path fill="currentColor" d="${SHIELD}"/>${INSIDE[tier] || ""}</svg>`;
 }
 const HOLLOW = `<path fill="var(--bg)" stroke="currentColor" stroke-width="1.8" d="M12 2.9l7.1 2.7v5.4c0 4.7-3 8.6-7.1 10-4.1-1.4-7.1-5.3-7.1-10V5.6L12 2.9z"/>`;
 // A manager who stepped back: the hollow shield with a sunset, in the
@@ -316,10 +316,17 @@ function tierPill(tier){
 // A name with its mark, linking to the profile. `role` when the tier is
 // not known (a value's author, a post): manager and admin get the mark in
 // its plain colour.
-function memberName(id, name, tierOrRole, retiredTier){
+// The badges sit side by side before the name -- the tier shield (or the
+// retired one), then the Founding Manager star -- and the words live in
+// the tooltips, not on the page.
+function memberMarks(tierOrRole, retiredTier, founder, size){
+  const s = size || 14;
   const t = (tierOrRole === "manager") ? "plain" : tierOrRole === "user" ? null : tierOrRole;
-  const mark = retiredTier && tierOrRole !== "admin" ? retiredMark(retiredTier, 14) : (t ? managerMark(t, 14) : "");
-  return `<a class="member-name" href="/profile.html?user=${id}">${mark}${esc(name)}</a>`;
+  const mark = retiredTier && tierOrRole !== "admin" ? retiredMark(retiredTier, s) : (t ? managerMark(t, s) : "");
+  return mark + (founder ? founderMark(s) : "");
+}
+function memberName(id, name, tierOrRole, retiredTier, founder){
+  return `<a class="member-name" href="/profile.html?user=${id}">${memberMarks(tierOrRole, retiredTier, founder, 14)}${esc(name)}</a>`;
 }
 
 /* A show / hide eye on every password box. Idempotent: run it again after

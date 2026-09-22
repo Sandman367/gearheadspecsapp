@@ -533,12 +533,23 @@ def get_bike(ctx):
         "SELECT id AS bike_year_id, year, in_v2 FROM bike_years"
         " WHERE bike_id=? ORDER BY year", (bike_id,)))
     bike["managers"] = rows(ctx.conn.execute(
-        "SELECT u.id, u.username, u.display_name, u.role, m.specialty"
+        "SELECT u.id, u.username, u.display_name, u.role, m.specialty, m.created_at AS since"
         " FROM bike_managers m JOIN users u ON u.id = m.user_id"
-        " WHERE m.bike_id=?", (bike_id,)))
+        " WHERE m.bike_id=? ORDER BY m.created_at, m.id", (bike_id,)))
+    lead = one(ctx.conn.execute(
+        "SELECT b.lead_manager_id AS id, b.lead_since AS since, u.username, u.retired_tier"
+        " FROM bikes b LEFT JOIN users u ON u.id = b.lead_manager_id WHERE b.id=?", (bike_id,)))
     for m in bike["managers"]:
         st = manager_standing(ctx.conn, m["id"])
         m["tier"], m["founder"] = st["tier"], st["founder"]
+        m["lead"] = lead is not None and m["id"] == lead["id"]
+    # the lead manager stays named even after handing the bike on
+    bike["lead_manager"] = None
+    if lead and lead["id"]:
+        st = manager_standing(ctx.conn, lead["id"])
+        bike["lead_manager"] = {"id": lead["id"], "username": lead["username"], "since": lead["since"],
+                                "tier": st["tier"], "founder": st["founder"],
+                                "retired": st["retired"], "current": any(m["id"] == lead["id"] for m in bike["managers"])}
     return bike
 
 
@@ -577,7 +588,7 @@ def get_bike_specs(ctx):
         "       (s.spec_type IS NOT NULL) AS type_overridden,"
         "       f.spec_type AS field_spec_type,"
         "       u.username AS entered_by_username, s.entered_by, u.role AS entered_by_role,"
-        "       u.retired_tier AS entered_by_retired,"
+        "       u.retired_tier AS entered_by_retired, u.founder AS entered_by_founder,"
         "       vc.votes, rc.requests,"
         "       EXISTS(SELECT 1 FROM spec_votes v"
         "              WHERE v.spec_id=s.id AND v.user_id=?) AS my_vote,"
@@ -2218,7 +2229,7 @@ def board_thread(ctx):
     t = _thread_or_404(ctx.conn, tid)
     posts = rows(ctx.conn.execute(
         "SELECT p.id, p.body, p.created_at, p.edited_at, u.username AS author, u.id AS author_id,"
-        "       u.role AS author_role, u.retired_tier AS author_retired"
+        "       u.role AS author_role, u.retired_tier AS author_retired, u.founder AS author_founder"
         " FROM board_posts p JOIN users u ON u.id = p.author_id"
         " WHERE p.thread_id=? ORDER BY p.created_at, p.id", (tid,)))
     first = posts[0]["id"] if posts else None
@@ -2506,10 +2517,17 @@ def manager_standing(conn, user_id):
         raise HttpError(404, "user not found")
     q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]
     bikes = rows(conn.execute(
-        "SELECT d.bike_id, d.display_name, d.year_range, p.fields_triggered, p.specs_filled, p.specs_needed"
+        "SELECT d.bike_id, d.display_name, d.year_range, p.fields_triggered, p.specs_filled, p.specs_needed,"
+        "       (b.lead_manager_id = m.user_id) AS lead"
         " FROM bike_managers m JOIN bike_display d ON d.bike_id = m.bike_id"
+        " JOIN bikes b ON b.id = m.bike_id"
         " JOIN bike_spec_progress p ON p.bike_id = m.bike_id"
         " WHERE m.user_id=? ORDER BY d.display_name", (user_id,)))
+    for b in bikes:
+        b["lead"] = bool(b["lead"])
+    lead_of = rows(conn.execute(
+        "SELECT d.bike_id, d.display_name, d.year_range FROM bikes b JOIN bike_display d ON d.bike_id = b.id"
+        " WHERE b.lead_manager_id=? ORDER BY d.display_name", (user_id,)))
     specs = q("SELECT COUNT(*) FROM specs WHERE entered_by=? AND value IS NOT NULL AND TRIM(value)<>''", user_id)
     confirmed = q("SELECT COUNT(*) FROM specs WHERE entered_by=? AND value IS NOT NULL AND TRIM(value)<>''"
                   " AND confidence='confirmed'", user_id)
@@ -2567,7 +2585,7 @@ def manager_standing(conn, user_id):
     return {
         "user_id": u["id"], "username": u["username"], "role": u["role"],
         "is_manager": is_manager, "tier": tier, "founder": bool(u["founder"]),
-        "earned_tier": earned,
+        "earned_tier": earned, "lead_of": lead_of,
         "retired": ({"tier": u["retired_tier"], "at": u["retired_at"]} if u["retired_tier"] else None),
         "bikes": bikes,
         "stats": {"specs_entered": specs, "confirmed": confirmed, "confirmed_share": share,
@@ -2600,6 +2618,25 @@ def admin_set_founder(ctx):
                f"{'Gave' if on else 'Took back'} the Founding Manager badge: {u['username']}", target=str(uid))
     ctx.conn.commit()
     return {"ok": True, "founder": on}
+
+
+@route("POST", r"/api/admin/bikes/(\d+)/lead", role="admin")
+def admin_set_lead(ctx):
+    """Name a bike's lead manager by hand -- the first manager is set
+    automatically; this is for putting it right."""
+    bike_id = int(ctx.params[0])
+    uid = int(ctx.field("user_id"))
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    u = one(ctx.conn.execute("SELECT username FROM users WHERE id=?", (uid,)))
+    if not u:
+        raise HttpError(404, "user not found")
+    ctx.conn.execute("UPDATE bikes SET lead_manager_id=?, lead_since=COALESCE(lead_since, datetime('now'))"
+                     " WHERE id=?", (uid, bike_id))
+    name = ctx.conn.execute("SELECT display_name FROM bike_display WHERE bike_id=?", (bike_id,)).fetchone()[0]
+    log_action(ctx, "bike.lead", f"Named {u['username']} lead manager of {name}", target=str(bike_id))
+    ctx.conn.commit()
+    return {"ok": True}
 
 
 @route("POST", r"/api/admin/users/(\d+)/retire", role="admin")
@@ -5312,6 +5349,11 @@ def assign_manager(ctx):
             (user_id, bike_id, ctx.body.get("specialty")))
     except sqlite3.IntegrityError:
         raise HttpError(409, "that person already manages this bike")
+    # The first person assigned is the bike's lead manager, and stays named
+    # on it after handing it on. Later managers are managers.
+    ctx.conn.execute(
+        "UPDATE bikes SET lead_manager_id=?, lead_since=datetime('now')"
+        " WHERE id=? AND lead_manager_id IS NULL", (user_id, bike_id))
 
     # Being handed a bike is what makes someone a bike manager. Without this the
     # assignment would exist but every manager route would still 403 them.
