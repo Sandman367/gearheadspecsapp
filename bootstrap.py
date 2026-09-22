@@ -64,6 +64,24 @@ def main():
             print(f"seeded; admin password (shown once): {admin_pw}", flush=True)
     else:
         print(f"database: {db_path}", flush=True)
+
+    # Locked out of admin: set RESET_ADMIN_PASSWORD in the environment,
+    # redeploy, sign in, then remove the variable. Applied on every start
+    # while it is set, so it is loud about it.
+    reset = os.environ.get("RESET_ADMIN_PASSWORD")
+    if reset:
+        from app import hash_password
+        conn = sqlite3.connect(db_path)
+        row = conn.execute("SELECT id, username FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()
+        if row:
+            salt = secrets.token_hex(16)
+            conn.execute("UPDATE users SET password_hash=?, password_salt=?, suspended=0 WHERE id=?",
+                         (hash_password(reset, salt), salt, row[0]))
+            conn.execute("DELETE FROM sessions WHERE user_id=?", (row[0],))
+            conn.commit()
+            print(f"RESET: password for admin account {row[1]!r} set from RESET_ADMIN_PASSWORD."
+                  " Remove that variable once you are back in.", flush=True)
+        conn.close()
     import app
     app.main()
 
