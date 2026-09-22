@@ -19,3 +19,4 @@ server.err
 # bundles built for a server go to the server, not the repo
 gearheadspecs-*.zip
 *.bak
+data-ephemeral/

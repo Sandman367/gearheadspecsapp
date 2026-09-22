@@ -23,7 +23,25 @@ sys.path.insert(0, ROOT)
 
 def main():
     data_dir = os.environ.get("DATA_DIR") or ROOT
-    os.makedirs(data_dir, exist_ok=True)
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        probe = os.path.join(data_dir, ".write-test")
+        with open(probe, "w") as f:
+            f.write("ok")
+        os.remove(probe)
+    except OSError as e:
+        # No disk mounted there (yet). Run anyway, beside the code, so the
+        # site is reachable -- but say loudly that nothing written survives
+        # a deploy or restart until the disk exists.
+        fallback = os.path.join(ROOT, "data-ephemeral")
+        os.makedirs(fallback, exist_ok=True)
+        print("=" * 72, flush=True)
+        print(f"WARNING: DATA_DIR {data_dir!r} is not writable ({e.strerror}).", flush=True)
+        print(f"         Using {fallback!r} instead -- NOT PERSISTENT. Attach a disk at", flush=True)
+        print(f"         {data_dir!r} (Render: the service's Disks page) and redeploy.", flush=True)
+        print("=" * 72, flush=True)
+        data_dir = fallback
+        os.environ["DATA_DIR"] = fallback      # app.py reads it on import
     db_path = os.path.join(data_dir, "data.db")
     if not os.path.exists(db_path):
         print(f"no database at {db_path}: seeding a fresh one", flush=True)
