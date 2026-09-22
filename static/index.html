@@ -709,6 +709,12 @@ const search = guard(async (autoOpen = false) => {
 
 [els.make, els.year].forEach(s =>
   s.addEventListener("change", () => { loadFilters(); search(true); }));
+els.year.addEventListener("change", () => {
+  const sel = byId("garage-year");
+  if(!sel || !els.year.value) return;
+  const opt = [...sel.options].find(o => o.textContent === els.year.value);
+  if(opt) sel.value = opt.value;
+});
 els.model.addEventListener("change", () => search(true));
 
 els.results.addEventListener("click", (e) => {
@@ -934,7 +940,11 @@ function renderDetail(){
         <div class="btn-row">
           <span class="field-label" style="margin:0 6px 0 0;align-self:center">Year</span>
           <select id="garage-year" style="width:auto">${
-            bike.years.map(y => `<option value="${y.bike_year_id}">${y.year}</option>`).join("")
+            // The year picked in the search filter is the year of the bike
+            // being looked up; it is the one that goes in the garage unless
+            // changed here. With no year filter, the first model year.
+            bike.years.map(y => `<option value="${y.bike_year_id}"${
+              String(y.year) === els.year.value ? " selected" : ""}>${y.year}</option>`).join("")
           }</select>
         </div>
       </div>
