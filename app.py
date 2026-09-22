@@ -269,10 +269,17 @@ class Ctx:
 # ===========================================================================
 @route("POST", r"/api/auth/login")
 def login(ctx):
-    username = ctx.field("username")
+    username = ctx.field("username").strip()
     password = ctx.field("password")
     u = one(ctx.conn.execute(
         "SELECT * FROM users WHERE username = ?", (username,)))
+    if not u:
+        # "Admin" for "admin": forgive the case when it names exactly one
+        # account. Two accounts differing only by case stay strict.
+        near = rows(ctx.conn.execute(
+            "SELECT * FROM users WHERE username = ? COLLATE NOCASE", (username,)))
+        if len(near) == 1:
+            u = near[0]
     # Same error for unknown user and wrong password: telling them apart is a
     # free list of valid usernames.
     if not u or not verify_password(password, u["password_hash"], u["password_salt"]):
