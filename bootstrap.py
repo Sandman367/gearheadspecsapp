@@ -20,6 +20,8 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
+MIGRATIONS = ["migrate_manager_tiers"]
+
 
 def main():
     data_dir = os.environ.get("DATA_DIR") or ROOT
@@ -64,6 +66,13 @@ def main():
             print(f"seeded; admin password (shown once): {admin_pw}", flush=True)
     else:
         print(f"database: {db_path}", flush=True)
+
+    # Schema changes that shipped after the database was first built. Each
+    # is idempotent, so running them on every start costs nothing; a new
+    # one is added to this list with the code that needs it.
+    for name in MIGRATIONS:
+        mod = __import__(name)
+        mod.migrate(db_path)
 
     # Locked out of admin: set RESET_ADMIN_PASSWORD in the environment,
     # redeploy, sign in, then remove the variable. Applied on every start
