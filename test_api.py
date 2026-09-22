@@ -5565,5 +5565,84 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.as_("sohc_sam").post("/api/auth/return")[0], 403)
 
 
+    def test_t01_manager_tiers_are_computed_from_the_record(self):
+        """Bronze for being assigned; Silver from values, sourcing, flags
+        and speed; Gold the same plus admin's say-so; an overturned-value
+        rate above the cap holds a manager at Bronze. The thresholds are
+        lowered for the test so a handful of rows walks the whole ladder."""
+        saved = (dict(app.TIER_RULES), app.MEDIAN_MIN_FLAGS)
+        app.TIER_RULES = {"silver": {"specs": 2, "confirmed_share": 50, "flags": 1, "median_days": 7.0},
+                          "gold":   {"specs": 3, "confirmed_share": 60, "flags": 2, "median_days": 7.0}}
+        app.MEDIAN_MIN_FLAGS = 1
+        try:
+            adm = self.as_("admin")
+            bike = self._new_bike(adm, "TIER TEST", 2019, 2019)
+            # a brand-new account, so nothing earlier in the suite colours the numbers
+            mgr = self.anon()
+            s, reg = mgr.post("/api/auth/register", {"username": "tier_tess", "email": "tt@example.com",
+                                                     "password": "a-good-long-one"})
+            self.assertEqual(s, 200, reg)
+            uid = reg["user"]["id"]
+            adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": uid})
+            s, st = self.anon().get(f"/api/users/{uid}/standing")
+            self.assertEqual(s, 200, st)
+            self.assertEqual((st["tier"], st["is_manager"], st["stats"]["specs_entered"]), ("bronze", True, 0))
+            # the bike's header carries the tier; a rider has none
+            s, b = self.anon().get(f"/api/bikes/{bike}")
+            self.assertEqual(b["managers"][0]["tier"], "bronze")
+            self.assertIsNone(self.anon().get(f"/api/users/{self._uid('sohc_sam')}/standing")[1]["tier"])
+
+            # three values, two of them from the manual
+            con = sqlite3.connect(self.db)
+            ids = [r[0] for r in con.execute(
+                "SELECT s.id FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
+                " WHERE s.bike_id=? AND s.value IS NULL AND f.value_type='text' LIMIT 3", (bike,))]
+            con.close()
+            self.assertEqual(len(ids), 3)
+            for i, sid in enumerate(ids):
+                s, r = mgr.patch(f"/api/specs/{sid}", {"value": f"v{i}", "confidence": "confirmed" if i < 2 else "mfr"})
+                self.assertEqual(s, 200, r)
+            # a rider flags one; the manager dismisses it (resolved, fast)
+            rider = self.as_("sohc_sam")
+            s, f = rider.post(f"/api/specs/{ids[0]}/flags", {"reason": "other", "detail": "?"})
+            self.assertEqual(s, 200, f)
+            s, r = mgr.post(f"/api/flags/{f['id']}/dismiss", {})
+            self.assertEqual(s, 200, r)
+            st = self.anon().get(f"/api/users/{uid}/standing")[1]
+            self.assertEqual(st["stats"]["specs_entered"], 3)
+            self.assertEqual(st["stats"]["confirmed_share"], 66.7)
+            self.assertEqual(st["stats"]["flags_resolved"], 1)
+            self.assertEqual(st["tier"], "silver")
+            self.assertFalse(st["gold_eligible"])
+            self.assertEqual(adm.post(f"/api/admin/users/{uid}/gold", {"confirmed": True})[0], 409)
+
+            # a second resolved flag: the numbers are there for Gold, admin confirms
+            s, f2 = rider.post(f"/api/specs/{ids[1]}/flags", {"reason": "other"})
+            mgr.post(f"/api/flags/{f2['id']}/dismiss", {})
+            st = self.anon().get(f"/api/users/{uid}/standing")[1]
+            self.assertEqual((st["tier"], st["gold_eligible"], st["gold_confirmed"]), ("silver", True, False))
+            self.assertEqual(self.as_("m.alvarez").post(f"/api/admin/users/{uid}/gold", {"confirmed": True})[0], 403)
+            s, r = adm.post(f"/api/admin/users/{uid}/gold", {"confirmed": True})
+            self.assertEqual((s, r["tier"]), (200, "gold"))
+            s, users = adm.get("/api/users")
+            self.assertEqual(next(u for u in users["users"] if u["user_id"] == uid)["tier"], "gold")
+
+            # a wrong value: a flag the manager had to FIX counts against the author of the old value
+            s, f3 = rider.post(f"/api/specs/{ids[2]}/flags", {"reason": "incorrect", "detail": "wrong"})
+            s, r = mgr.post(f"/api/flags/{f3['id']}/fix", {"new_value": "v2-corrected"})
+            self.assertEqual(s, 200, r)
+            st = self.anon().get(f"/api/users/{uid}/standing")[1]
+            self.assertEqual(st["stats"]["wrong_specs"], 1)
+            self.assertGreater(st["stats"]["wrong_rate"], app.WRONG_RATE_CAP)
+            self.assertEqual(st["tier"], "bronze")          # capped, Gold confirmation or not
+            # badges are computed too
+            names = {b["key"]: b["earned"] for b in st["badges"]}
+            self.assertFalse(names["first_hundred"])
+            self.assertTrue(names["clean_sheet"] is False)     # one overturned value inside 90 days
+            adm.post(f"/api/admin/users/{uid}/gold", {"confirmed": False})
+        finally:
+            app.TIER_RULES, app.MEDIAN_MIN_FLAGS = saved[0], saved[1]
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

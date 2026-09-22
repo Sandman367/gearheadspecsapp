@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .who{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .who h2{ margin: 0; font-family: var(--display); font-size: 26px; display: inline-flex; align-items: center; gap: 8px; }
+  .who .sub{ font-size: 12px; color: var(--text-dim); }
+  .grid2{ display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 760px){ .grid2{ grid-template-columns: 1fr; } }
+  .stats{ display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .stat{ background: var(--panel); padding: 12px 14px; }
+  .stat b{ display: block; font-family: var(--display); font-size: 24px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat span{ display: block; margin-top: 6px; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.02em; color: var(--text-faint); }
+  .badges{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge-chip{ display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); }
+  .badge-chip .dot{ width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+  .badge-chip.locked{ opacity: 0.5; border-style: dashed; }
+  .badge-chip.locked .dot{ background: var(--text-faint); }
+  .badge-chip small{ color: var(--text-faint); }
+  .ladder{ display: flex; flex-direction: column; gap: 8px; }
+  .rung{ display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); }
+  .rung.cur{ background: rgba(217,154,43,0.08); border-color: var(--amber-dim); }
+  .rung .nm{ font-family: var(--display); font-size: 17px; }
+  .rung .req{ grid-column: 2; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  .rung .req .ok{ color: var(--good); }
+  .rung .req .no{ color: var(--text-faint); }
+  .bikes-row{ display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .bikes-row:last-child{ border-bottom: none; }
+  .bikes-row .bar{ width: 90px; height: 5px; background: var(--panel-2, #24211c); border: 1px solid var(--line); display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .bikes-row .bar i{ display: block; height: 100%; background: var(--good); }
+  .rider-note{ font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Member</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main style="max-width:980px">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const UID = Number(new URLSearchParams(location.search).get("user"));
+
+function fmtDays(d){
+  if(d === null || d === undefined) return "—";
+  if(d < 1) return `${Math.round(d * 24)} h`;
+  return `${d.toFixed(1)} d`;
+}
+
+const load = guard(async () => {
+  if(!UID){ document.getElementById("content").innerHTML = `<div class="panel"><div class="panel-body empty">No member named.</div></div>`; return; }
+  const [st, prof] = await Promise.all([API.get(`/api/users/${UID}/standing`), API.get(`/api/users/${UID}/profile`)]);
+  const s = st.stats, r = st.rules;
+  const check = (ok, text) => `<span class="${ok ? "ok" : "no"}">${ok ? "✓" : "○"} ${text}</span>`;
+  const meets = (rule) => ({
+    specs: s.specs_entered >= rule.specs,
+    share: (s.confirmed_share || 0) >= rule.confirmed_share,
+    flags: s.flags_resolved >= rule.flags,
+    median: s.median_response_days !== null && s.median_response_days <= rule.median_days,
+  });
+  const reqs = (rule, m) => [
+    check(m.specs, `${rule.specs} values entered (${s.specs_entered})`),
+    check(m.share, `${rule.confirmed_share}% Confirmed (${s.confirmed_share === null ? "—" : s.confirmed_share + "%"})`),
+    check(m.flags, `${rule.flags} flags resolved (${s.flags_resolved})`),
+    check(m.median, `half of flags settled within ${rule.median_days} days (${fmtDays(s.median_response_days)}${s.median_response_days === null ? ", needs " + r.median_min_flags + " resolved" : ""})`),
+  ].join("<br>");
+  const ms = meets(r.silver), mg = meets(r.gold);
+  const wrongOk = s.wrong_rate <= r.wrong_rate_cap;
+
+  document.getElementById("content").innerHTML = `
+    <div class="panel">
+      <div class="panel-body who">
+        <h2>${st.tier ? managerMark(st.tier, 26) : ""}${esc(st.username)}${st.tier && st.tier !== "admin" ? tierPill(st.tier) : ""}</h2>
+        <span class="sub">${st.role === "admin" ? "Site admin"
+          : st.is_manager ? `Bike manager · ${st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(" · ")}`
+          : "Rider"}</span>
+      </div>
+    </div>
+
+    ${st.is_manager && st.role !== "admin" ? `
+    <div class="grid2">
+      <div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Standing</h3>
+            <p>Read off the record, not awarded: what this manager has entered, how well sourced it is, and how they handle flags.</p></div></div>
+          <div class="panel-body">
+            <div class="stats">
+              <div class="stat"><b>${st.bikes.length}</b><span>Bikes managed</span></div>
+              <div class="stat"><b>${s.specs_entered}</b><span>Values entered</span></div>
+              <div class="stat"><b>${s.confirmed_share === null ? "—" : s.confirmed_share + "%"}</b><span>Confirmed share</span></div>
+              <div class="stat"><b>${s.flags_resolved}</b><span>Flags resolved</span></div>
+              <div class="stat"><b>${fmtDays(s.median_response_days)}</b><span>Median response</span></div>
+              <div class="stat"><b>${s.helped}</b><span>Helped riders</span></div>
+              <div class="stat"><b>${s.wrong_specs}</b><span>Values overturned</span></div>
+              <div class="stat"><b>${s.wire_values}</b><span>Wire-colour values</span></div>
+            </div>
+            ${!wrongOk ? `<p class="rider-note" style="margin-top:10px;color:var(--danger)">More than ${r.wrong_rate_cap}% of this manager's values were overturned after a flag; the tier stays Bronze until that comes down.</p>` : ""}
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Badges</h3></div>
+            <span class="count-tag">${st.badges.filter(b => b.earned).length} of ${st.badges.length}</span></div>
+          <div class="panel-body badges">
+            ${st.badges.map(b => `<span class="badge-chip${b.earned ? "" : " locked"}" title="${esc(b.rule)}"><span class="dot"></span>${esc(b.name)}${b.earned ? "" : ` <small>· ${esc(b.rule)}</small>`}</span>`).join("")}
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>Bikes</h3></div></div>
+          <div class="panel-body">
+            ${st.bikes.map(b => `<div class="bikes-row"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}</a>
+              <span class="cell-dim">${b.specs_filled} / ${b.fields_triggered}<span class="bar"><i style="width:${b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0}%"></i></span></span></div>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h3>Tier ladder</h3>
+          <p>A tier changes how a manager is shown, never what they can do. Gold needs the numbers and admin's say-so.</p></div></div>
+        <div class="panel-body ladder">
+          <div class="rung${st.tier === "bronze" ? " cur" : ""}">${managerMark("bronze", 22)}<div class="nm">Bronze</div>
+            <div class="req">Assigned a bike by admin.</div></div>
+          <div class="rung${st.tier === "silver" ? " cur" : ""}">${managerMark("silver", 22)}<div class="nm">Silver</div>
+            <div class="req">${reqs(r.silver, ms)}<br>${check(wrongOk, `no more than ${r.wrong_rate_cap}% of values overturned (${s.wrong_rate}%)`)}</div></div>
+          <div class="rung${st.tier === "gold" ? " cur" : ""}">${managerMark("gold", 22)}<div class="nm">Gold</div>
+            <div class="req">${reqs(r.gold, mg)}<br>${check(st.gold_confirmed, st.gold_confirmed ? "confirmed by admin" : st.gold_eligible ? "waiting for admin's confirmation" : "admin confirms once the numbers are there")}</div></div>
+        </div>
+      </div>
+    </div>` : `
+    <div class="panel">
+      <div class="panel-body">
+        <div class="stats">
+          <div class="stat"><b>${prof.specs_entered}</b><span>Specs entered</span></div>
+          <div class="stat"><b>${prof.flags_submitted}</b><span>Flags submitted</span></div>
+          <div class="stat"><b>${prof.thumbs_up_given}</b><span>Votes given</span></div>
+          <div class="stat"><b>${prof.garage_count}</b><span>Bikes in garage</span></div>
+        </div>
+        ${st.role === "admin" ? "" : `<p class="rider-note" style="margin-top:12px">Not a bike manager. Managers are assigned by admin, one bike at a time, and earn their standing from what they enter and how they handle flags.</p>`}
+      </div>
+    </div>`}`;
+});
+
+(async () => {
+  await initChrome(null);
+  if(ME.user) document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  await load();
+})();
+</script>
+</body>
+</html>

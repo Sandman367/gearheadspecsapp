@@ -533,9 +533,11 @@ def get_bike(ctx):
         "SELECT id AS bike_year_id, year, in_v2 FROM bike_years"
         " WHERE bike_id=? ORDER BY year", (bike_id,)))
     bike["managers"] = rows(ctx.conn.execute(
-        "SELECT u.id, u.username, u.display_name, m.specialty"
+        "SELECT u.id, u.username, u.display_name, u.role, m.specialty"
         " FROM bike_managers m JOIN users u ON u.id = m.user_id"
         " WHERE m.bike_id=?", (bike_id,)))
+    for m in bike["managers"]:
+        m["tier"] = manager_standing(ctx.conn, m["id"])["tier"]
     return bike
 
 
@@ -573,7 +575,7 @@ def get_bike_specs(ctx):
         "       COALESCE(s.spec_type, f.spec_type) AS spec_type,"
         "       (s.spec_type IS NOT NULL) AS type_overridden,"
         "       f.spec_type AS field_spec_type,"
-        "       u.username AS entered_by_username, s.entered_by,"
+        "       u.username AS entered_by_username, s.entered_by, u.role AS entered_by_role,"
         "       vc.votes, rc.requests,"
         "       EXISTS(SELECT 1 FROM spec_votes v"
         "              WHERE v.spec_id=s.id AND v.user_id=?) AS my_vote,"
@@ -1528,13 +1530,14 @@ def fix_flag(ctx):
     require_manages(ctx.conn, ctx.user, f["bike_id"])
 
     new_value = check_value(ctx.conn, f["spec_id"], ctx.field("new_value"))
+    was_by = ctx.conn.execute("SELECT entered_by FROM specs WHERE id=?", (f["spec_id"],)).fetchone()[0]
     ctx.conn.execute(
         "UPDATE specs SET value=?, entered_by=?, updated_at=datetime('now')"
         " WHERE id=?", (new_value, ctx.user["id"], f["spec_id"]))
     ctx.conn.execute(
-        "UPDATE value_flags SET status='fixed', old_value=?, new_value=?,"
+        "UPDATE value_flags SET status='fixed', old_value=?, new_value=?, old_entered_by=?,"
         " resolved_by=?, resolved_at=datetime('now') WHERE id=?",
-        (f["current_value"], new_value, ctx.user["id"], flag_id))
+        (f["current_value"], new_value, was_by, ctx.user["id"], flag_id))
     ctx.conn.commit()
     return {"ok": True}
 
@@ -2466,6 +2469,137 @@ def decide_field_request(ctx):
 # ===========================================================================
 # USER PROFILES
 # ===========================================================================
+# ===========================================================================
+# MANAGER STANDING -- tiers and badges, computed from the record
+# ===========================================================================
+# A tier is read off what a manager has done, never stored (Gold also needs
+# admin's confirmation, which is the one stored bit). It changes how a
+# manager is SHOWN -- the glyph, the pill, their place in a list -- and
+# never what they can do; permissions stay with the three roles.
+TIER_RULES = {
+    "silver": {"specs": 100, "confirmed_share": 60, "flags": 10, "median_days": 7.0},
+    "gold":   {"specs": 400, "confirmed_share": 85, "flags": 50, "median_days": 3.0},
+}
+WRONG_RATE_CAP = 5.0        # % of a manager's values later fixed after a flag: above this, Bronze
+MEDIAN_MIN_FLAGS = 5        # a median of fewer than this says nothing
+FOUNDING_MANAGERS = 10      # the first ten people ever assigned a bike
+
+BADGE_RULES = [
+    ("founding",      "Founding Manager", "Among the first ten riders ever assigned a bike"),
+    ("first_hundred", "First Hundred",    "100 spec values entered"),
+    ("manual_hunter", "Manual Hunter",    "50 values straight from the manual (Confirmed)"),
+    ("second_saddle", "Second Saddle",    "Manages two or more bikes"),
+    ("quick_draw",    "Quick Draw",       "10+ flags resolved, half of them within a day"),
+    ("clean_sheet",   "Clean Sheet",      "20+ values entered and none overturned in 90 days"),
+    ("wire_wizard",   "Wire Wizard",      "25 wire-colour values entered"),
+    ("full_sheet",    "Full Sheet",       "A managed bike with every spec filled"),
+]
+
+
+def manager_standing(conn, user_id):
+    """Everything the tier and the badges are decided from, plus the
+    decision, for one person. Cheap enough to compute on demand."""
+    u = one(conn.execute("SELECT id, username, role, gold_confirmed, created_at FROM users WHERE id=?",
+                         (user_id,)))
+    if not u:
+        raise HttpError(404, "user not found")
+    q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]
+    bikes = rows(conn.execute(
+        "SELECT d.bike_id, d.display_name, d.year_range, p.fields_triggered, p.specs_filled, p.specs_needed"
+        " FROM bike_managers m JOIN bike_display d ON d.bike_id = m.bike_id"
+        " JOIN bike_spec_progress p ON p.bike_id = m.bike_id"
+        " WHERE m.user_id=? ORDER BY d.display_name", (user_id,)))
+    specs = q("SELECT COUNT(*) FROM specs WHERE entered_by=? AND value IS NOT NULL AND TRIM(value)<>''", user_id)
+    confirmed = q("SELECT COUNT(*) FROM specs WHERE entered_by=? AND value IS NOT NULL AND TRIM(value)<>''"
+                  " AND confidence='confirmed'", user_id)
+    wire = q("SELECT COUNT(*) FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
+             " WHERE s.entered_by=? AND s.value IS NOT NULL AND f.value_type='wire_color'", user_id)
+    flags = q("SELECT COUNT(*) FROM value_flags WHERE resolved_by=? AND status IN ('fixed','dismissed')", user_id)
+    upheld = q("SELECT COUNT(*) FROM value_flags WHERE old_entered_by=? AND status='fixed'", user_id)
+    upheld_90 = q("SELECT COUNT(*) FROM value_flags WHERE old_entered_by=? AND status='fixed'"
+                  " AND resolved_at >= datetime('now','-90 days')", user_id)
+    helped = (q("SELECT COUNT(*) FROM spec_votes v JOIN specs s ON s.id = v.spec_id WHERE s.entered_by=?", user_id)
+              + q("SELECT COUNT(*) FROM alternate_votes v JOIN spec_alternates a ON a.id = v.alternate_id"
+                  " WHERE a.submitted_by=?", user_id))
+    waits = sorted(r[0] for r in conn.execute(
+        "SELECT julianday(resolved_at) - julianday(created_at) FROM value_flags"
+        " WHERE resolved_by=? AND resolved_at IS NOT NULL", (user_id,)))
+    median = None
+    if len(waits) >= MEDIAN_MIN_FLAGS:
+        mid = len(waits) // 2
+        median = round(waits[mid] if len(waits) % 2 else (waits[mid - 1] + waits[mid]) / 2, 2)
+    founding_ids = [r[0] for r in conn.execute(
+        "SELECT user_id FROM bike_managers GROUP BY user_id ORDER BY MIN(created_at), MIN(id) LIMIT ?",
+        (FOUNDING_MANAGERS,))]
+
+    share = round(100 * confirmed / specs, 1) if specs else None
+    wrong = round(100 * upheld / specs, 1) if specs else 0.0
+    is_manager = bool(bikes) or u["role"] == "admin"
+
+    def meets(rule):
+        return (specs >= rule["specs"] and (share or 0) >= rule["confirmed_share"]
+                and flags >= rule["flags"] and median is not None and median <= rule["median_days"])
+    tier = None
+    if u["role"] == "admin":
+        tier = "admin"
+    elif is_manager:
+        tier = "bronze"
+        if wrong <= WRONG_RATE_CAP:
+            if meets(TIER_RULES["silver"]):
+                tier = "silver"
+            if meets(TIER_RULES["gold"]) and u["gold_confirmed"]:
+                tier = "gold"
+    gold_eligible = is_manager and u["role"] != "admin" and wrong <= WRONG_RATE_CAP and meets(TIER_RULES["gold"])
+
+    have = {
+        "founding":      user_id in founding_ids,
+        "first_hundred": specs >= 100,
+        "manual_hunter": confirmed >= 50,
+        "second_saddle": len(bikes) >= 2,
+        "quick_draw":    flags >= 10 and median is not None and median <= 1.0,
+        "clean_sheet":   specs >= 20 and upheld_90 == 0,
+        "wire_wizard":   wire >= 25,
+        "full_sheet":    any(b["fields_triggered"] and not b["specs_needed"] for b in bikes),
+    }
+    badges = [{"key": k, "name": n, "rule": r, "earned": bool(have.get(k))} for k, n, r in BADGE_RULES]
+
+    return {
+        "user_id": u["id"], "username": u["username"], "role": u["role"],
+        "is_manager": is_manager, "tier": tier,
+        "bikes": bikes,
+        "stats": {"specs_entered": specs, "confirmed": confirmed, "confirmed_share": share,
+                  "flags_resolved": flags, "median_response_days": median,
+                  "wrong_specs": upheld, "wrong_rate": wrong, "helped": helped, "wire_values": wire},
+        "badges": badges,
+        "gold_confirmed": bool(u["gold_confirmed"]), "gold_eligible": gold_eligible,
+        "rules": {"silver": TIER_RULES["silver"], "gold": TIER_RULES["gold"],
+                  "wrong_rate_cap": WRONG_RATE_CAP, "median_min_flags": MEDIAN_MIN_FLAGS},
+    }
+
+
+@route("GET", r"/api/users/(\d+)/standing")
+def user_standing(ctx):
+    """A member's tier, the numbers behind it, and their badges. Public:
+    the tier is on every bike's header and the profile explains it."""
+    return manager_standing(ctx.conn, int(ctx.params[0]))
+
+
+@route("POST", r"/api/admin/users/(\d+)/gold", role="admin")
+def admin_confirm_gold(ctx):
+    """Gold is the one tier that needs a person's say-so on top of the
+    numbers. Confirm it, or take the confirmation back."""
+    uid = int(ctx.params[0])
+    st = manager_standing(ctx.conn, uid)
+    on = bool(ctx.body.get("confirmed", True))
+    if on and not st["gold_eligible"]:
+        raise HttpError(409, f"{st['username']} does not meet the Gold numbers yet")
+    ctx.conn.execute("UPDATE users SET gold_confirmed=? WHERE id=?", (1 if on else 0, uid))
+    log_action(ctx, "user.gold" if on else "user.ungold",
+               f"{'Confirmed' if on else 'Withdrew'} Gold for {st['username']}", target=str(uid))
+    ctx.conn.commit()
+    return {"ok": True, "tier": manager_standing(ctx.conn, uid)["tier"]}
+
+
 @route("GET", r"/api/users/(\d+)/profile")
 def user_profile(ctx):
     p = one(ctx.conn.execute(
@@ -5383,6 +5517,9 @@ def list_users(ctx):
         " ORDER BY u.created_at DESC, u.username"))
     for u in users:
         u["bikes"] = [b for b in (u.pop("bikes") or "").split("|") if b]
+        if u["bikes"] or u["role"] == "admin":
+            st = manager_standing(ctx.conn, u["user_id"])
+            u["tier"], u["gold_eligible"], u["gold_confirmed"] = st["tier"], st["gold_eligible"], st["gold_confirmed"]
     return {"users": users}
 
 

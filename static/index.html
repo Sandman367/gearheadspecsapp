@@ -916,10 +916,13 @@ function renderHero(){
                          aria-label="Hide ${esc(s.label)} from this bike's header">×</button>`)
                   : ""}</div>`).join("")}
           </div>` : ""}
-        <div class="hero-foot">
+        <div class="credit">
+          <span class="lbl">Maintained by</span>
           ${bike.managers.length
-            ? `Maintained by ${bike.managers.map(m => esc(m.username)).join(", ")}`
-            : "No manager assigned yet."}
+            ? bike.managers.map(m => `<span class="person">${memberName(m.id, m.username, m.tier)}${tierPill(m.tier)}</span>`).join("")
+            : `<span class="cell-dim">nobody yet — <a href="/request-spec.html?bike=${bike.bike_id}">ask for a spec</a> and admin will find one</span>`}
+          <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
+            <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
         </div>
       </div>
     </div>`;
@@ -1160,7 +1163,7 @@ function renderSpec(s, opts = {}){
         ${confidenceBadge(s.confidence)}
         ${typeBadge(s.spec_type)}
         ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
-        ${s.entered_by_username ? `<span class="cell-dim">entered by ${esc(s.entered_by_username)}</span>` : ""}
+        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role)}</span>` : ""}
         ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
             data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
             title="${locked

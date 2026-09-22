@@ -831,7 +831,7 @@ function renderMembers(list){
     <thead><tr><th>Account</th><th>Email</th><th>Role</th><th>Joined</th><th>Activity</th></tr></thead>
     <tbody>${list.length ? list.map(u => `
       <tr${u.suspended ? ' class="suspended"' : ""}>
-        <td data-label="Account"><strong>${esc(u.username)}</strong>${
+        <td data-label="Account"><strong>${memberName(u.user_id, u.username, u.tier || (u.role === "admin" ? "admin" : null))}</strong>${u.tier && u.tier !== "admin" ? tierPill(u.tier) : ""}${
           u.display_name ? `<div class="cell-dim">${esc(u.display_name)}</div>` : ""}${
           u.suspended ? ` <span class="badge danger">suspended</span>` : ""}</td>
         <td data-label="Email">${u.email
@@ -846,6 +846,11 @@ function renderMembers(list){
           <div class="btn-row" style="margin-top:4px">
             <button class="action-btn" data-profile="${u.user_id}" data-name="${esc(u.username)}">Profile</button>
             <button class="action-btn" data-set-pw="${u.user_id}" data-name="${esc(u.username)}">Set password</button>
+            ${u.gold_eligible && !u.gold_confirmed
+              ? `<button class="action-btn approve" data-gold="${u.user_id}" data-on="1" data-name="${esc(u.username)}"
+                         title="The numbers are there for Gold; it needs your say-so.">Confirm Gold</button>`
+              : u.gold_confirmed
+                ? `<button class="action-btn" data-gold="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Withdraw Gold</button>` : ""}
             ${u.role !== "admin" && !u.suspended && u.user_id !== ME.user.id
               ? `<button class="action-btn approve" data-sign-in-as="${u.user_id}" data-name="${esc(u.username)}" data-role="${esc(u.role)}"
                          title="Open the site as this member, to see what they see. One click brings you back.">Sign in as</button>` : ""}
@@ -2007,6 +2012,14 @@ document.addEventListener("click", guard(async (e) => {
     return;
   }
 
+  const gold = e.target.closest("[data-gold]");
+  if(gold){
+    const on = gold.dataset.on === "1";
+    const r = await API.post(`/api/admin/users/${gold.dataset.gold}/gold`, { confirmed: on });
+    toast(on ? `${gold.dataset.name} is Gold.` : `${gold.dataset.name} is ${TIER_NAME[r.tier] || r.tier} again.`, "ok");
+    await load();
+    return;
+  }
   const asUser = e.target.closest("[data-sign-in-as]");
   if(asUser){
     const r = await API.post(`/api/admin/users/${asUser.dataset.signInAs}/impersonate`, {});

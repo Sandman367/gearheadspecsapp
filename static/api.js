@@ -279,6 +279,38 @@ function setNavCount(href, n){
   badge.textContent = n;
 }
 
+/* The manager's mark: a shield with a wrench and a screwdriver cut out of
+   it, coloured by tier; admin is the plain shield. Tier is how a manager is
+   SHOWN -- it never changes what they can do. */
+const TIER_NAME = { bronze: "Bronze", silver: "Silver", gold: "Gold", admin: "Admin" };
+function managerMark(tier, size){
+  if(!tier) return "";
+  const s = size || 16;
+  const shield = "M12 2l8 3v6c0 5.2-3.4 9.5-8 11-4.6-1.5-8-5.8-8-11V5l8-3z";
+  if(tier === "admin"){
+    return `<svg class="mgr-mark t-admin" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="admin" role="img"><path fill="currentColor" d="${shield}"/><path fill="var(--bg)" d="M10.8 15.4l5.4-5.4-1.4-1.4-4 4-1.9-1.9-1.4 1.4 3.3 3.3z"/></svg>`;
+  }
+  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="${esc(TIER_NAME[tier] || tier)} bike manager" role="img">
+    <path fill="currentColor" d="${shield}"/>
+    <g fill="var(--bg)">
+      <g transform="rotate(45 12 12)"><rect x="11.1" y="9.2" width="1.8" height="8.6" rx=".6"/><circle cx="12" cy="8" r="2.6"/></g>
+      <g transform="rotate(-45 12 12)"><rect x="10.8" y="5.4" width="2.4" height="5.2" rx=".9"/><rect x="11.45" y="10.4" width="1.1" height="6.4"/><rect x="11.1" y="16.6" width="1.8" height="1.6" rx=".3"/></g>
+    </g>
+    <g fill="currentColor" transform="rotate(45 12 12)"><rect x="11.2" y="4.6" width="1.6" height="3.6"/></g>
+  </svg>`;
+}
+function tierPill(tier){
+  if(!tier) return "";
+  return `<span class="tier-pill t-${esc(tier)}">${esc(TIER_NAME[tier] || tier)}</span>`;
+}
+// A name with its mark, linking to the profile. `role` when the tier is
+// not known (a value's author, a post): manager and admin get the mark in
+// its plain colour.
+function memberName(id, name, tierOrRole){
+  const t = (tierOrRole === "manager") ? "plain" : tierOrRole === "user" ? null : tierOrRole;
+  return `<a class="member-name" href="/profile.html?user=${id}">${t ? managerMark(t, 14) : ""}${esc(name)}</a>`;
+}
+
 /* A show / hide eye on every password box. Idempotent: run it again after
    a page renders a new form. The eye toggles the box between password and
    text; the browser still treats the field as a password for autofill. */

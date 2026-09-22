@@ -165,6 +165,9 @@ CREATE TABLE users (
   -- accounts that predate the column.
   email         TEXT,
   suspended     INTEGER NOT NULL DEFAULT 0 CHECK (suspended IN (0,1)),
+  -- Manager tiers are computed from the record (see manager_standing in
+  -- app.py); Gold alone also needs admin's say-so, recorded here.
+  gold_confirmed INTEGER NOT NULL DEFAULT 0 CHECK (gold_confirmed IN (0,1)),
   created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -508,6 +511,9 @@ CREATE TABLE value_flags (
   -- flagger's history.
   old_value    TEXT,
   new_value    TEXT,
+  -- Who had entered the value that a fix replaced. A flag that ended in a
+  -- fix is a wrong spec upheld against that person; the tiers count them.
+  old_entered_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   resolved_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   resolved_at  TEXT,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now'))

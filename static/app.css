@@ -93,6 +93,31 @@ nav.mainnav a{
 nav.mainnav a:hover{ color: var(--text); background: rgba(255,255,255,0.02); }
 nav.mainnav a.active{ color: var(--amber); border-bottom-color: var(--amber); }
 nav.mainnav .nav-right{ margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* manager marks, tier pills, the maintained-by strip */
+.mgr-mark{ display: inline-block; vertical-align: -3px; margin-right: 4px; flex: none; }
+.mgr-mark.t-plain{ color: var(--text-dim); }
+.mgr-mark.t-bronze, .tier-pill.t-bronze{ color: #b5703a; }
+.mgr-mark.t-silver, .tier-pill.t-silver{ color: #a7adb6; }
+.mgr-mark.t-gold, .tier-pill.t-gold, .mgr-mark.t-admin, .tier-pill.t-admin{ color: var(--amber); }
+.tier-pill{
+  display: inline-block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 1px 7px; border: 1px solid currentColor; margin-left: 6px;
+  vertical-align: 1px;
+}
+.member-name{ color: inherit; text-decoration: none; }
+.member-name:hover{ color: var(--amber); }
+.credit{
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px;
+  padding: 10px 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.02);
+  font-size: 12px;
+}
+.credit .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+.credit .person{ display: inline-flex; align-items: center; font-weight: 500; }
+.credit .fill{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); display: inline-flex; align-items: center; gap: 8px; }
+.credit .fill b{ color: var(--text); font-weight: 500; }
+.credit .bar{ width: 110px; height: 5px; background: var(--panel-2, #24211c); border: 1px solid var(--line); }
+.credit .bar i{ display: block; height: 100%; background: var(--good); }
+
 /* the show / hide eye inside a password box */
 .pw-wrap{ position: relative; display: block; }
 .pw-wrap input{ width: 100%; padding-right: 40px; }
