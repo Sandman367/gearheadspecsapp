@@ -434,6 +434,18 @@
   .spec-value .val.gap{ color: var(--text-faint); font-style: italic; }
   .spec-badges{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 5px; align-items: center; }
   .spec-tools{ font-size: 10.5px; color: var(--text-faint); margin-top: 6px; }
+  /* A note is a sentence beside the value that is not the value: it never
+     looks like a spec, and the site-wide one says where it came from. */
+  .spec-note{
+    font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
+    border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
+  }
+  .spec-note .who{ font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em;
+    color: var(--text-faint); display: block; margin-bottom: 2px; }
+  .spec-note.site{ border-left-color: var(--blue-dim); }
+  .spec-note .edit{ margin-left: 8px; }
+  .note-form textarea{ width: 100%; min-height: 60px; }
+  .note-form .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
   .spec-actions{ display: flex; gap: 6px; flex-shrink: 0; }
 
   /* ---- value lines: stock + alternates, each with its own counts ---- */
@@ -1289,6 +1301,12 @@ function renderSpec(s, opts = {}){
            out on it${s.paused_by_username
              ? `, taken down by ${esc(s.paused_by_username)}` : ""}. Votes, flags
            and submissions are closed until you put it back.</div>` : ""}
+      ${s.site_note ? `<div class="spec-note site"><span class="who">Note on this spec, on every bike${
+          s.site_note_by ? ` · ${esc(s.site_note_by)}` : ""}</span>${esc(s.site_note)}</div>` : ""}
+      ${s.note ? `<div class="spec-note"><span class="who">Note on this bike${
+          s.note_by ? ` · ${esc(s.note_by)}` : ""}</span>${esc(s.note)}${
+          iManage ? `<button class="action-btn edit" data-note="${s.id}" data-key="${esc(s.field_key)}"
+                       data-body="${esc(s.note)}">Edit</button>` : ""}</div>` : ""}
       ${locked ? `<div class="fixed-note">Tagged <strong>Fixed spec</strong>${
         iManage ? " by you" : " by this bike's manager"} — one correct value.
         ${iManage ? "Only you set it." : "Closed to community values; flag it if you think it's wrong."}</div>` : ""}
@@ -1330,6 +1348,8 @@ function renderSpec(s, opts = {}){
       <div class="spec-foot">
         <a class="action-btn" href="/enrich.html?bike=${BIKE.bike_id}&field=${encodeURIComponent(s.field_key)}"
            title="Tools and links for this spec">⚒ Guides</a>
+        ${iManage && !s.note ? `<button class="action-btn" data-note="${s.id}" data-key="${esc(s.field_key)}" data-body=""
+            title="A sentence beside the value on this bike — how it is measured, what changed, what to watch for.">+ Add a note</button>` : ""}
       </div>
       <div id="spec-form-${s.id}"></div>
     </div>`;
@@ -1762,6 +1782,45 @@ document.addEventListener("click", guard(async (e) => {
   }
 
   // ---- the bike's photo ---------------------------------------------------
+  const noteBtn = e.target.closest("[data-note]");
+  if(noteBtn){
+    const id = noteBtn.dataset.note;
+    const slot = byId(`spec-form-${id}`);
+    if(slot.dataset.open === "note"){ slot.innerHTML = ""; slot.dataset.open = ""; return; }
+    slot.dataset.open = "note";
+    slot.innerHTML = `
+      <div class="inline-box note-form" style="margin-top:10px">
+        <div class="inline-title">A note on this spec, on this bike</div>
+        <div class="inline-sub">One or two sentences riders should read beside the value —
+          how it is measured, what changed partway through, what not to confuse it with.
+          It is not the value, and it shows on this bike only.</div>
+        <textarea id="note-body-${id}" maxlength="500" placeholder="e.g. Measure cold, with the bike upright.">${esc(noteBtn.dataset.body || "")}</textarea>
+        <div class="form-actions">
+          <button class="primary-btn" data-note-save="${id}" data-key="${esc(noteBtn.dataset.key)}">Save note</button>
+          <button class="ghost-btn" data-cancel="${id}">Cancel</button>
+          ${noteBtn.dataset.body ? `<button class="action-btn danger" data-note-clear="${id}" data-key="${esc(noteBtn.dataset.key)}">Remove the note</button>` : ""}
+        </div>
+      </div>`;
+    byId(`note-body-${id}`).focus();
+    return;
+  }
+  const noteSave = e.target.closest("[data-note-save]");
+  if(noteSave){
+    const id = noteSave.dataset.noteSave;
+    const body = byId(`note-body-${id}`).value.trim();
+    const r = await API.patch(`/api/bikes/${BIKE.bike_id}/specs/${noteSave.dataset.key}/note`, { body });
+    toast(body ? "Note saved." : "Note removed.", "ok");
+    await refreshSpecs();
+    return;
+  }
+  const noteClear = e.target.closest("[data-note-clear]");
+  if(noteClear){
+    await API.patch(`/api/bikes/${BIKE.bike_id}/specs/${noteClear.dataset.key}/note`, { body: "" });
+    toast("Note removed.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
   const photoPick = e.target.closest("[data-photo-pick]");
   if(photoPick){ PHOTO_UPLOAD_YEAR = photoPick.dataset.photoPick || null; byId("photo-file").click(); return; }
   const photoRemove = e.target.closest("[data-photo-remove]");

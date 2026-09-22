@@ -641,6 +641,24 @@ CREATE INDEX idx_branch_proposals_status ON branch_proposals (status);
 -- link stops showing but the row and its votes survive if it comes back.
 -- ===========================================================================
 
+-- A note on a spec: a sentence beside the value that is not the value.
+-- "Later bikes use a longer bolt", "measure cold", "the manual's figure is
+-- for the 49-state model". A bike's manager writes one for their own bike;
+-- admin writes one on the FIELD (bike_id NULL), which shows on every bike
+-- that carries it -- the place for a warning that is true everywhere.
+CREATE TABLE spec_notes (
+  id         INTEGER PRIMARY KEY,
+  bike_id    INTEGER REFERENCES bikes(id) ON DELETE CASCADE,   -- NULL: every bike with this field
+  field_key  TEXT    NOT NULL REFERENCES spec_fields(field_key) ON DELETE CASCADE,
+  body       TEXT    NOT NULL,
+  written_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+CREATE INDEX idx_spec_notes_bike ON spec_notes (bike_id, field_key);
+CREATE UNIQUE INDEX idx_spec_notes_one_per_bike ON spec_notes (bike_id, field_key) WHERE bike_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_spec_notes_one_site ON spec_notes (field_key) WHERE bike_id IS NULL;
+
 CREATE TABLE spec_tools (
   id         INTEGER PRIMARY KEY,
   bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
@@ -818,7 +836,7 @@ CREATE TABLE manager_notices (
   id          INTEGER PRIMARY KEY,
   bike_id     INTEGER REFERENCES bikes(id) ON DELETE SET NULL,
   actor       INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  kind        TEXT    NOT NULL CHECK (kind IN ('rename','split','photo')),
+  kind        TEXT    NOT NULL CHECK (kind IN ('rename','split','photo','note')),
   summary     TEXT    NOT NULL,
   detail      TEXT,                     -- JSON: what it was, what it is now
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),

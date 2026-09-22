@@ -500,6 +500,10 @@ async function runFieldSearch(){
             <td data-label="Action"><div class="btn-row">
               <button class="action-btn" data-rename="${esc(f.field_key)}"
                       data-slot="fm${i}" data-label="${esc(f.label)}">Rename</button>
+              <button class="action-btn${f.note ? " approve" : ""}" data-field-note="${esc(f.field_key)}"
+                      data-slot="fm${i}" data-label="${esc(f.label)}" data-body="${esc(f.note || "")}"
+                      title="${f.note ? "Shown on every bike that carries this field" : "A note shown on every bike that carries this field"}">${
+                f.note ? "✓ Note" : "+ Note"}</button>
               ${f.universal
                 ? `<button class="action-btn" data-un-universal="${esc(f.field_key)}"
                       data-label="${esc(f.label)}">Stop applying to all</button>`
@@ -1535,6 +1539,34 @@ document.addEventListener("click", guard(async (e) => {
                              { universal: true, backfill: true });
     toast(`"${uni.dataset.label}" now applies to every bike — added to ${r.added} of ${r.bikes}. New bikes get it automatically.`, "ok");
     await load();
+    return;
+  }
+
+  const fieldNote = e.target.closest("[data-field-note]");
+  if(fieldNote){
+    const key = fieldNote.dataset.fieldNote;
+    document.getElementById(`slot-${fieldNote.dataset.slot}`).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Note on "${esc(fieldNote.dataset.label)}" — every bike</div>
+        <div class="inline-sub">Shown on this spec on every bike that carries it, above the
+          bike's own note. For what is true everywhere: how the figure is measured, a warning
+          about the manual, what it must not be confused with. Leave it empty to clear it.</div>
+        <textarea id="fn-body" maxlength="500" style="width:100%;min-height:70px"
+                  placeholder="e.g. Measured at the rim, not the tyre.">${esc(fieldNote.dataset.body || "")}</textarea>
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${fieldNote.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-field-note-go="${esc(key)}" data-label="${esc(fieldNote.dataset.label)}">Save note</button>
+        </div>
+      </div>`;
+    document.getElementById("fn-body").focus();
+    return;
+  }
+  const fieldNoteGo = e.target.closest("[data-field-note-go]");
+  if(fieldNoteGo){
+    const body = document.getElementById("fn-body").value.trim();
+    const r = await API.patch(`/api/admin/fields/${fieldNoteGo.dataset.fieldNoteGo}/note`, { body });
+    toast(body ? `Note saved — it shows on ${r.bikes} bike${r.bikes === 1 ? "" : "s"}.` : "Note cleared.", "ok");
+    document.getElementById("fm-search").dispatchEvent(new Event("input", {bubbles:true}));
     return;
   }
 

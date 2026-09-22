@@ -670,7 +670,17 @@ def get_bike_specs(ctx):
         # more means the value changed partway through the bike's life and the
         # page has to say so rather than pick one.
         "       (SELECT COUNT(*) FROM specs v WHERE v.bike_id = s.bike_id"
-        "          AND v.field_key = s.field_key) AS variant_count"
+        "          AND v.field_key = s.field_key) AS variant_count,"
+        # The manager's note on this bike, and admin's note on the field
+        # itself, which every bike carrying the field shows.
+        "       (SELECT n.body FROM spec_notes n WHERE n.bike_id = s.bike_id"
+        "          AND n.field_key = s.field_key) AS note,"
+        "       (SELECT u.username FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
+        "         WHERE n.bike_id = s.bike_id AND n.field_key = s.field_key) AS note_by,"
+        "       (SELECT n.body FROM spec_notes n WHERE n.bike_id IS NULL"
+        "          AND n.field_key = s.field_key) AS site_note,"
+        "       (SELECT u.username FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
+        "         WHERE n.bike_id IS NULL AND n.field_key = s.field_key) AS site_note_by"
         " FROM specs s"
         " JOIN spec_fields f ON f.field_key = s.field_key"
         " JOIN spec_vote_counts vc ON vc.spec_id = s.id"
@@ -2744,6 +2754,91 @@ def flag_user(ctx):
 
 
 # ===========================================================================
+# NOTES ON A SPEC
+# ===========================================================================
+NOTE_MAX = 500
+
+
+@route("PATCH", r"/api/bikes/(\d+)/specs/([a-z0-9_]+)/note", role="manager")
+def set_spec_note(ctx):
+    """A note on this spec, on this bike: the manager's sentence beside the
+    value -- "measure cold", "later bikes use a longer bolt". One per spec
+    per bike; writing again replaces it, and an empty body clears it."""
+    bike_id, key = int(ctx.params[0]), ctx.params[1]
+    require_manages(ctx.conn, ctx.user, bike_id)
+    if not ctx.conn.execute("SELECT 1 FROM specs WHERE bike_id=? AND field_key=?",
+                            (bike_id, key)).fetchone():
+        raise HttpError(404, "this bike does not have that spec")
+    body = (ctx.body.get("body") or "").strip()
+    if not body:
+        ctx.conn.execute("DELETE FROM spec_notes WHERE bike_id=? AND field_key=?", (bike_id, key))
+        ctx.conn.commit()
+        return {"ok": True, "note": None}
+    if len(body) > NOTE_MAX:
+        raise HttpError(400, f"a note is limited to {NOTE_MAX} characters")
+    # a partial unique index cannot be an ON CONFLICT target, so: update, else insert
+    changed = ctx.conn.execute(
+        "UPDATE spec_notes SET body=?, written_by=?, updated_at=datetime('now')"
+        " WHERE bike_id=? AND field_key=?", (body, ctx.user["id"], bike_id, key)).rowcount
+    if not changed:
+        ctx.conn.execute(
+            "INSERT INTO spec_notes (bike_id, field_key, body, written_by) VALUES (?,?,?,?)",
+            (bike_id, key, body, ctx.user["id"]))
+    notify_admin(ctx, "note", bike_id,
+                 f'{ctx.user["username"]} wrote a note on {key} for bike #{bike_id}', {"body": body})
+    ctx.conn.commit()
+    return {"ok": True, "note": _note_of(ctx.conn, bike_id, key)}
+
+
+@route("PATCH", r"/api/admin/fields/([a-z0-9_]+)/note", role="admin")
+def set_field_note(ctx):
+    """A note on the FIELD: it shows on every bike that carries it. For what
+    is true everywhere -- how a figure is measured, a warning about the
+    manual. A bike's own note sits under it, never instead of it."""
+    key = ctx.params[0]
+    field = one(ctx.conn.execute("SELECT label FROM spec_fields WHERE field_key=?", (key,)))
+    if not field:
+        raise HttpError(404, "no such field")
+    body = (ctx.body.get("body") or "").strip()
+    if not body:
+        ctx.conn.execute("DELETE FROM spec_notes WHERE bike_id IS NULL AND field_key=?", (key,))
+        log_action(ctx, "field.note", f'Cleared the site-wide note on "{field["label"]}"', target=key)
+        ctx.conn.commit()
+        return {"ok": True, "note": None}
+    if len(body) > NOTE_MAX:
+        raise HttpError(400, f"a note is limited to {NOTE_MAX} characters")
+    # NULL never conflicts in a UNIQUE, so the one site-wide note is replaced by hand
+    had = ctx.conn.execute("SELECT 1 FROM spec_notes WHERE bike_id IS NULL AND field_key=?", (key,)).fetchone()
+    if had:
+        ctx.conn.execute(
+            "UPDATE spec_notes SET body=?, written_by=?, updated_at=datetime('now')"
+            " WHERE bike_id IS NULL AND field_key=?", (body, ctx.user["id"], key))
+    else:
+        ctx.conn.execute(
+            "INSERT INTO spec_notes (bike_id, field_key, body, written_by) VALUES (NULL,?,?,?)",
+            (key, body, ctx.user["id"]))
+    on = ctx.conn.execute("SELECT COUNT(*) FROM specs WHERE field_key=?", (key,)).fetchone()[0]
+    log_action(ctx, "field.note", f'Note on "{field["label"]}", shown on {on} bike(s)',
+               target=key, detail={"body": body, "bikes": on})
+    ctx.conn.commit()
+    return {"ok": True, "note": _note_of(ctx.conn, None, key), "bikes": on}
+
+
+def _note_of(conn, bike_id, key):
+    if bike_id is None:
+        row = one(conn.execute(
+            "SELECT n.body, n.created_at, n.updated_at, u.username AS written_by"
+            " FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
+            " WHERE n.bike_id IS NULL AND n.field_key=?", (key,)))
+    else:
+        row = one(conn.execute(
+            "SELECT n.body, n.created_at, n.updated_at, u.username AS written_by"
+            " FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
+            " WHERE n.bike_id=? AND n.field_key=?", (bike_id, key)))
+    return row
+
+
+# ===========================================================================
 # ENRICHMENT — tools and links on a (bike, field)
 # ===========================================================================
 @route("GET", r"/api/bikes/(\d+)/fields/([a-z0-9_]+)/enrichment")
@@ -3713,6 +3808,8 @@ def admin_list_fields(ctx):
                               key=lambda c: CATEGORY_ORDER.index(c) if c in CATEGORY_ORDER else 99)
         f["home_shown"] = f["field_key"] not in hidden
         f["offline_on"] = offline_on.get(f["field_key"], [])
+        n = _note_of(ctx.conn, None, f["field_key"])
+        f["note"] = n["body"] if n else None
 
     return {"fields": fields, "bike_types": questionnaire.load()["bike_types"],
             "total": ctx.conn.execute(

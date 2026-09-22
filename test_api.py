@@ -5733,6 +5733,55 @@ class ApiTest(unittest.TestCase):
         s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
         self.assertEqual((s, r["retired"]), (200, None))
 
+    def test_v01_notes_on_a_spec_per_bike_and_across_every_bike(self):
+        """A manager writes a note on their own bike's spec; admin writes
+        one on the field, which shows on every bike carrying it. Both land
+        on the sheet, and neither is the value."""
+        adm = self.as_("admin")
+        b1 = self._identity_bike(adm, "NOTE ONE", 2001, 2001)
+        b2 = self._identity_bike(adm, "NOTE TWO", 2002, 2002)
+        mgr = self.as_("cb919_dave")
+        key = "valve_clearance_intake"
+        con = sqlite3.connect(self.db)
+        has = con.execute("SELECT 1 FROM specs WHERE bike_id=? AND field_key=?", (b1, key)).fetchone()
+        if not has:
+            key = con.execute("SELECT field_key FROM specs WHERE bike_id=? LIMIT 1", (b1,)).fetchone()[0]
+        con.close()
+
+        # a rider cannot write one; the bike's manager can
+        self.assertEqual(self.as_("sohc_sam").patch(f"/api/bikes/{b1}/specs/{key}/note", {"body": "x"})[0], 403)
+        self.assertEqual(mgr.patch(f"/api/bikes/{b1}/specs/no_such_field/note", {"body": "x"})[0], 404)
+        s, r = mgr.patch(f"/api/bikes/{b1}/specs/{key}/note", {"body": "Measure cold, bike upright."})
+        self.assertEqual(s, 200, r)
+        self.assertEqual(r["note"]["body"], "Measure cold, bike upright.")
+        self.assertEqual(mgr.patch(f"/api/bikes/{b1}/specs/{key}/note", {"body": "x" * 501})[0], 400)
+
+        def note_on(bike):
+            _, sheet = self.anon().get(f"/api/bikes/{bike}/specs")
+            row = next(x for c in sheet["categories"] for x in c["specs"] if x["field_key"] == key)
+            return row["note"], row["site_note"]
+        self.assertEqual(note_on(b1), ("Measure cold, bike upright.", None))
+        self.assertEqual(note_on(b2), (None, None))          # the other bike is untouched
+
+        # admin's note on the field reaches every bike
+        self.assertEqual(mgr.patch(f"/api/admin/fields/{key}/note", {"body": "no"})[0], 403)
+        s, r = adm.patch(f"/api/admin/fields/{key}/note", {"body": "The manual's figure is for a cold engine."})
+        self.assertEqual(s, 200, r)
+        self.assertGreater(r["bikes"], 1)
+        self.assertEqual(note_on(b1), ("Measure cold, bike upright.", "The manual's figure is for a cold engine."))
+        self.assertEqual(note_on(b2)[1], "The manual's figure is for a cold engine.")
+        # writing again replaces rather than piling up, and empty clears
+        adm.patch(f"/api/admin/fields/{key}/note", {"body": "Cold engine."})
+        self.assertEqual(note_on(b2)[1], "Cold engine.")
+        con = sqlite3.connect(self.db)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM spec_notes WHERE bike_id IS NULL AND field_key=?",
+                                     (key,)).fetchone()[0], 1)
+        con.close()
+        self.assertEqual(adm.patch(f"/api/admin/fields/{key}/note", {"body": ""})[1]["note"], None)
+        self.assertEqual(note_on(b1)[1], None)
+        self.assertEqual(mgr.patch(f"/api/bikes/{b1}/specs/{key}/note", {"body": ""})[1]["note"], None)
+        self.assertEqual(note_on(b1)[0], None)
+
     def test_u01_the_model_dropdown_says_what_the_bike_is_called(self):
         """A model code like FLFBS means nothing to a reader; the option
         shows the name with the code beside it, and just the code where
