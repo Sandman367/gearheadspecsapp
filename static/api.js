@@ -242,6 +242,22 @@ async function initChrome(activeHref){
   const header = document.querySelector("header");
   header.parentNode.insertBefore(nav, header.nextSibling);
 
+  // Admin signed in as a member for testing: say so on every page, with
+  // the way back. The server only reports this while the admin session
+  // behind it is still live.
+  if(ME.testing_as){
+    const bar = document.createElement("div");
+    bar.className = "testing-bar";
+    bar.innerHTML = `<span>Testing as <strong>${esc(ME.user.username)}</strong> (${esc(ME.user.role)}) —
+      you are seeing the site as they do. Signed in as admin <strong>${esc(ME.testing_as.admin)}</strong> underneath.</span>
+      <button class="action-btn" id="back-to-admin">Back to admin</button>`;
+    nav.parentNode.insertBefore(bar, nav.nextSibling);
+    document.getElementById("back-to-admin").addEventListener("click", guard(async () => {
+      await API.post("/api/auth/return");
+      location.href = "/admin.html#p-members";
+    }));
+  }
+
   const logout = document.getElementById("logout-btn");
   if(logout){
     logout.addEventListener("click", guard(async () => {

@@ -45,8 +45,12 @@ PORT = int(os.environ.get("PORT", "8420"))
 # proxy that talks to 127.0.0.1) -- see DEPLOY.md.
 HOST = os.environ.get("HOST", "127.0.0.1")
 SESSION_DAYS = 14
+IMPERSONATE_HOURS = 4      # a test sign-in as another member lasts this long
 PBKDF2_ROUNDS = 200_000
 COOKIE_NAME = "ghs_session"
+# While admin is signed in as somebody else for testing, their own session
+# token waits in this second cookie so one click brings them back.
+ADMIN_COOKIE = "ghs_admin"
 
 
 # ---------------------------------------------------------------------------
@@ -369,8 +373,16 @@ def me(ctx):
     managed = rows(ctx.conn.execute(
         "SELECT bike_id FROM bike_managers WHERE user_id=?", (ctx.user["id"],)))
     public = {k: v for k, v in ctx.user.items() if k != "token"}
+    # Admin signed in as somebody else for testing: the page shows a banner
+    # and a way back. Only claimed when the waiting token really is a live
+    # admin session -- a stale cookie is not a way back.
+    testing = None
+    if getattr(ctx, "admin_token", None):
+        back = user_for_token(ctx.conn, ctx.admin_token)
+        if back and back["role"] == "admin" and back["id"] != ctx.user["id"]:
+            testing = {"admin": back["username"]}
     return {"user": public, "manages": [m["bike_id"] for m in managed],
-            "unread": _unread_counts(ctx.conn, ctx.user)}
+            "unread": _unread_counts(ctx.conn, ctx.user), "testing_as": testing}
 
 
 # ===========================================================================
@@ -5302,16 +5314,69 @@ def admin_backup_photos(ctx):
     return {"_file": buf.getvalue(), "_filename": f"gearheadspecs-photos-{stamp}.zip", "_ctype": "application/zip"}
 
 
+# ===========================================================================
+# SIGN IN AS -- admin testing the site as a member
+# ===========================================================================
+@route("POST", r"/api/admin/users/(\d+)/impersonate", role="admin")
+def impersonate(ctx):
+    """Become another member for a while, to see what they see.
+
+    A short session is opened for them and handed to the browser; admin's
+    own session token waits in a second cookie so "back to admin" is one
+    click and needs no password. Logged, with who and for how long: acting
+    as somebody else is exactly the kind of thing the audit log is for.
+    Never another admin, never a suspended account.
+    """
+    uid = int(ctx.params[0])
+    u = one(ctx.conn.execute("SELECT id, username, role, suspended FROM users WHERE id=?", (uid,)))
+    if not u:
+        raise HttpError(404, "no such user")
+    if u["id"] == ctx.user["id"]:
+        raise HttpError(400, "that is you")
+    if u["role"] == "admin":
+        raise HttpError(403, "not another admin account")
+    if u["suspended"]:
+        raise HttpError(409, "that account is suspended")
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=IMPERSONATE_HOURS)
+    ctx.conn.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)",
+                     (token, u["id"], expires.strftime("%Y-%m-%d %H:%M:%S")))
+    log_action(ctx, "user.impersonate", f"Signed in as {u['username']} ({u['role']}) for testing",
+               target=str(uid), detail={"hours": IMPERSONATE_HOURS})
+    ctx.conn.commit()
+    return {"ok": True, "username": u["username"], "role": u["role"],
+            "_set_cookie": token, "_set_admin_cookie": ctx.user["token"]}
+
+
+@route("POST", r"/api/auth/return", role="user")
+def return_to_admin(ctx):
+    """Back from a test sign-in: the test session ends, admin's own comes
+    back. Refused unless the waiting token is a live admin session."""
+    back = user_for_token(ctx.conn, getattr(ctx, "admin_token", None))
+    if not back or back["role"] != "admin":
+        raise HttpError(403, "no admin session to return to")
+    ctx.conn.execute("DELETE FROM sessions WHERE token=?", (ctx.user["token"],))
+    ctx.conn.commit()
+    return {"ok": True, "username": back["username"],
+            "_set_cookie": back["token"], "_clear_admin_cookie": True}
+
+
 @route("GET", r"/api/users", role="admin")
 def list_users(ctx):
     """Every account, with the email. Admin only -- this is the one place the
     address is returned; user_profile_stats, which the public profile reads,
     deliberately does not carry it."""
-    return {"users": rows(ctx.conn.execute(
+    users = rows(ctx.conn.execute(
         "SELECT p.*, u.email, u.suspended, u.created_at,"
-        " (SELECT COUNT(*) FROM bike_managers m WHERE m.user_id = u.id) AS bikes_managed"
+        " (SELECT COUNT(*) FROM bike_managers m WHERE m.user_id = u.id) AS bikes_managed,"
+        " (SELECT GROUP_CONCAT(d.display_name || COALESCE(' (' || d.year_range || ')', ''), '|')"
+        "    FROM bike_managers m JOIN bike_display d ON d.bike_id = m.bike_id"
+        "   WHERE m.user_id = u.id) AS bikes"
         " FROM user_profile_stats p JOIN users u ON u.id = p.user_id"
-        " ORDER BY u.created_at DESC, u.username"))}
+        " ORDER BY u.created_at DESC, u.username"))
+    for u in users:
+        u["bikes"] = [b for b in (u.pop("bikes") or "").split("|") if b]
+    return {"users": users}
 
 
 # ===========================================================================
@@ -5332,11 +5397,19 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _send_json(self, status, payload, cookie=None, clear_cookie=False):
+    def _send_json(self, status, payload, cookie=None, clear_cookie=False,
+                   admin_cookie=None, clear_admin=False):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if admin_cookie:
+            self.send_header("Set-Cookie",
+                             f"{ADMIN_COOKIE}={admin_cookie}; HttpOnly; SameSite=Lax;"
+                             f" Path=/; Max-Age={IMPERSONATE_HOURS * 3600}")
+        if clear_admin:
+            self.send_header("Set-Cookie",
+                             f"{ADMIN_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0")
         # No CORS header: the pages are served from this same origin, and a
         # permissive one alongside cookie auth is a liability, not a feature.
         if cookie:
@@ -5349,12 +5422,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _cookie_token(self):
+    def _cookie_token(self, name=COOKIE_NAME):
         raw = self.headers.get("Cookie")
         if not raw:
             return None
         try:
-            return SimpleCookie(raw).get(COOKIE_NAME).value
+            return SimpleCookie(raw).get(name).value
         except Exception:
             return None
 
@@ -5419,12 +5492,17 @@ class Handler(BaseHTTPRequestHandler):
                     if ROLE_RANK[user["role"]] < ROLE_RANK.get(role, 0):
                         raise HttpError(403, f"requires {role} access")
 
-                result = fn(Ctx(conn, user, hit.groups(), parse_qs(parsed.query), body))
+                ctx = Ctx(conn, user, hit.groups(), parse_qs(parsed.query), body)
+                ctx.admin_token = self._cookie_token(ADMIN_COOKIE)
+                result = fn(ctx)
                 if isinstance(result, dict) and "_file" in result:
                     return self._send_file(result["_file"], result["_filename"], result.get("_ctype"))
                 cookie = result.pop("_set_cookie", None) if isinstance(result, dict) else None
                 clear = result.pop("_clear_cookie", False) if isinstance(result, dict) else False
-                return self._send_json(200, result, cookie=cookie, clear_cookie=clear)
+                admin_cookie = result.pop("_set_admin_cookie", None) if isinstance(result, dict) else None
+                clear_admin = result.pop("_clear_admin_cookie", False) if isinstance(result, dict) else False
+                return self._send_json(200, result, cookie=cookie, clear_cookie=clear,
+                                       admin_cookie=admin_cookie, clear_admin=clear_admin)
 
             if matched_path:
                 raise HttpError(405, f"{method} not allowed on this path")

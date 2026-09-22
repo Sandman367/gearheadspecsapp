@@ -5524,5 +5524,46 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self._raw_get(self.anon(), "/photos/7.jpg")[1], "image/jpeg")
 
 
+    def test_s03_admin_can_sign_in_as_a_member_and_come_back(self):
+        """One browser: admin becomes a manager, sees the site as them (and
+        is told so), then comes back with one call. Never as another admin,
+        never as a suspended account; the way back needs a live admin
+        session behind it; it is all in the audit log."""
+        adm = self.as_("admin")
+        b = self._new_bike(adm, "TEST AS", 2016, 2016)
+        uid = self._uid("gp_hayes")
+        adm.post(f"/api/admin/bikes/{b}/manager", {"user_id": uid})
+        # the members list says which bikes a manager keeps
+        s, r = adm.get("/api/users")
+        me = next(u for u in r["users"] if u["username"] == "gp_hayes")
+        self.assertIn("Honda TEST AS (2016)", me["bikes"])
+
+        self.assertEqual(adm.post(f"/api/admin/users/{self._uid('admin')}/impersonate", {})[0], 400)
+        self.assertEqual(self.as_("m.alvarez").post(f"/api/admin/users/{uid}/impersonate", {})[0], 403)
+        s, r = adm.post(f"/api/admin/users/{uid}/impersonate", {})
+        self.assertEqual(s, 200, r)
+        self.assertEqual((r["username"], r["role"]), ("gp_hayes", "manager"))
+        # the same browser is now gp_hayes, knows it is a test sign-in, and can act as them
+        s, me = adm.get("/api/auth/me")
+        self.assertEqual(me["user"]["username"], "gp_hayes")
+        self.assertEqual(me["testing_as"], {"admin": "admin"})
+        self.assertIn(b, me["manages"])
+        self.assertEqual(adm.get("/api/admin/summary")[0], 403)      # really a manager now
+        # and back
+        s, r = adm.post("/api/auth/return")
+        self.assertEqual((s, r["username"]), (200, "admin"))
+        s, me = adm.get("/api/auth/me")
+        self.assertEqual((me["user"]["username"], me["testing_as"]), ("admin", None))
+        self.assertEqual(adm.post("/api/auth/return")[0], 403)        # nothing to return to now
+        con = sqlite3.connect(self.db)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM admin_actions WHERE action='user.impersonate'").fetchone()[0], 1)
+        con.close()
+        # a suspended account cannot be tested as; a plain member cannot use the way back
+        adm.post(f"/api/admin/users/{uid}/suspend", {"suspended": True})
+        self.assertEqual(adm.post(f"/api/admin/users/{uid}/impersonate", {})[0], 409)
+        adm.post(f"/api/admin/users/{uid}/suspend", {"suspended": False})
+        self.assertEqual(self.as_("sohc_sam").post("/api/auth/return")[0], 403)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

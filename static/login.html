@@ -43,36 +43,6 @@
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <div>
-        <h3>Development Accounts</h3>
-        <p>Seeded by <code>seed.py</code>, all sharing the password
-           <strong>gearhead</strong>. Replace these before the site is reachable
-           by anyone else.</p>
-      </div>
-    </div>
-    <table class="responsive">
-      <thead><tr><th>Username</th><th>Role</th><th>What they show</th></tr></thead>
-      <tbody>
-        <tr><td data-label="User"><button class="username-btn pick">admin</button></td>
-            <td data-label="Role"><span class="badge danger">admin</span></td>
-            <td data-label="Shows" class="cell-dim">Every queue: proposals, tree flags, user flags, divergence</td></tr>
-        <tr><td data-label="User"><button class="username-btn pick">m.alvarez</button></td>
-            <td data-label="Role"><span class="badge amber">manager</span></td>
-            <td data-label="Shows" class="cell-dim">Manages the CB919 — has the open flag queue</td></tr>
-        <tr><td data-label="User"><button class="username-btn pick">cb919_dave</button></td>
-            <td data-label="Role"><span class="badge">user</span></td>
-            <td data-label="Shows" class="cell-dim">Has a bike in the garage with service history</td></tr>
-        <tr><td data-label="User"><button class="username-btn pick">rider_kestrel99</button></td>
-            <td data-label="Role"><span class="badge">user</span></td>
-            <td data-label="Shows" class="cell-dim">Submitted one of the open flags</td></tr>
-        <tr><td data-label="User"><button class="username-btn pick">t.moreno</button></td>
-            <td data-label="Role"><span class="badge">user</span></td>
-            <td data-label="Shows" class="cell-dim">Empty garage — the first-run experience</td></tr>
-      </tbody>
-    </table>
-  </div>
 </main>
 
 <script src="/api.js"></script>
@@ -83,14 +53,6 @@ const next = params.get("next") || "/index.html";
 // the page the reader was originally trying to reach.
 document.getElementById("to-register").href =
   "/register.html?next=" + encodeURIComponent(next);
-
-document.querySelectorAll(".pick").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.getElementById("username").value = btn.textContent;
-    document.getElementById("password").value = "gearhead";
-    document.getElementById("password").focus();
-  });
-});
 
 document.getElementById("login-form").addEventListener("submit", guard(async (e) => {
   e.preventDefault();

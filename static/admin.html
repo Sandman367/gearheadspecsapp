@@ -157,13 +157,21 @@ function renderPicked(listId){
 /* Picking a question reveals its options, each showing how many existing bikes
    answered that way — the blast radius of back-filling, shown before the admin
    commits rather than after. */
-document.addEventListener("input", (e) => {
-  if(e.target.id !== "mem-search") return;
-  const q = e.target.value.trim().toLowerCase();
-  const hit = S.members.filter(u => !q || [u.username, u.display_name, u.email, u.role]
+function refreshMembers(){
+  const q = (document.getElementById("mem-search")?.value || "").trim().toLowerCase();
+  const hit = S.members.filter(u => !q || [u.username, u.display_name, u.email, u.role, ...(u.bikes || [])]
     .some(v => (v || "").toLowerCase().includes(q)));
   document.getElementById("mem-list").innerHTML = renderMembers(hit);
   collapseLong();
+}
+document.addEventListener("input", (e) => {
+  if(e.target.id !== "mem-search") return;
+  refreshMembers();
+});
+document.addEventListener("change", (e) => {
+  if(e.target.id !== "mem-role") return;
+  MEM_ROLE = e.target.value;
+  refreshMembers();
 });
 
 document.addEventListener("change", (e) => {
@@ -816,7 +824,9 @@ function assignModelOptions(make){
       b.year_range ? ` · ${esc(b.year_range)}` : ""} — ${b.specs_filled}/${b.fields_triggered} filled</option>`).join("");
 }
 
+let MEM_ROLE = "";
 function renderMembers(list){
+  if(MEM_ROLE) list = list.filter(u => u.role === MEM_ROLE);
   return `<table class="responsive">
     <thead><tr><th>Account</th><th>Email</th><th>Role</th><th>Joined</th><th>Activity</th></tr></thead>
     <tbody>${list.length ? list.map(u => `
@@ -828,13 +838,17 @@ function renderMembers(list){
           ? `<a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`
           : `<span class="cell-dim">—</span>`}</td>
         <td data-label="Role">${esc(u.role)}${
-          u.bikes_managed ? `<div class="cell-dim">${u.bikes_managed} bike${u.bikes_managed === 1 ? "" : "s"}</div>` : ""}</td>
+          u.bikes_managed ? `<div class="cell-dim">${u.bikes_managed} bike${u.bikes_managed === 1 ? "" : "s"}: ${
+            esc((u.bikes || []).slice(0, 4).join(", "))}${(u.bikes || []).length > 4 ? ` +${u.bikes.length - 4}` : ""}</div>` : ""}</td>
         <td data-label="Joined" class="cell-dim">${esc(String(u.created_at || "").slice(0, 10))}</td>
         <td data-label="Activity" class="cell-dim">${u.specs_entered} entered · ${
           u.flags_submitted} flags · ${u.thumbs_up_given} votes
           <div class="btn-row" style="margin-top:4px">
             <button class="action-btn" data-profile="${u.user_id}" data-name="${esc(u.username)}">Profile</button>
             <button class="action-btn" data-set-pw="${u.user_id}" data-name="${esc(u.username)}">Set password</button>
+            ${u.role !== "admin" && !u.suspended && u.user_id !== ME.user.id
+              ? `<button class="action-btn approve" data-sign-in-as="${u.user_id}" data-name="${esc(u.username)}" data-role="${esc(u.role)}"
+                         title="Open the site as this member, to see what they see. One click brings you back.">Sign in as</button>` : ""}
             ${u.user_id === ME.user.id ? "" : u.suspended
               ? `<button class="action-btn" data-suspend="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Reinstate</button>`
               : `<button class="action-btn danger" data-suspend="${u.user_id}" data-on="1" data-name="${esc(u.username)}">Suspend</button>`}
@@ -1121,9 +1135,16 @@ function render(){
              see it. Accounts from before emails were collected show a dash.</p></div>
         <span class="count-tag">${S.members.length} accounts</span>
       </div>
-      <div class="panel-body" style="background:var(--panel-2)">
-        <input type="text" id="mem-search" autocomplete="off"
+      <div class="panel-body" style="background:var(--panel-2);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="text" id="mem-search" autocomplete="off" style="flex:1 1 240px"
                placeholder="Filter by name, email or role">
+        <select id="mem-role" style="width:auto">
+          <option value="">Everyone</option>
+          <option value="manager">Bike managers</option>
+          <option value="user">Riders</option>
+          <option value="admin">Admins</option>
+        </select>
+        <span class="cell-dim"><strong>Sign in as</strong> opens the site as that member for testing; the banner at the top brings you back.</span>
       </div>
       <div id="mem-list">${renderMembers(S.members)}</div>
     </div>
@@ -1986,6 +2007,12 @@ document.addEventListener("click", guard(async (e) => {
     return;
   }
 
+  const asUser = e.target.closest("[data-sign-in-as]");
+  if(asUser){
+    const r = await API.post(`/api/admin/users/${asUser.dataset.signInAs}/impersonate`, {});
+    location.href = r.role === "manager" ? "/manager.html" : "/index.html";
+    return;
+  }
   const setPw = e.target.closest("[data-set-pw]");
   if(setPw){
     const pw = prompt(`New password for ${setPw.dataset.name} (at least 8 characters). They are signed out everywhere.`);
