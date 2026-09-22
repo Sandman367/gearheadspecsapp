@@ -447,6 +447,37 @@ def catalog_filters(ctx):
         f" GROUP BY b.model_code"
         f" ORDER BY (cc IS NULL), cc, b.model_code", ma))
 
+    # What the reader calls it. A Harley's model code is a factory code --
+    # FLFBS, FXLRS -- and nobody shops for those; the bike's name is "Fat
+    # Boy 114". The option shows the name and keeps the code beside it,
+    # unless the name already carries it (Honda's CB919 and most others),
+    # in which case the name alone is the label.
+    names = {}
+    for r in ctx.conn.execute(
+            f"SELECT b.model_code, b.make, n.name, MIN(b.year_start) AS y"
+            f" FROM bike_years y2"
+            f" JOIN bikes b ON b.id = y2.bike_id"
+            f" JOIN bike_names n ON n.bike_id = b.id AND n.is_primary = 1"
+            f"{mc.replace(' y.', ' y2.')}"
+            f" GROUP BY b.id ORDER BY b.model_code, y", ma):
+        code, make, name = r[0], r[1], r[2]
+        short = name[len(make) + 1:] if name.startswith(make + " ") else name
+        names.setdefault(code, [])
+        if short not in names[code]:
+            names[code].append(short)
+    for m in models:
+        got = names.get(m["model_code"], [])
+        code = m["model_code"]
+        label = " / ".join(got[:2]) + (" …" if len(got) > 2 else "")
+        if len(label) > 46:                      # a dropdown row, not a paragraph
+            label = label[:45].rsplit(" ", 1)[0] + " …"
+        if not label or label == code:
+            m["label"] = code
+        elif code.lower() in label.lower() or len(label) + len(code) > 52:
+            m["label"] = label
+        else:
+            m["label"] = f"{label} · {code}"
+
     return {
         "makes":  distinct("b.make", "b.make"),
         "years":  distinct("y.year", "y.year"),

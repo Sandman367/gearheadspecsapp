@@ -5733,6 +5733,23 @@ class ApiTest(unittest.TestCase):
         s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
         self.assertEqual((s, r["retired"]), (200, None))
 
+    def test_u01_the_model_dropdown_says_what_the_bike_is_called(self):
+        """A model code like FLFBS means nothing to a reader; the option
+        shows the name with the code beside it, and just the code where
+        the name already carries it."""
+        adm = self.as_("admin")
+        s, b = adm.post("/api/bikes", {"make": "Harley-Davidson", "model_code": "FLFBS TEST",
+                                       "year_start": 2018, "year_end": 2020, "name": "Harley-Davidson Fat Boy 114"})
+        self.assertEqual(s, 200, b)
+        s, f = self.anon().get("/api/catalog/filters?make=Harley-Davidson")
+        opt = next(m for m in f["models"] if m["model_code"] == "FLFBS TEST")
+        self.assertEqual(opt["label"], "Fat Boy 114 · FLFBS TEST")
+        # a name that already carries the code is the label on its own
+        s, b2 = adm.post("/api/bikes", {"make": "Honda", "model_code": "CB919 TEST", "year_start": 2002})
+        s, f = self.anon().get("/api/catalog/filters?make=Honda")
+        opt = next(m for m in f["models"] if m["model_code"] == "CB919 TEST")
+        self.assertEqual(opt["label"], "CB919 TEST")
+
     def test_t03_the_first_manager_is_the_bikes_lead_manager_for_good(self):
         """The first person assigned to a bike is its lead manager; a
         later manager is a manager; the lead stays named on the bike after

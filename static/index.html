@@ -642,8 +642,9 @@ const loadFilters = guard(async () => {
   fill(els.make, f.makes.map(m => ({ value: m, label: m })), "All makes");
   fill(els.year, f.years.map(y => ({ value: y, label: y })), "All Years");
   // Ordered by engine size, not alphabetically — the server sorts it. The
-  // option shows the model only; the field label says how the list is ordered.
-  fill(els.model, f.models.map(m => ({ value: m.model_code, label: m.model_code })),
+  // option shows what the bike is called, with the factory code beside it
+  // where the two differ (a Harley's FLFBS is a "Fat Boy 114").
+  fill(els.model, f.models.map(m => ({ value: m.model_code, label: m.label || m.model_code })),
        "All Models");
 });
 
