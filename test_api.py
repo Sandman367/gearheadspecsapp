@@ -5733,6 +5733,33 @@ class ApiTest(unittest.TestCase):
         s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
         self.assertEqual((s, r["retired"]), (200, None))
 
+    def test_v02_admin_sets_the_example_value_a_field_shows_in_every_entry_box(self):
+        """"e.g. K&N KN-145" on the field reaches the spec on every bike, so
+        people entering a value can see the shape it should take. It is an
+        example, never a value: the spec stays empty."""
+        adm = self.as_("admin")
+        bike = self._identity_bike(adm, "EXAMPLE TEST", 2003, 2003)
+        con = sqlite3.connect(self.db)
+        key, wire = con.execute(
+            "SELECT s.field_key, (SELECT field_key FROM spec_fields WHERE value_type='wire_color' LIMIT 1)"
+            " FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
+            " WHERE s.bike_id=? AND f.value_type='text' LIMIT 1", (bike,)).fetchone()
+        con.close()
+        self.assertEqual(self.as_("cb919_dave").patch(f"/api/admin/fields/{key}/example", {"example": "x"})[0], 403)
+        self.assertEqual(adm.patch("/api/admin/fields/no_such/example", {"example": "x"})[0], 404)
+        self.assertEqual(adm.patch(f"/api/admin/fields/{key}/example", {"example": "y" * 121})[0], 400)
+        s, r = adm.patch(f"/api/admin/fields/{key}/example", {"example": "K&N KN-145"})
+        self.assertEqual((s, r["example"]), (200, "K&N KN-145"))
+        _, sheet = self.anon().get(f"/api/bikes/{bike}/specs")
+        row = next(x for c in sheet["categories"] for x in c["specs"] if x["field_key"] == key)
+        self.assertEqual(row["example"], "K&N KN-145")
+        self.assertIsNone(row["value"], "the example leaked into the value")
+        # a field picked from a list would never show it
+        if wire:
+            self.assertEqual(adm.patch(f"/api/admin/fields/{wire}/example", {"example": "Y/R"})[0], 409)
+        s, r = adm.patch(f"/api/admin/fields/{key}/example", {"example": ""})
+        self.assertIsNone(r["example"])
+
     def test_v01_notes_on_a_spec_per_bike_and_across_every_bike(self):
         """A manager writes a note on their own bike's spec; admin writes
         one on the field, which shows on every bike carrying it. Both land

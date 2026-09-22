@@ -433,7 +433,9 @@ document.addEventListener("click", guard(async (e) => {
         <div class="inline-title">Fix Value — ${esc(f.spec_label)}</div>
         <div class="inline-sub">You're setting this directly as the stock value —
           no vote needed, since you're the assigned expert for this bike.</div>
-        <input type="text" id="fix-input" value="${esc(f.current_value ?? "")}">
+        <input type="text" id="fix-input" value="${esc(f.current_value ?? "")}"${
+          f.example ? ` placeholder="${esc("e.g. " + f.example)}"` : ""}>
+        ${f.example ? `<div class="cell-dim" style="margin-top:4px">Written the way the next reader expects: <b>${esc(f.example)}</b></div>` : ""}
         <div class="form-actions">
           <button class="ghost-btn" data-close="${fix.dataset.slot}">Cancel</button>
           <button class="primary-btn" data-fix-save="${f.id}">Save Fix</button>

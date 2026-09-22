@@ -20,7 +20,8 @@ import sys
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
 
-MIGRATIONS = ["migrate_manager_tiers", "migrate_year_photos", "migrate_spec_notes"]
+MIGRATIONS = ["migrate_manager_tiers", "migrate_year_photos", "migrate_spec_notes",
+              "migrate_field_example"]
 
 
 def main():

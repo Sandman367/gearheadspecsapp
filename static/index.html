@@ -1341,7 +1341,7 @@ function renderSpec(s, opts = {}){
         </div>` : `
         <div class="propose-row">
           <input type="text" class="propose-input" id="propose-${s.id}"
-                 placeholder="Alternative part number or value you run instead…" maxlength="200" autocomplete="off">
+                 placeholder="${s.example ? esc("Alternative you run instead — e.g. " + s.example) : "Alternative part number or value you run instead…"}" maxlength="200" autocomplete="off">
           <button class="action-btn" data-save-alt="${s.id}" data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock value, for riders to vote on. Never replaces the stock value.">Suggest alternative</button>
         </div>`) : ""}
@@ -1610,7 +1610,8 @@ document.addEventListener("click", guard(async (e) => {
             : ethanol
               ? fuelPickerEthanolOnlyHTML(`val${id}`, "")
               : `<input type="text" id="value-input-${id}" maxlength="500"
-                        placeholder="e.g. Yuasa YTX12-BS" autocomplete="off">`}
+                        placeholder="${spec && spec.example ? esc("e.g. " + spec.example) : "e.g. Yuasa YTX12-BS"}" autocomplete="off">
+                 ${spec && spec.example ? `<div class="field-hint">Written the way the next reader expects: <b>${esc(spec.example)}</b></div>` : ""}`}
         <div class="form-actions">
           <button class="ghost-btn" data-cancel="${id}">Cancel</button>
           <button class="primary-btn" data-save-value="${id}"${

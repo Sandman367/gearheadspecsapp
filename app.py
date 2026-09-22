@@ -677,6 +677,7 @@ def get_bike_specs(ctx):
         "          AND n.field_key = s.field_key) AS note,"
         "       (SELECT u.username FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
         "         WHERE n.bike_id = s.bike_id AND n.field_key = s.field_key) AS note_by,"
+        "       f.example,"
         "       (SELECT n.body FROM spec_notes n WHERE n.bike_id IS NULL"
         "          AND n.field_key = s.field_key) AS site_note,"
         "       (SELECT u.username FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
@@ -1469,7 +1470,7 @@ def manager_flags(ctx):
         # them apart, so a manager is never asked to "fix" a value that is
         # actually somebody's competing suggestion.
         f"       vf.alternate_id, alt.text AS alt_text,"
-        f"       f.label AS spec_label, s.value AS current_value, s.bike_id, s.field_key,"
+        f"       f.label AS spec_label, f.example, s.value AS current_value, s.bike_id, s.field_key,"
         # So the queue can offer the right actions: whether the spec is already
         # offline, and what kind of value it is, since a wire colour cannot be
         # fixed by typing into a text box.
@@ -2790,6 +2791,31 @@ def set_spec_note(ctx):
     return {"ok": True, "note": _note_of(ctx.conn, bike_id, key)}
 
 
+@route("PATCH", r"/api/admin/fields/([a-z0-9_]+)/example", role="admin")
+def set_field_example(ctx):
+    """What a good value looks like for this field. It shows as the example
+    in the entry box on every bike -- "e.g. K&N KN-145" -- so a part number
+    arrives in the shape the next reader expects. Never saved as a value:
+    an empty box stays empty."""
+    key = ctx.params[0]
+    field = one(ctx.conn.execute("SELECT label, value_type FROM spec_fields WHERE field_key=?", (key,)))
+    if not field:
+        raise HttpError(404, "no such field")
+    if field["value_type"] != "text":
+        raise HttpError(409, f"{field['label']} is picked from a list, not typed -- "
+                             "an example would never be seen")
+    example = (ctx.body.get("example") or "").strip() or None
+    if example and len(example) > 120:
+        raise HttpError(400, "an example is limited to 120 characters")
+    ctx.conn.execute("UPDATE spec_fields SET example=? WHERE field_key=?", (example, key))
+    log_action(ctx, "field.example",
+               f'Example for "{field["label"]}": {example}' if example
+               else f'Cleared the example for "{field["label"]}"',
+               target=key, detail={"example": example})
+    ctx.conn.commit()
+    return {"ok": True, "example": example}
+
+
 @route("PATCH", r"/api/admin/fields/([a-z0-9_]+)/note", role="admin")
 def set_field_note(ctx):
     """A note on the FIELD: it shows on every bike that carries it. For what
@@ -3757,7 +3783,7 @@ def admin_list_fields(ctx):
 
     fields = rows(ctx.conn.execute(
         "SELECT f.field_key, f.label, f.category, f.spec_type, f.universal, f.value_type,"
-        "       f.sort_order,"
+        "       f.sort_order, f.example,"
         # Where it sits in its category, so the ends can hide their arrow.
         "       (SELECT COUNT(*) FROM spec_fields x WHERE x.category=f.category"
         "          AND x.sort_order < f.sort_order) AS position,"

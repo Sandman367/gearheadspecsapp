@@ -282,6 +282,13 @@ CREATE TABLE spec_fields (
                      CHECK (value_type IN ('text','wire_color','fuel_octane','ethanol')),
   sort_order       INTEGER NOT NULL DEFAULT 0,
 
+  -- What a good value looks like: "K&N KN-145", "0.16 +/- 0.03 mm". Admin
+  -- writes it once for the field and it becomes the example in every entry
+  -- box on every bike, so a part number arrives in the shape the next
+  -- reader expects instead of "kn145" one time and "K and N 145" the next.
+  -- An example, never a default: nothing is ever saved from it.
+  example          TEXT,
+
   -- 1 = belongs on every bike, whatever the questionnaire says. For specs that
   -- are not conditional on anything — road trip tools, say. A flag rather than
   -- a trigger row per bike, so a bike created tomorrow is covered without

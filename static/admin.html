@@ -500,6 +500,10 @@ async function runFieldSearch(){
             <td data-label="Action"><div class="btn-row">
               <button class="action-btn" data-rename="${esc(f.field_key)}"
                       data-slot="fm${i}" data-label="${esc(f.label)}">Rename</button>
+              ${(f.value_type || "text") === "text" ? `<button class="action-btn${f.example ? " approve" : ""}" data-field-eg="${esc(f.field_key)}"
+                      data-slot="fm${i}" data-label="${esc(f.label)}" data-example="${esc(f.example || "")}"
+                      title="${f.example ? `Shown in the entry box on every bike: e.g. ${esc(f.example)}` : "What a good value looks like, shown in the entry box on every bike"}">${
+                f.example ? "✓ e.g." : "+ e.g."}</button>` : ""}
               <button class="action-btn${f.note ? " approve" : ""}" data-field-note="${esc(f.field_key)}"
                       data-slot="fm${i}" data-label="${esc(f.label)}" data-body="${esc(f.note || "")}"
                       title="${f.note ? "Shown on every bike that carries this field" : "A note shown on every bike that carries this field"}">${
@@ -1539,6 +1543,35 @@ document.addEventListener("click", guard(async (e) => {
                              { universal: true, backfill: true });
     toast(`"${uni.dataset.label}" now applies to every bike — added to ${r.added} of ${r.bikes}. New bikes get it automatically.`, "ok");
     await load();
+    return;
+  }
+
+  const fieldEg = e.target.closest("[data-field-eg]");
+  if(fieldEg){
+    const key = fieldEg.dataset.fieldEg;
+    document.getElementById(`slot-${fieldEg.dataset.slot}`).innerHTML = `
+      <div class="inline-box">
+        <div class="inline-title">Example value for "${esc(fieldEg.dataset.label)}"</div>
+        <div class="inline-sub">What a good value looks like. It shows as the example in the
+          entry box on every bike — "e.g. K&amp;N KN-145" — so a part number arrives in the shape
+          the next reader expects. It is only ever an example: nothing is saved from it, and an
+          empty box saves nothing. Leave it blank to clear it.</div>
+        <input type="text" id="fe-body" maxlength="120" value="${esc(fieldEg.dataset.example || "")}"
+               placeholder="e.g. K&amp;N KN-145">
+        <div class="form-actions">
+          <button class="ghost-btn" data-close="${fieldEg.dataset.slot}">Cancel</button>
+          <button class="primary-btn" data-field-eg-go="${esc(key)}">Save example</button>
+        </div>
+      </div>`;
+    document.getElementById("fe-body").focus();
+    return;
+  }
+  const fieldEgGo = e.target.closest("[data-field-eg-go]");
+  if(fieldEgGo){
+    const example = document.getElementById("fe-body").value.trim();
+    const r = await API.patch(`/api/admin/fields/${fieldEgGo.dataset.fieldEgGo}/example`, { example });
+    toast(r.example ? `Example set: ${r.example}` : "Example cleared.", "ok");
+    document.getElementById("fm-search").dispatchEvent(new Event("input", {bubbles:true}));
     return;
   }
 
