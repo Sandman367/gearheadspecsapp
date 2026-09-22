@@ -172,7 +172,7 @@ $("register-form").addEventListener("submit", guard(async (e) => {
       display_name: $("display").value.trim() || null,
     });
     toast(`Welcome, ${r.user.display_name || r.user.username}.`, "ok");
-    location.href = next;
+    location.href = "/index.html";      // a new account starts at the home page
   } finally {
     btn.disabled = false;
   }

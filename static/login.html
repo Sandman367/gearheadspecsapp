@@ -48,9 +48,12 @@
 <script src="/api.js"></script>
 <script>
 const params = new URLSearchParams(location.search);
+// Signing in lands on the home page, whatever page sent you here: the nav
+// and the counts are drawn at load, so the first page after signing in is
+// the one that should be freshly yours. ?next= is still carried to the
+// register page so the two pages agree with each other.
 const next = params.get("next") || "/index.html";
-// Hand the destination on, so bouncing between the two pages does not lose
-// the page the reader was originally trying to reach.
+const after = "/index.html";
 document.getElementById("to-register").href =
   "/register.html?next=" + encodeURIComponent(next);
 
@@ -63,7 +66,7 @@ document.getElementById("login-form").addEventListener("submit", guard(async (e)
       username: document.getElementById("username").value.trim(),
       password: document.getElementById("password").value,
     });
-    location.href = next;
+    location.href = after;
   } finally {
     btn.disabled = false;
   }

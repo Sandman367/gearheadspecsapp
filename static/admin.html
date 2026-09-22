@@ -387,7 +387,7 @@ document.addEventListener("change", guard(async (e) => {
     return;
   }
   status.textContent = `Restored: ${data.bikes} bikes, ${data.specs} specs, ${data.users} users. Signing you out…`;
-  setTimeout(() => { location.href = "/login.html?next=/admin.html"; }, 2500);
+  setTimeout(() => { location.href = "/login.html"; }, 2500);
 }));
 
 let plTimer;
