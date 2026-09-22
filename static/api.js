@@ -279,6 +279,41 @@ function setNavCount(href, n){
   badge.textContent = n;
 }
 
+/* A show / hide eye on every password box. Idempotent: run it again after
+   a page renders a new form. The eye toggles the box between password and
+   text; the browser still treats the field as a password for autofill. */
+const EYE = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path stroke="currentColor" stroke-width="1.8" d="M4 4l16 16"/></svg>`;
+function passwordEyes(root){
+  (root || document).querySelectorAll('input[type="password"]:not([data-eye])').forEach(input => {
+    input.dataset.eye = "1";
+    const wrap = document.createElement("span");
+    wrap.className = "pw-wrap";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pw-eye";
+    btn.setAttribute("aria-label", "Show password");
+    btn.setAttribute("aria-pressed", "false");
+    btn.title = "Show password";
+    btn.innerHTML = EYE;
+    btn.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.innerHTML = show ? EYE_OFF : EYE;
+      btn.setAttribute("aria-pressed", String(show));
+      btn.title = show ? "Hide password" : "Show password";
+      btn.setAttribute("aria-label", btn.title);
+      input.focus();
+    });
+    wrap.appendChild(btn);
+  });
+}
+document.addEventListener("DOMContentLoaded", () => passwordEyes());
+// forms rendered after load (a re-render, an inline prompt) get theirs too
+new MutationObserver(() => passwordEyes()).observe(document.documentElement, { childList: true, subtree: true });
+
 /* Pages that only make sense signed in as a particular role. The server
    enforces this too — this is just so the user gets a sentence instead of a
    page full of 403s. */

@@ -93,6 +93,17 @@ nav.mainnav a{
 nav.mainnav a:hover{ color: var(--text); background: rgba(255,255,255,0.02); }
 nav.mainnav a.active{ color: var(--amber); border-bottom-color: var(--amber); }
 nav.mainnav .nav-right{ margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* the show / hide eye inside a password box */
+.pw-wrap{ position: relative; display: block; }
+.pw-wrap input{ width: 100%; padding-right: 40px; }
+.pw-eye{
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 30px; height: 28px; padding: 0; border: 0; background: none;
+  color: var(--text-faint); cursor: pointer; display: grid; place-items: center;
+}
+.pw-eye:hover, .pw-eye:focus-visible{ color: var(--amber); outline: none; }
+.pw-eye[aria-pressed="true"]{ color: var(--amber); }
+
 .testing-bar{
   display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 8px 20px; font-size: 12px; color: var(--bg); background: var(--amber);
