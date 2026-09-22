@@ -283,21 +283,31 @@ function setNavCount(href, n){
    it, coloured by tier; admin is the plain shield. Tier is how a manager is
    SHOWN -- it never changes what they can do. */
 const TIER_NAME = { bronze: "Bronze", silver: "Silver", gold: "Gold", admin: "Admin" };
+const SHIELD = "M12 2l8 3v6c0 5.2-3.4 9.5-8 11-4.6-1.5-8-5.8-8-11V5l8-3z";
+// What each tier carries inside the shield, cut out of it: nothing for
+// Bronze, a screwdriver for Silver, screwdriver and wrench for Gold.
+const SCREWDRIVER = `<g fill="var(--bg)" transform="rotate(-45 12 12)"><rect x="10.6" y="4.8" width="2.8" height="5.6" rx="1"/><rect x="11.35" y="10.2" width="1.3" height="7"/><rect x="10.9" y="17" width="2.2" height="1.8" rx=".3"/></g>`;
+const CROSSED = `<g fill="var(--bg)"><g transform="rotate(45 12 12)"><rect x="11.1" y="9.2" width="1.8" height="8.6" rx=".6"/><circle cx="12" cy="8" r="2.6"/></g><g transform="rotate(-45 12 12)"><rect x="10.8" y="5.4" width="2.4" height="5.2" rx=".9"/><rect x="11.45" y="10.4" width="1.1" height="6.4"/><rect x="11.1" y="16.6" width="1.8" height="1.6" rx=".3"/></g></g><g fill="currentColor" transform="rotate(45 12 12)"><rect x="11.2" y="4.6" width="1.6" height="3.6"/></g>`;
+const TICK = `<path fill="var(--bg)" d="M10.8 15.4l5.4-5.4-1.4-1.4-4 4-1.9-1.9-1.4 1.4 3.3 3.3z"/>`;
+const INSIDE = { bronze: "", silver: SCREWDRIVER, gold: CROSSED, admin: TICK, plain: "" };
 function managerMark(tier, size){
   if(!tier) return "";
   const s = size || 16;
-  const shield = "M12 2l8 3v6c0 5.2-3.4 9.5-8 11-4.6-1.5-8-5.8-8-11V5l8-3z";
-  if(tier === "admin"){
-    return `<svg class="mgr-mark t-admin" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="admin" role="img"><path fill="currentColor" d="${shield}"/><path fill="var(--bg)" d="M10.8 15.4l5.4-5.4-1.4-1.4-4 4-1.9-1.9-1.4 1.4 3.3 3.3z"/></svg>`;
-  }
-  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="${esc(TIER_NAME[tier] || tier)} bike manager" role="img">
-    <path fill="currentColor" d="${shield}"/>
-    <g fill="var(--bg)">
-      <g transform="rotate(45 12 12)"><rect x="11.1" y="9.2" width="1.8" height="8.6" rx=".6"/><circle cx="12" cy="8" r="2.6"/></g>
-      <g transform="rotate(-45 12 12)"><rect x="10.8" y="5.4" width="2.4" height="5.2" rx=".9"/><rect x="11.45" y="10.4" width="1.1" height="6.4"/><rect x="11.1" y="16.6" width="1.8" height="1.6" rx=".3"/></g>
-    </g>
-    <g fill="currentColor" transform="rotate(45 12 12)"><rect x="11.2" y="4.6" width="1.6" height="3.6"/></g>
-  </svg>`;
+  const label = tier === "admin" ? "admin" : tier === "plain" ? "bike manager" : `${TIER_NAME[tier] || tier} bike manager`;
+  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="${esc(label)}" role="img"><path fill="currentColor" d="${SHIELD}"/>${INSIDE[tier] || ""}</svg>`;
+}
+const HOLLOW = `<path fill="var(--bg)" stroke="currentColor" stroke-width="1.8" d="M12 2.9l7.1 2.7v5.4c0 4.7-3 8.6-7.1 10-4.1-1.4-7.1-5.3-7.1-10V5.6L12 2.9z"/>`;
+// A manager who stepped back: the hollow shield with a sunset, in the
+// colour of the tier they left with.
+function retiredMark(tier, size){
+  const s = size || 16;
+  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="retired ${esc(TIER_NAME[tier] || tier)} bike manager" role="img"><title>Retired · ${esc(TIER_NAME[tier] || tier)}</title>${HOLLOW}<path fill="currentColor" d="M7.8 13.4a4.2 4.2 0 0 1 8.4 0z"/><rect x="6.6" y="14.4" width="10.8" height="1.6" fill="currentColor"/><rect x="8.4" y="16.8" width="7.2" height="1.3" fill="currentColor" opacity=".55"/></svg>`;
+}
+// The Founding Manager badge: a hollow shield with a solid star -- visibly
+// not a tier. Given by admin, shown beside the tier shield.
+function founderMark(size){
+  const s = size || 16;
+  return `<svg class="mgr-mark t-founder" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="founding manager" role="img"><title>Founding Manager</title><path fill="var(--bg)" stroke="currentColor" stroke-width="1.8" d="M12 2.9l7.1 2.7v5.4c0 4.7-3 8.6-7.1 10-4.1-1.4-7.1-5.3-7.1-10V5.6L12 2.9z"/><path fill="currentColor" d="M12 6.8l1.5 3.1 3.4.4-2.5 2.3.7 3.4L12 14.3l-3.1 1.7.7-3.4-2.5-2.3 3.4-.4z"/></svg>`;
 }
 function tierPill(tier){
   if(!tier) return "";
@@ -306,9 +316,10 @@ function tierPill(tier){
 // A name with its mark, linking to the profile. `role` when the tier is
 // not known (a value's author, a post): manager and admin get the mark in
 // its plain colour.
-function memberName(id, name, tierOrRole){
+function memberName(id, name, tierOrRole, retiredTier){
   const t = (tierOrRole === "manager") ? "plain" : tierOrRole === "user" ? null : tierOrRole;
-  return `<a class="member-name" href="/profile.html?user=${id}">${t ? managerMark(t, 14) : ""}${esc(name)}</a>`;
+  const mark = retiredTier && tierOrRole !== "admin" ? retiredMark(retiredTier, 14) : (t ? managerMark(t, 14) : "");
+  return `<a class="member-name" href="/profile.html?user=${id}">${mark}${esc(name)}</a>`;
 }
 
 /* A show / hide eye on every password box. Idempotent: run it again after

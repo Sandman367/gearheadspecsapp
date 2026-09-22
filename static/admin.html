@@ -831,7 +831,9 @@ function renderMembers(list){
     <thead><tr><th>Account</th><th>Email</th><th>Role</th><th>Joined</th><th>Activity</th></tr></thead>
     <tbody>${list.length ? list.map(u => `
       <tr${u.suspended ? ' class="suspended"' : ""}>
-        <td data-label="Account"><strong>${memberName(u.user_id, u.username, u.tier || (u.role === "admin" ? "admin" : null))}</strong>${u.tier && u.tier !== "admin" ? tierPill(u.tier) : ""}${
+        <td data-label="Account"><strong>${memberName(u.user_id, u.username, u.tier || (u.role === "admin" ? "admin" : null), u.retired_tier)}</strong>${
+          u.retired_tier && !u.tier ? `<span class="tier-pill t-${esc(u.retired_tier)}">Retired · ${esc(TIER_NAME[u.retired_tier])}</span>`
+          : u.tier && u.tier !== "admin" ? tierPill(u.tier) : ""}${u.founder ? founderMark(14) : ""}${
           u.display_name ? `<div class="cell-dim">${esc(u.display_name)}</div>` : ""}${
           u.suspended ? ` <span class="badge danger">suspended</span>` : ""}</td>
         <td data-label="Email">${u.email
@@ -846,6 +848,12 @@ function renderMembers(list){
           <div class="btn-row" style="margin-top:4px">
             <button class="action-btn" data-profile="${u.user_id}" data-name="${esc(u.username)}">Profile</button>
             <button class="action-btn" data-set-pw="${u.user_id}" data-name="${esc(u.username)}">Set password</button>
+            ${u.role !== "admin" ? (u.founder
+              ? `<button class="action-btn" data-founder="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Remove Founding Manager</button>`
+              : `<button class="action-btn" data-founder="${u.user_id}" data-on="1" data-name="${esc(u.username)}" title="The Founding Manager badge: kept for good, shown beside the tier.">Make Founding Manager</button>`) : ""}
+            ${u.role !== "admin" && (u.tier || u.retired_tier) ? (u.retired_tier
+              ? `<button class="action-btn" data-retire="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Unretire</button>`
+              : `<button class="action-btn" data-retire="${u.user_id}" data-on="1" data-name="${esc(u.username)}" title="Writes down the tier they leave with. Their bikes must be handed on first.">Mark retired</button>`) : ""}
             ${u.gold_eligible && !u.gold_confirmed
               ? `<button class="action-btn approve" data-gold="${u.user_id}" data-on="1" data-name="${esc(u.username)}"
                          title="The numbers are there for Gold; it needs your say-so.">Confirm Gold</button>`
@@ -2012,6 +2020,23 @@ document.addEventListener("click", guard(async (e) => {
     return;
   }
 
+  const founder = e.target.closest("[data-founder]");
+  if(founder){
+    const on = founder.dataset.on === "1";
+    await API.post(`/api/admin/users/${founder.dataset.founder}/founder`, { founder: on });
+    toast(on ? `${founder.dataset.name} is a Founding Manager.` : `Founding Manager badge taken back from ${founder.dataset.name}.`, "ok");
+    await load();
+    return;
+  }
+  const retire = e.target.closest("[data-retire]");
+  if(retire){
+    const on = retire.dataset.on === "1";
+    if(on && !confirm(`Mark ${retire.dataset.name} as a retired manager? The tier they hold now is written down and shown as their retired tier.`)) return;
+    const r = await API.post(`/api/admin/users/${retire.dataset.retire}/retire`, { retired: on });
+    toast(on ? `${retire.dataset.name} retired as ${TIER_NAME[r.retired.tier]}.` : `${retire.dataset.name} is back.`, "ok");
+    await load();
+    return;
+  }
   const gold = e.target.closest("[data-gold]");
   if(gold){
     const on = gold.dataset.on === "1";

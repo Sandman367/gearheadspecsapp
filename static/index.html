@@ -131,6 +131,17 @@
   .has-photo:hover .photo-tools, .has-photo:focus-within .photo-tools{ opacity: 1; }
   .has-photo .photo-tools .action-btn{ background: rgba(0,0,0,0.65); }
   @media (hover: none){ .has-photo .photo-tools{ opacity: 1; } }
+  #photo-block{ flex-shrink: 0; }
+  .photo-credit{
+    position: absolute; right: 8px; bottom: 8px; font-family: var(--mono); font-size: 10px;
+    color: var(--text); background: rgba(0,0,0,0.6); padding: 2px 7px;
+  }
+  .photo-years{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; width: 280px; }
+  .year-chip{
+    font-family: var(--mono); font-size: 10.5px; padding: 2px 8px; border: 1px solid var(--line);
+    background: none; color: var(--text-dim); cursor: pointer;
+  }
+  .year-chip.on{ border-color: var(--amber); color: var(--amber); }
   .bike-meta{ flex: 1; min-width: 280px; }
   .hero-title{
     font-family: var(--display); font-size: 26px; font-weight: 600; letter-spacing: 0.01em; margin: 0 0 6px;
@@ -714,6 +725,15 @@ els.year.addEventListener("change", () => {
   if(!sel || !els.year.value) return;
   const opt = [...sel.options].find(o => o.textContent === els.year.value);
   if(opt) sel.value = opt.value;
+  PHOTO_VIEW = null;
+  const block = byId("photo-block");
+  if(block && BIKE) block.innerHTML = renderPhotoBlock();
+});
+document.addEventListener("change", (e) => {
+  if(e.target.id !== "garage-year") return;
+  PHOTO_VIEW = null;
+  const block = byId("photo-block");
+  if(block && BIKE) block.innerHTML = renderPhotoBlock();
 });
 els.model.addEventListener("change", () => search(true));
 
@@ -777,12 +797,13 @@ document.addEventListener("change", guard(async (e) => {
   if(file.size > 5 * 1024 * 1024){
     toast("That photo is over 5 MB. Resize it and try again.", "error"); return;
   }
-  const res = await fetch(`/api/bikes/${BIKE.bike_id}/photo`, {
+  const y = PHOTO_UPLOAD_YEAR;
+  const res = await fetch(`/api/bikes/${BIKE.bike_id}/photo${y ? "?year=" + y : ""}`, {
     method: "POST", credentials: "same-origin",
     headers: { "Content-Type": file.type }, body: file });
   const data = await res.json().catch(() => ({}));
   if(!res.ok){ const err = new Error(data.error || res.statusText); err.status = res.status; throw err; }
-  toast("Photo saved." + (data.notified_admin ? " Admin has been told." : ""), "ok");
+  toast((y ? `${y} photo saved.` : "Main photo saved.") + (data.notified_admin ? " Admin has been told." : ""), "ok");
   await openBike(BIKE.bike_id, { silent: true });
 }));
 
@@ -857,21 +878,7 @@ function renderHero(){
 
   return `
     <div class="bike-hero">
-      <div class="bike-photo${bike.photo ? " has-photo" : ""}">
-        ${bike.photo
-          ? `<img src="${esc(bike.photo.url)}" alt="${esc(bike.display_name)}">`
-          : `<svg viewBox="0 0 64 64" fill="none" stroke-width="2">
-              <circle cx="16" cy="46" r="9"/><circle cx="48" cy="46" r="9"/>
-              <path d="M16 46 28 26h14l10 20M28 26l6-8h9"/></svg>
-            <div style="margin-top:8px">Photo pending</div>`}
-        ${MANAGES_THIS_BIKE ? `
-          <div class="photo-tools">
-            <button class="action-btn" data-photo-pick
-                    title="JPEG, PNG or WebP, up to 5 MB">${bike.photo ? "Change photo" : "Add a photo"}</button>
-            ${bike.photo ? `<button class="action-btn danger" data-photo-remove>Remove</button>` : ""}
-            <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden>
-          </div>` : ""}
-      </div>
+      <div id="photo-block">${renderPhotoBlock()}</div>
       <div class="bike-meta">
         <h1 class="hero-title">${esc(bike.display_name)}</h1>
         <div class="alt-name">${esc(bike.year_range || "years unknown")}${
@@ -919,7 +926,7 @@ function renderHero(){
         <div class="credit">
           <span class="lbl">Maintained by</span>
           ${bike.managers.length
-            ? bike.managers.map(m => `<span class="person">${memberName(m.id, m.username, m.tier)}${tierPill(m.tier)}</span>`).join("")
+            ? bike.managers.map(m => `<span class="person">${memberName(m.id, m.username, m.tier)}${tierPill(m.tier)}${m.founder ? founderMark(16) : ""}</span>`).join("")
             : `<span class="cell-dim">nobody yet — <a href="/request-spec.html?bike=${bike.bike_id}">ask for a spec</a> and admin will find one</span>`}
           <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
@@ -928,8 +935,62 @@ function renderHero(){
     </div>`;
 }
 
+// The year being looked at drives which photo shows: the year's own if a
+// manager gave it one, else the main photo, which stands for every year.
+let PHOTO_VIEW = null;      // a chip click: a year, or 0 for "the main photo"; null = follow the year picker
+function photoYear(){
+  if(PHOTO_VIEW !== null) return PHOTO_VIEW || null;
+  const sel = byId("garage-year");
+  if(sel && sel.selectedIndex >= 0) return Number(sel.options[sel.selectedIndex].textContent);
+  if(els.year.value) return Number(els.year.value);
+  return null;
+}
+function renderPhotoBlock(){
+  const bike = BIKE;
+  const year = photoYear();
+  const yp = year ? (bike.year_photos || []).find(p => p.year === year) : null;
+  const shown = yp || bike.photo;
+  const me = ME.user ? ME.user.id : null;
+  const isAdmin = ME.user && ME.user.role === "admin";
+  const canTouch = p => p && (isAdmin || p.uploaded_by_id === me);
+  const myYear = (bike.year_photos || []).find(p => p.uploaded_by_id === me);
+  // what the manager can do from here
+  let tools = "";
+  if(MANAGES_THIS_BIKE){
+    const b = [];
+    if(!bike.photo) b.push(`<button class="action-btn" data-photo-pick="" title="JPEG, PNG or WebP, up to 5 MB">Add the main photo</button>`);
+    else if(canTouch(bike.photo)) b.push(`<button class="action-btn" data-photo-pick="" title="The main photo stands for every year without one of its own">Change main photo</button>`);
+    if(year){
+      if(yp && canTouch(yp)) b.push(`<button class="action-btn" data-photo-pick="${year}">Change ${year} photo</button>`);
+      else if(!yp && (isAdmin || !myYear)) b.push(`<button class="action-btn" data-photo-pick="${year}" title="A photo of a ${year} bike, shown when someone looks at ${year}">Add ${year} photo</button>`);
+      else if(!yp && myYear) b.push(`<span class="cell-dim" style="align-self:center">You hold the ${myYear.year} photo — one year each</span>`);
+    }
+    if(shown && canTouch(shown)) b.push(`<button class="action-btn danger" data-photo-remove="${shown.year || ""}">Remove${shown.year ? " " + shown.year : ""}</button>`);
+    tools = `<div class="photo-tools">${b.join("")}<input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden></div>`;
+  }
+  const strip = (bike.year_photos || []).length ? `
+    <div class="photo-years">
+      <span class="cell-dim">Photos by year:</span>
+      ${bike.photo ? `<button class="year-chip${!yp ? " on" : ""}" data-photo-year="" title="The main photo, by ${esc(bike.photo.uploaded_by || "")}">all years</button>` : ""}
+      ${bike.year_photos.map(p => `<button class="year-chip${yp && yp.year === p.year ? " on" : ""}" data-photo-year="${p.year}" title="By ${esc(p.uploaded_by || "")}">${p.year}</button>`).join("")}
+    </div>` : "";
+  return `
+      <div class="bike-photo${shown ? " has-photo" : ""}">
+        ${shown
+          ? `<img src="${esc(shown.url)}" alt="${esc(bike.display_name)}${shown.year ? " " + shown.year : ""}">
+             ${shown.uploaded_by ? `<span class="photo-credit">${shown.year ? shown.year + " · " : ""}${esc(shown.uploaded_by)}</span>` : ""}`
+          : `<svg viewBox="0 0 64 64" fill="none" stroke-width="2">
+              <circle cx="16" cy="46" r="9"/><circle cx="48" cy="46" r="9"/>
+              <path d="M16 46 28 26h14l10 20M28 26l6-8h9"/></svg>
+            <div style="margin-top:8px">Photo pending</div>`}
+        ${tools}
+      </div>${strip}`;
+}
+let PHOTO_UPLOAD_YEAR = null;
+
 function renderDetail(){
   const bike = BIKE;
+  PHOTO_VIEW = null;
   byId("detail-container").innerHTML = `
     ${renderHero()}
     <div class="panel">
@@ -1163,7 +1224,7 @@ function renderSpec(s, opts = {}){
         ${confidenceBadge(s.confidence)}
         ${typeBadge(s.spec_type)}
         ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
-        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role)}</span>` : ""}
+        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role, s.entered_by_retired)}</span>` : ""}
         ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
             data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
             title="${locked
@@ -1694,13 +1755,28 @@ document.addEventListener("click", guard(async (e) => {
 
   // ---- the bike's photo ---------------------------------------------------
   const photoPick = e.target.closest("[data-photo-pick]");
-  if(photoPick){ byId("photo-file").click(); return; }
+  if(photoPick){ PHOTO_UPLOAD_YEAR = photoPick.dataset.photoPick || null; byId("photo-file").click(); return; }
   const photoRemove = e.target.closest("[data-photo-remove]");
   if(photoRemove){
-    if(!confirm("Remove this bike's photo? The page goes back to “Photo pending”.")) return;
-    await API.del(`/api/bikes/${BIKE.bike_id}/photo`);
+    const y = photoRemove.dataset.photoRemove;
+    if(!confirm(y ? `Remove the ${y} photo? ${y} goes back to the main photo.` : "Remove the main photo? Years without their own photo go back to “Photo pending”.")) return;
+    await API.del(`/api/bikes/${BIKE.bike_id}/photo${y ? "?year=" + y : ""}`);
     toast("Photo removed.", "ok");
     await openBike(BIKE.bike_id, { silent: true });
+    return;
+  }
+  const photoYearChip = e.target.closest("[data-photo-year]");
+  if(photoYearChip){
+    // looking at a year's photo also selects that year for the garage;
+    // "all years" shows the main photo without touching the year
+    const y = photoYearChip.dataset.photoYear;
+    PHOTO_VIEW = y ? Number(y) : 0;
+    const sel = byId("garage-year");
+    if(sel && y){
+      const opt = [...sel.options].find(o => o.textContent === y);
+      if(opt) sel.value = opt.value;
+    }
+    byId("photo-block").innerHTML = renderPhotoBlock();
     return;
   }
 

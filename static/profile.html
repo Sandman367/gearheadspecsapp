@@ -84,14 +84,17 @@ const load = guard(async () => {
   document.getElementById("content").innerHTML = `
     <div class="panel">
       <div class="panel-body who">
-        <h2>${st.tier ? managerMark(st.tier, 26) : ""}${esc(st.username)}${st.tier && st.tier !== "admin" ? tierPill(st.tier) : ""}</h2>
+        <h2>${st.retired && !st.tier ? retiredMark(st.retired.tier, 26) : st.tier ? managerMark(st.tier, 26) : ""}${esc(st.username)}${
+          st.retired && !st.tier ? `<span class="tier-pill t-${esc(st.retired.tier)}">Retired · ${esc(TIER_NAME[st.retired.tier])}</span>`
+          : st.tier && st.tier !== "admin" ? tierPill(st.tier) : ""}${st.founder ? founderMark(24) : ""}</h2>
         <span class="sub">${st.role === "admin" ? "Site admin"
           : st.is_manager ? `Bike manager · ${st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(" · ")}`
+          : st.retired ? `Retired bike manager · stepped back ${esc(String(st.retired.at || "").slice(0, 10))} as ${esc(TIER_NAME[st.retired.tier])}`
           : "Rider"}</span>
       </div>
     </div>
 
-    ${st.is_manager && st.role !== "admin" ? `
+    ${(st.is_manager || st.retired) && st.role !== "admin" ? `
     <div class="grid2">
       <div>
         <div class="panel">

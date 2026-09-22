@@ -2,6 +2,7 @@
 Manager tiers: two columns the standing is computed with.
 
   users.gold_confirmed        -- admin's say-so for Gold (the rest is computed)
+  users.founder               -- the founder badge, given by admin
   value_flags.old_entered_by  -- who entered the value a fix replaced, so a
                                  wrong spec counts against its author
 
@@ -23,6 +24,13 @@ def migrate(db_path):
     if "gold_confirmed" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN gold_confirmed INTEGER NOT NULL DEFAULT 0"
                      " CHECK (gold_confirmed IN (0,1))")
+    if "founder" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN founder INTEGER NOT NULL DEFAULT 0"
+                     " CHECK (founder IN (0,1))")
+    if "retired_tier" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN retired_tier TEXT"
+                     " CHECK (retired_tier IN ('bronze','silver','gold'))")
+        conn.execute("ALTER TABLE users ADD COLUMN retired_at TEXT")
     cols = {r[1] for r in conn.execute("PRAGMA table_info(value_flags)")}
     if "old_entered_by" not in cols:
         conn.execute("ALTER TABLE value_flags ADD COLUMN old_entered_by INTEGER"

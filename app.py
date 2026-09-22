@@ -528,7 +528,7 @@ def get_bike(ctx):
     bike["names"] = rows(ctx.conn.execute(
         "SELECT name, market, is_primary FROM bike_names WHERE bike_id=?"
         " ORDER BY is_primary DESC, name", (bike_id,)))
-    bike["photo"] = photo_of(ctx.conn, bike_id)
+    bike["photo"], bike["year_photos"] = photo_of(ctx.conn, bike_id)
     bike["years"] = rows(ctx.conn.execute(
         "SELECT id AS bike_year_id, year, in_v2 FROM bike_years"
         " WHERE bike_id=? ORDER BY year", (bike_id,)))
@@ -537,7 +537,8 @@ def get_bike(ctx):
         " FROM bike_managers m JOIN users u ON u.id = m.user_id"
         " WHERE m.bike_id=?", (bike_id,)))
     for m in bike["managers"]:
-        m["tier"] = manager_standing(ctx.conn, m["id"])["tier"]
+        st = manager_standing(ctx.conn, m["id"])
+        m["tier"], m["founder"] = st["tier"], st["founder"]
     return bike
 
 
@@ -576,6 +577,7 @@ def get_bike_specs(ctx):
         "       (s.spec_type IS NOT NULL) AS type_overridden,"
         "       f.spec_type AS field_spec_type,"
         "       u.username AS entered_by_username, s.entered_by, u.role AS entered_by_role,"
+        "       u.retired_tier AS entered_by_retired,"
         "       vc.votes, rc.requests,"
         "       EXISTS(SELECT 1 FROM spec_votes v"
         "              WHERE v.spec_id=s.id AND v.user_id=?) AS my_vote,"
@@ -2216,7 +2218,7 @@ def board_thread(ctx):
     t = _thread_or_404(ctx.conn, tid)
     posts = rows(ctx.conn.execute(
         "SELECT p.id, p.body, p.created_at, p.edited_at, u.username AS author, u.id AS author_id,"
-        "       u.role AS author_role"
+        "       u.role AS author_role, u.retired_tier AS author_retired"
         " FROM board_posts p JOIN users u ON u.id = p.author_id"
         " WHERE p.thread_id=? ORDER BY p.created_at, p.id", (tid,)))
     first = posts[0]["id"] if posts else None
@@ -2482,10 +2484,9 @@ TIER_RULES = {
 }
 WRONG_RATE_CAP = 5.0        # % of a manager's values later fixed after a flag: above this, Bronze
 MEDIAN_MIN_FLAGS = 5        # a median of fewer than this says nothing
-FOUNDING_MANAGERS = 10      # the first ten people ever assigned a bike
 
 BADGE_RULES = [
-    ("founding",      "Founding Manager", "Among the first ten riders ever assigned a bike"),
+    ("founding",      "Founding Manager", "Given by admin to the managers who built the site"),
     ("first_hundred", "First Hundred",    "100 spec values entered"),
     ("manual_hunter", "Manual Hunter",    "50 values straight from the manual (Confirmed)"),
     ("second_saddle", "Second Saddle",    "Manages two or more bikes"),
@@ -2499,8 +2500,8 @@ BADGE_RULES = [
 def manager_standing(conn, user_id):
     """Everything the tier and the badges are decided from, plus the
     decision, for one person. Cheap enough to compute on demand."""
-    u = one(conn.execute("SELECT id, username, role, gold_confirmed, created_at FROM users WHERE id=?",
-                         (user_id,)))
+    u = one(conn.execute("SELECT id, username, role, gold_confirmed, founder, retired_tier, retired_at,"
+                         " created_at FROM users WHERE id=?", (user_id,)))
     if not u:
         raise HttpError(404, "user not found")
     q = lambda sql, *a: conn.execute(sql, a).fetchone()[0]
@@ -2528,9 +2529,6 @@ def manager_standing(conn, user_id):
     if len(waits) >= MEDIAN_MIN_FLAGS:
         mid = len(waits) // 2
         median = round(waits[mid] if len(waits) % 2 else (waits[mid - 1] + waits[mid]) / 2, 2)
-    founding_ids = [r[0] for r in conn.execute(
-        "SELECT user_id FROM bike_managers GROUP BY user_id ORDER BY MIN(created_at), MIN(id) LIMIT ?",
-        (FOUNDING_MANAGERS,))]
 
     share = round(100 * confirmed / specs, 1) if specs else None
     wrong = round(100 * upheld / specs, 1) if specs else 0.0
@@ -2539,20 +2537,23 @@ def manager_standing(conn, user_id):
     def meets(rule):
         return (specs >= rule["specs"] and (share or 0) >= rule["confirmed_share"]
                 and flags >= rule["flags"] and median is not None and median <= rule["median_days"])
+    # what the numbers say, whether or not they hold a bike today: the live
+    # tier while they manage, the tier frozen at retirement otherwise
+    earned = "bronze"
+    if wrong <= WRONG_RATE_CAP:
+        if meets(TIER_RULES["silver"]):
+            earned = "silver"
+        if meets(TIER_RULES["gold"]) and u["gold_confirmed"]:
+            earned = "gold"
     tier = None
     if u["role"] == "admin":
         tier = "admin"
     elif is_manager:
-        tier = "bronze"
-        if wrong <= WRONG_RATE_CAP:
-            if meets(TIER_RULES["silver"]):
-                tier = "silver"
-            if meets(TIER_RULES["gold"]) and u["gold_confirmed"]:
-                tier = "gold"
+        tier = earned
     gold_eligible = is_manager and u["role"] != "admin" and wrong <= WRONG_RATE_CAP and meets(TIER_RULES["gold"])
 
     have = {
-        "founding":      user_id in founding_ids,
+        "founding":      bool(u["founder"]),
         "first_hundred": specs >= 100,
         "manual_hunter": confirmed >= 50,
         "second_saddle": len(bikes) >= 2,
@@ -2565,7 +2566,9 @@ def manager_standing(conn, user_id):
 
     return {
         "user_id": u["id"], "username": u["username"], "role": u["role"],
-        "is_manager": is_manager, "tier": tier,
+        "is_manager": is_manager, "tier": tier, "founder": bool(u["founder"]),
+        "earned_tier": earned,
+        "retired": ({"tier": u["retired_tier"], "at": u["retired_at"]} if u["retired_tier"] else None),
         "bikes": bikes,
         "stats": {"specs_entered": specs, "confirmed": confirmed, "confirmed_share": share,
                   "flags_resolved": flags, "median_response_days": median,
@@ -2582,6 +2585,48 @@ def user_standing(ctx):
     """A member's tier, the numbers behind it, and their badges. Public:
     the tier is on every bike's header and the profile explains it."""
     return manager_standing(ctx.conn, int(ctx.params[0]))
+
+
+@route("POST", r"/api/admin/users/(\d+)/founder", role="admin")
+def admin_set_founder(ctx):
+    """The Founding Manager badge: admin's to give, and to take back."""
+    uid = int(ctx.params[0])
+    u = one(ctx.conn.execute("SELECT username FROM users WHERE id=?", (uid,)))
+    if not u:
+        raise HttpError(404, "no such user")
+    on = bool(ctx.body.get("founder", True))
+    ctx.conn.execute("UPDATE users SET founder=? WHERE id=?", (1 if on else 0, uid))
+    log_action(ctx, "user.founder" if on else "user.unfounder",
+               f"{'Gave' if on else 'Took back'} the Founding Manager badge: {u['username']}", target=str(uid))
+    ctx.conn.commit()
+    return {"ok": True, "founder": on}
+
+
+@route("POST", r"/api/admin/users/(\d+)/retire", role="admin")
+def admin_retire(ctx):
+    """A manager steps back. The tier they leave with is written down now
+    -- a live tier is computed from what you are doing, and a retired
+    manager is doing nothing -- and their bikes must already be handed on.
+    Reversed with retired=false; the tier goes live again when a bike is."""
+    uid = int(ctx.params[0])
+    st = manager_standing(ctx.conn, uid)
+    on = bool(ctx.body.get("retired", True))
+    if on:
+        if st["role"] == "admin":
+            raise HttpError(400, "admin does not retire from managing")
+        if st["bikes"]:
+            raise HttpError(409, f"{st['username']} still manages {len(st['bikes'])} bike(s) -- hand them on first")
+        tier = st["earned_tier"]
+        ctx.conn.execute("UPDATE users SET retired_tier=?, retired_at=datetime('now') WHERE id=?", (tier, uid))
+        log_action(ctx, "user.retire", f"{st['username']} retired as {TIER_LABEL.get(tier, tier)}", target=str(uid))
+    else:
+        ctx.conn.execute("UPDATE users SET retired_tier=NULL, retired_at=NULL WHERE id=?", (uid,))
+        log_action(ctx, "user.unretire", f"{st['username']} is back from retirement", target=str(uid))
+    ctx.conn.commit()
+    return {"ok": True, "retired": manager_standing(ctx.conn, uid)["retired"]}
+
+
+TIER_LABEL = {"bronze": "Bronze", "silver": "Silver", "gold": "Gold"}
 
 
 @route("POST", r"/api/admin/users/(\d+)/gold", role="admin")
@@ -4908,26 +4953,55 @@ def sniff_image(data):
 
 
 def photo_of(conn, bike_id):
-    p = one(conn.execute(
-        "SELECT p.file, p.mime, p.bytes, p.uploaded_at, u.username AS uploaded_by"
-        " FROM bike_photos p LEFT JOIN users u ON u.id=p.uploaded_by WHERE p.bike_id=?",
-        (bike_id,)))
-    if not p:
+    """The main photo, with the year photos alongside it. None when the
+    bike has no main photo -- year photos can still exist then, and the
+    page shows them for their years."""
+    ps = rows(conn.execute(
+        "SELECT p.year, p.file, p.mime, p.bytes, p.uploaded_at, p.uploaded_by AS uploaded_by_id,"
+        "       u.username AS uploaded_by"
+        " FROM bike_photos p LEFT JOIN users u ON u.id=p.uploaded_by WHERE p.bike_id=?"
+        " ORDER BY p.year", (bike_id,)))
+    for p in ps:
+        # the timestamp in the URL makes a replaced photo show at once instead of
+        # the browser's cached copy of the old one
+        p["url"] = f"/photos/{p['file']}?v={quote(p['uploaded_at'])}"
+    main = next((p for p in ps if p["year"] is None), None)
+    years = [p for p in ps if p["year"] is not None]
+    return main, years
+
+
+def _photo_year(ctx, bike_id):
+    """The ?year= of a photo request: None for the main photo, else one of
+    the bike's model years."""
+    raw = ctx.arg("year")
+    if raw in (None, ""):
         return None
-    # the timestamp in the URL makes a replaced photo show at once instead of
-    # the browser's cached copy of the old one
-    p["url"] = f"/photos/{p['file']}?v={quote(p['uploaded_at'])}"
-    return p
+    if not str(raw).isdigit():
+        raise HttpError(400, "year must be a model year")
+    year = int(raw)
+    if not ctx.conn.execute("SELECT 1 FROM bike_years WHERE bike_id=? AND year=?", (bike_id, year)).fetchone():
+        raise HttpError(404, f"{year} is not one of this bike's model years")
+    return year
 
 
 @route("POST", r"/api/bikes/(\d+)/photo", role="manager")
 def upload_bike_photo(ctx):
+    """A photo for the bike (no ?year=) or for one of its model years.
+
+    The main photo is the first manager's: whoever put it there, or admin,
+    can replace or remove it; another manager cannot, and adds a photo for
+    the year their own bike is instead. A year photo can be added where
+    that year has none, or replaced by whoever added it; a manager holds
+    one year photo per bike, so a bike with several managers over the
+    years shows each of them once.
+    """
     bike_id = int(ctx.params[0])
     require_manages(ctx.conn, ctx.user, bike_id)
     bike = one(ctx.conn.execute("SELECT display_name, year_range FROM bike_display"
                                 " WHERE bike_id=?", (bike_id,)))
     if not bike:
         raise HttpError(404, "bike not found")
+    year = _photo_year(ctx, bike_id)
     data = ctx.body.get("_raw") if isinstance(ctx.body, dict) else None
     if not data:
         raise HttpError(400, "send the image itself as the request body,"
@@ -4938,52 +5012,80 @@ def upload_bike_photo(ctx):
     if len(data) > PHOTO_MAX_BYTES:
         raise HttpError(413, f"the photo is over {PHOTO_MAX_BYTES // (1024 * 1024)} MB")
 
+    is_admin = ctx.user["role"] == "admin"
+    old = one(ctx.conn.execute(
+        "SELECT p.file, p.uploaded_by, u.username FROM bike_photos p LEFT JOIN users u ON u.id = p.uploaded_by"
+        " WHERE p.bike_id=? AND p.year IS ?", (bike_id, year)))
+    if old and old["uploaded_by"] != ctx.user["id"] and not is_admin:
+        whose = old["username"] or "an earlier manager"
+        if year is None:
+            raise HttpError(403, f"the main photo is {whose}'s and stays; add a photo for the year your bike is")
+        raise HttpError(403, f"the {year} photo is {whose}'s; pick a year without one")
+    if year is not None and not is_admin:
+        held = one(ctx.conn.execute(
+            "SELECT year FROM bike_photos WHERE bike_id=? AND uploaded_by=? AND year IS NOT NULL AND year<>?",
+            (bike_id, ctx.user["id"], year)))
+        if held:
+            raise HttpError(409, f"you already have the {held['year']} photo on this bike -- one year each;"
+                                 " replace or remove that one first")
+
     os.makedirs(PHOTO_DIR, exist_ok=True)
-    fname = f"{bike_id}.{PHOTO_TYPES[mime]}"
+    fname = f"{bike_id}.{PHOTO_TYPES[mime]}" if year is None else f"{bike_id}-{year}.{PHOTO_TYPES[mime]}"
     with open(os.path.join(PHOTO_DIR, fname), "wb") as f:
         f.write(data)
-    old = one(ctx.conn.execute("SELECT file FROM bike_photos WHERE bike_id=?", (bike_id,)))
     if old and old["file"] != fname:              # a PNG replacing a JPEG
         try:
             os.remove(os.path.join(PHOTO_DIR, old["file"]))
         except OSError:
             pass
-    ctx.conn.execute(
-        "INSERT INTO bike_photos (bike_id, file, mime, bytes, uploaded_by, uploaded_at)"
-        " VALUES (?,?,?,?,?,datetime('now'))"
-        " ON CONFLICT(bike_id) DO UPDATE SET file=excluded.file, mime=excluded.mime,"
-        " bytes=excluded.bytes, uploaded_by=excluded.uploaded_by,"
-        " uploaded_at=excluded.uploaded_at",
-        (bike_id, fname, mime, len(data), ctx.user["id"]))
-    photo = photo_of(ctx.conn, bike_id)
-    verb = "Replaced the photo of" if old else "Added a photo to"
+    # NULL years never conflict in a UNIQUE, so the main photo is updated by
+    # hand rather than through ON CONFLICT
+    if old:
+        ctx.conn.execute(
+            "UPDATE bike_photos SET file=?, mime=?, bytes=?, uploaded_by=?, uploaded_at=datetime('now')"
+            " WHERE bike_id=? AND year IS ?", (fname, mime, len(data), ctx.user["id"], bike_id, year))
+    else:
+        ctx.conn.execute(
+            "INSERT INTO bike_photos (bike_id, year, file, mime, bytes, uploaded_by, uploaded_at)"
+            " VALUES (?,?,?,?,?,?,datetime('now'))",
+            (bike_id, year, fname, mime, len(data), ctx.user["id"]))
+    main, years = photo_of(ctx.conn, bike_id)
+    photo = main if year is None else next(p for p in years if p["year"] == year)
+    what = "photo" if year is None else f"{year} photo"
+    verb = f"Replaced the {what} of" if old else f"Added a {what} to"
     summary = f'{verb} "{bike["display_name"]}"'
     detail = {"file": fname, "mime": mime, "bytes": len(data), "url": photo["url"],
-              "replaced": bool(old)}
+              "year": year, "replaced": bool(old)}
     log_action(ctx, "bike.photo", summary, target=bike_id, detail=detail)
     notify_admin(ctx, "photo", bike_id,
                  f'{ctx.user["username"]} {summary[0].lower() + summary[1:]}'
                  + (f' ({bike["year_range"]})' if bike["year_range"] else ""), detail)
     ctx.conn.commit()
-    return {"ok": True, "photo": photo, "notified_admin": ctx.user["role"] != "admin"}
+    return {"ok": True, "photo": photo, "photo_main": main, "year_photos": years,
+            "notified_admin": ctx.user["role"] != "admin"}
 
 
 @route("DELETE", r"/api/bikes/(\d+)/photo", role="manager")
 def delete_bike_photo(ctx):
     bike_id = int(ctx.params[0])
     require_manages(ctx.conn, ctx.user, bike_id)
-    old = one(ctx.conn.execute("SELECT file FROM bike_photos WHERE bike_id=?", (bike_id,)))
+    year = _photo_year(ctx, bike_id)
+    old = one(ctx.conn.execute(
+        "SELECT p.id, p.file, p.uploaded_by, u.username FROM bike_photos p LEFT JOIN users u ON u.id = p.uploaded_by"
+        " WHERE p.bike_id=? AND p.year IS ?", (bike_id, year)))
     if not old:
-        raise HttpError(404, "this bike has no photo")
-    ctx.conn.execute("DELETE FROM bike_photos WHERE bike_id=?", (bike_id,))
+        raise HttpError(404, "this bike has no photo" if year is None else f"this bike has no {year} photo")
+    if old["uploaded_by"] != ctx.user["id"] and ctx.user["role"] != "admin":
+        raise HttpError(403, f"that photo is {old['username'] or 'an earlier manager'}'s")
+    ctx.conn.execute("DELETE FROM bike_photos WHERE id=?", (old["id"],))
     try:
         os.remove(os.path.join(PHOTO_DIR, old["file"]))
     except OSError:
         pass
     name = one(ctx.conn.execute("SELECT display_name FROM bike_display WHERE bike_id=?",
                                 (bike_id,)))["display_name"]
-    log_action(ctx, "bike.photo_remove", f'Removed the photo of "{name}"',
-               target=bike_id, detail={"file": old["file"]}, destructive=True)
+    log_action(ctx, "bike.photo_remove", f'Removed the {"photo" if year is None else f"{year} photo"} of "{name}"',
+               target=bike_id, detail={"file": old["file"], "year": year}, destructive=True)
     ctx.conn.commit()
     return {"ok": True}
 
@@ -5424,7 +5526,7 @@ def admin_restore_photos(ctx):
     kept, skipped = [], []
     for info in z.infolist():
         name = os.path.basename(info.filename)
-        if info.is_dir() or not re.fullmatch(r"\d+\.(jpg|png|webp)", name):
+        if info.is_dir() or not re.fullmatch(r"\d+(-\d{4})?\.(jpg|png|webp)", name):
             if not info.is_dir():
                 skipped.append(info.filename)
             continue
@@ -5449,7 +5551,7 @@ def admin_backup_photos(ctx):
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         if os.path.isdir(PHOTO_DIR):
             for f in sorted(os.listdir(PHOTO_DIR)):
-                if re.fullmatch(r"\d+\.(jpg|png|webp)", f):
+                if re.fullmatch(r"\d+(-\d{4})?\.(jpg|png|webp)", f):
                     z.write(os.path.join(PHOTO_DIR, f), f)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return {"_file": buf.getvalue(), "_filename": f"gearheadspecs-photos-{stamp}.zip", "_ctype": "application/zip"}
@@ -5520,6 +5622,8 @@ def list_users(ctx):
         if u["bikes"] or u["role"] == "admin":
             st = manager_standing(ctx.conn, u["user_id"])
             u["tier"], u["gold_eligible"], u["gold_confirmed"] = st["tier"], st["gold_eligible"], st["gold_confirmed"]
+        row = ctx.conn.execute("SELECT founder, retired_tier FROM users WHERE id=?", (u["user_id"],)).fetchone()
+        u["founder"], u["retired_tier"] = bool(row[0]), row[1]
     return {"users": users}
 
 

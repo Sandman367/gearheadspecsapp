@@ -5639,9 +5639,99 @@ class ApiTest(unittest.TestCase):
             names = {b["key"]: b["earned"] for b in st["badges"]}
             self.assertFalse(names["first_hundred"])
             self.assertTrue(names["clean_sheet"] is False)     # one overturned value inside 90 days
+            # the founder badge is admin's to give, and shows wherever the tier does
+            self.assertFalse(names["founding"])
+            self.assertEqual(self.as_("m.alvarez").post(f"/api/admin/users/{uid}/founder", {"founder": True})[0], 403)
+            s, r = adm.post(f"/api/admin/users/{uid}/founder", {"founder": True})
+            self.assertEqual((s, r["founder"]), (200, True))
+            st = self.anon().get(f"/api/users/{uid}/standing")[1]
+            self.assertTrue(st["founder"])
+            self.assertTrue({b["key"]: b["earned"] for b in st["badges"]}["founding"])
+            self.assertTrue(self.anon().get(f"/api/bikes/{bike}")[1]["managers"][0]["founder"])
+            adm.post(f"/api/admin/users/{uid}/founder", {"founder": False})
+            self.assertFalse(self.anon().get(f"/api/users/{uid}/standing")[1]["founder"])
             adm.post(f"/api/admin/users/{uid}/gold", {"confirmed": False})
         finally:
             app.TIER_RULES, app.MEDIAN_MIN_FLAGS = saved[0], saved[1]
+
+
+    def test_g04_photos_by_year_and_the_first_managers_photo_stays(self):
+        """The main photo is the first manager's and a later manager cannot
+        replace it; they add a photo for the year their own bike is, one
+        year each. The bike shows the year's photo for that year and the
+        main photo for the rest."""
+        adm = self.as_("admin")
+        bike = self._identity_bike(adm, "YEAR PHOTOS", 2004, 2007)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("m.alvarez")})
+        dave, alv = self.as_("cb919_dave"), self.as_("m.alvarez")
+        s, b = self._raw_post(dave, f"/api/bikes/{bike}/photo", self.JPG, "image/jpeg")
+        self.assertEqual(s, 200, b)
+        self.assertIsNone(b["photo"]["year"])
+        # the second manager cannot touch the main photo
+        s, b = self._raw_post(alv, f"/api/bikes/{bike}/photo", self.PNG, "image/png")
+        self.assertEqual(s, 403, b)
+        self.assertIn("cb919_dave", b["error"])
+        self.assertEqual(alv.delete(f"/api/bikes/{bike}/photo")[0], 403)
+        # a year that is not the bike's, and a year that is
+        self.assertEqual(self._raw_post(alv, f"/api/bikes/{bike}/photo?year=1999", self.PNG, "image/png")[0], 404)
+        s, b = self._raw_post(alv, f"/api/bikes/{bike}/photo?year=2005", self.PNG, "image/png")
+        self.assertEqual(s, 200, b)
+        self.assertEqual((b["photo"]["year"], b["photo"]["uploaded_by"]), (2005, "m.alvarez"))
+        self.assertTrue(b["photo"]["url"].startswith(f"/photos/{bike}-2005.png"))
+        self.assertEqual(self._raw_get(self.anon(), f"/photos/{bike}-2005.png")[1], "image/png")
+        # one year each: a second year is refused until the first is given up
+        s, b = self._raw_post(alv, f"/api/bikes/{bike}/photo?year=2006", self.PNG, "image/png")
+        self.assertEqual(s, 409, b)
+        self.assertIn("2005", b["error"])
+        # replacing their own year is fine; the first manager cannot remove it, admin can
+        self.assertEqual(self._raw_post(alv, f"/api/bikes/{bike}/photo?year=2005", self.JPG, "image/jpeg")[0], 200)
+        self.assertEqual(self._raw_get(self.anon(), f"/photos/{bike}-2005.png")[0], 404)
+        self.assertEqual(dave.delete(f"/api/bikes/{bike}/photo?year=2005")[0], 403)
+        # the page carries both
+        s, page = self.anon().get(f"/api/bikes/{bike}")
+        self.assertEqual(page["photo"]["uploaded_by"], "cb919_dave")
+        self.assertEqual([(p["year"], p["uploaded_by"]) for p in page["year_photos"]], [(2005, "m.alvarez")])
+        # the main photo can go without taking the year photo with it
+        self.assertEqual(dave.delete(f"/api/bikes/{bike}/photo")[0], 200)
+        s, page = self.anon().get(f"/api/bikes/{bike}")
+        self.assertIsNone(page["photo"])
+        self.assertEqual(len(page["year_photos"]), 1)
+        self.assertEqual(adm.delete(f"/api/bikes/{bike}/photo?year=2005")[0], 200)
+        self.assertEqual(self._raw_get(self.anon(), f"/photos/{bike}-2005.jpg")[0], 404)
+
+    def test_t02_a_manager_can_retire_with_the_tier_they_leave_with(self):
+        """Retiring writes down the tier at that moment; it needs the bikes
+        handed on first; it shows on the member and on what they entered;
+        it can be reversed."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "RETIRE TEST", 2010, 2010)
+        c = self.anon()
+        s, reg = c.post("/api/auth/register", {"username": "retiring_ray", "email": "rr@example.com",
+                                               "password": "a-good-long-one"})
+        uid = reg["user"]["id"]
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": uid})
+        con = sqlite3.connect(self.db)
+        sid = con.execute("SELECT s.id FROM specs s JOIN spec_fields f ON f.field_key=s.field_key"
+                          " WHERE s.bike_id=? AND s.value IS NULL AND f.value_type='text' LIMIT 1", (bike,)).fetchone()[0]
+        con.close()
+        self.assertEqual(c.patch(f"/api/specs/{sid}", {"value": "ray's value", "confidence": "confirmed"})[0], 200)
+        # still holds the bike: refused
+        s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": True})
+        self.assertEqual(s, 409, r)
+        adm.delete(f"/api/admin/bikes/{bike}/manager/{uid}")
+        s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": True})
+        self.assertEqual(s, 200, r)
+        self.assertEqual(r["retired"]["tier"], "bronze")
+        st = self.anon().get(f"/api/users/{uid}/standing")[1]
+        self.assertEqual((st["tier"], st["is_manager"], st["retired"]["tier"]), (None, False, "bronze"))
+        s, users = adm.get("/api/users")
+        self.assertEqual(next(u for u in users["users"] if u["user_id"] == uid)["retired_tier"], "bronze")
+        s, sheet = self.anon().get(f"/api/bikes/{bike}/specs")
+        mine = next(x for cat in sheet["categories"] for x in cat["specs"] if x["id"] == sid)
+        self.assertEqual(mine["entered_by_retired"], "bronze")
+        self.assertEqual(adm.post(f"/api/admin/users/{self._uid('admin')}/retire", {"retired": True})[0], 400)
+        s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
+        self.assertEqual((s, r["retired"]), (200, None))
 
 
 if __name__ == "__main__":

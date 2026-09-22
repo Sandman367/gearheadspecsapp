@@ -168,6 +168,12 @@ CREATE TABLE users (
   -- Manager tiers are computed from the record (see manager_standing in
   -- app.py); Gold alone also needs admin's say-so, recorded here.
   gold_confirmed INTEGER NOT NULL DEFAULT 0 CHECK (gold_confirmed IN (0,1)),
+  -- The Founding Manager badge: given by admin, kept for good, shown beside the tier.
+  founder       INTEGER NOT NULL DEFAULT 0 CHECK (founder IN (0,1)),
+  -- A manager who stepped back: the tier they left with, frozen at that
+  -- moment, and when. Shown as the sunset shield in that tier's colour.
+  retired_tier  TEXT CHECK (retired_tier IN ('bronze','silver','gold')),
+  retired_at    TEXT,
   created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -775,14 +781,22 @@ CREATE TABLE spec_field_categories (
 -- makes the file findable and says who supplied it; the file itself is the
 -- picture. Replacing the photo replaces both.
 -- ---------------------------------------------------------------------------
+-- A bike's photos: one main photo (year NULL) that stands for every model
+-- year, plus at most one photo per model year. The main photo is the first
+-- manager's and stays theirs -- a later manager adds a photo for the year
+-- their own bike is, and holds one such year per bike.
 CREATE TABLE bike_photos (
-  bike_id      INTEGER PRIMARY KEY REFERENCES bikes(id) ON DELETE CASCADE,
-  file         TEXT    NOT NULL,          -- "258.jpg": bike id plus the real type
+  id           INTEGER PRIMARY KEY,
+  bike_id      INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  year         INTEGER,                   -- NULL: the main photo, every year without one of its own
+  file         TEXT    NOT NULL,          -- "258.jpg" or "258-2005.jpg": bike id, year, the real type
   mime         TEXT    NOT NULL CHECK (mime IN ('image/jpeg','image/png','image/webp')),
   bytes        INTEGER NOT NULL,
   uploaded_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  uploaded_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+  uploaded_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (bike_id, year)
 );
+CREATE UNIQUE INDEX idx_bike_photos_main ON bike_photos (bike_id) WHERE year IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- What a manager changed about their own bike that the admin should hear of.
