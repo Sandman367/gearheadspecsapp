@@ -725,7 +725,10 @@ def get_bike_specs(ctx):
         # it should not be read at all until it has been checked.
         if s["paused"] and not manages:
             continue
-        s["alternates"] = by_spec.get(s["id"], [])
+        # An alternate taken down is gone for a reader, the same as a spec
+        # taken offline. Its manager keeps seeing it -- they have to, to put
+        # it back -- marked as hidden.
+        s["alternates"] = [a for a in by_spec.get(s["id"], []) if manages or not a["paused"]]
         # Where this spec shows on this bike. Its home heading, unless taken
         # out of it (on this bike, or site-wide), plus every extra heading.
         # `lead` is the heading that carries the row; the rest mirror it.
@@ -1255,6 +1258,35 @@ def flag_alternate(ctx):
         (alt["spec_id"], alt_id, ctx.user["id"], reason, detail))
     ctx.conn.commit()
     return {"id": cur.lastrowid}
+
+
+@route("POST", r"/api/alternates/(\d+)/pause", role="manager")
+def toggle_alternate_pause(ctx):
+    """Take somebody's alternative down, or put it back: the manager's
+    answer to "that one is wrong for this bike".
+
+    Hidden, not deleted -- the text, who suggested it and its votes stay,
+    so the decision can be undone and the person is not erased. Until now
+    this could only be reached by resolving a flag, which meant a manager
+    had to flag an alternate themselves before they could act on it.
+    """
+    alt_id = int(ctx.params[0])
+    a = one(ctx.conn.execute(
+        "SELECT a.id, a.text, a.paused, s.bike_id, f.label"
+        " FROM spec_alternates a JOIN specs s ON s.id = a.spec_id"
+        " JOIN spec_fields f ON f.field_key = s.field_key WHERE a.id=?", (alt_id,)))
+    if not a:
+        raise HttpError(404, "no such alternative")
+    require_manages(ctx.conn, ctx.user, a["bike_id"])
+    want = ctx.body.get("paused")
+    new = (0 if a["paused"] else 1) if want is None else (1 if want else 0)
+    ctx.conn.execute("UPDATE spec_alternates SET paused=? WHERE id=?", (new, alt_id))
+    if ctx.user["role"] == "admin":
+        log_action(ctx, "alternate.pause" if new else "alternate.unpause",
+                   f'{"Hid" if new else "Restored"} the alternative "{a["text"]}" on {a["label"]}',
+                   target=str(alt_id), detail={"bike_id": a["bike_id"]})
+    ctx.conn.commit()
+    return {"ok": True, "paused": bool(new), "text": a["text"]}
 
 
 @route("POST", r"/api/alternates/(\d+)/vote", role="user")

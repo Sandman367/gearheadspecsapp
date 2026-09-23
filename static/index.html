@@ -436,6 +436,19 @@
   .spec-tools{ font-size: 10.5px; color: var(--text-faint); margin-top: 6px; }
   /* A note is a sentence beside the value that is not the value: it never
      looks like a spec, and the site-wide one says where it came from. */
+  .archived-alts{
+    margin-top: 8px; padding: 6px 0 2px 9px; border-left: 2px dashed var(--line);
+  }
+  .archived-alts .who{
+    display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.04em;
+    color: var(--text-faint); margin-bottom: 4px;
+  }
+  .archived-alt{
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-faint); padding: 3px 0;
+  }
+  .archived-alt > span:first-child{ text-decoration: line-through; }
+  .alt-hide{ margin-left: 8px; font-size: 10px; }
   .spec-note{
     font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
     border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
@@ -1187,6 +1200,8 @@ function valueLine(opts){
         : opts.vtype === "ethanol" ? ethanolValueHTML(text, { alt: label !== "Stock" })
         : esc(text)}</span>
       ${confirmedFit ? `<span class="fit-check" title="Confirmed fit">✓</span>` : ""}
+      ${opts.altId && MANAGES_THIS_BIKE ? `<button class="action-btn alt-hide" data-alt-pause="${opts.altId}" data-to="1"
+          title="Take this alternative off the page. It is hidden, not deleted — you can put it back.">Hide</button>` : ""}
     </div>`;
 }
 
@@ -1212,7 +1227,10 @@ function renderSpec(s, opts = {}){
   const locked  = isFixed && s.type_overridden;
   const canAlt = !isFixed;
   const canAddValue = !locked || iManage;
-  const alts = s.alternates;
+  // A hidden alternate reaches the page only for this bike's manager, and
+  // is listed apart from the live ones so it cannot be read as a suggestion.
+  const alts = s.alternates.filter(a => !a.paused);
+  const archived = s.alternates.filter(a => a.paused);
   const [top, ...rest] = alts;
 
   const isWire = s.value_type === "wire_color";
@@ -1225,7 +1243,7 @@ function renderSpec(s, opts = {}){
   if(top) lines += valueLine({
     label: "Alt", text: top.text, votes: top.votes, flags: top.flags,
     myVote: top.my_vote, myFlag: top.my_flag, confirmedFit: top.confirmed_fit,
-    voteAction: `alt:${top.id}`, flagAction: `alt:${top.id}`,
+    voteAction: `alt:${top.id}`, flagAction: `alt:${top.id}`, altId: top.id,
     wire: isWire, wireId: `a${top.id}`, vtype: s.value_type,
   });
   // Only the best-supported alternate is shown; the rest collapse. A spec with
@@ -1233,7 +1251,7 @@ function renderSpec(s, opts = {}){
   rest.forEach(a => { lines += valueLine({
     label: "Alt", text: a.text, votes: a.votes, flags: a.flags,
     myVote: a.my_vote, myFlag: a.my_flag, confirmedFit: a.confirmed_fit,
-    voteAction: `alt:${a.id}`, flagAction: `alt:${a.id}`, hidden: true,
+    voteAction: `alt:${a.id}`, flagAction: `alt:${a.id}`, hidden: true, altId: a.id,
     wire: isWire, wireId: `a${a.id}`, vtype: s.value_type,
   }); });
 
@@ -1313,6 +1331,14 @@ function renderSpec(s, opts = {}){
       ${lines}
       ${rest.length ? `<button class="show-more" data-toggle-more="${s.id}">
           +${rest.length} more submitted <span class="arrow">▾</span></button>` : ""}
+      ${archived.length ? `<div class="archived-alts">
+          <span class="who">Hidden from riders — only you see these</span>
+          ${archived.map(a => `<div class="archived-alt"><span>${
+            isWire ? wireValueHTML(a.text, `h${a.id}`) : esc(a.text)}</span>
+            <span class="cell-dim">${a.submitted_by_username ? "by " + esc(a.submitted_by_username) : ""}${
+              a.votes ? ` · ${a.votes} vote${a.votes === 1 ? "" : "s"}` : ""}</span>
+            <button class="action-btn" data-alt-pause="${a.id}" data-to="0">Put back</button></div>`).join("")}
+        </div>` : ""}
       ${!hasValue ? renderRequestRow(s) : ""}
       ${s.tools ? `<div class="spec-tools">⚒ <b>Tools required</b> ${esc(s.tools)}</div>` : ""}
       ${!hasValue && canAddValue ? `
@@ -1783,6 +1809,16 @@ document.addEventListener("click", guard(async (e) => {
   }
 
   // ---- the bike's photo ---------------------------------------------------
+  const altPause = e.target.closest("[data-alt-pause]");
+  if(altPause){
+    const to = altPause.dataset.to === "1";
+    const r = await API.post(`/api/alternates/${altPause.dataset.altPause}/pause`, { paused: to });
+    toast(to ? `"${r.text}" hidden — riders no longer see it. You can put it back.`
+             : `"${r.text}" is back on the page.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
   const noteBtn = e.target.closest("[data-note]");
   if(noteBtn){
     const id = noteBtn.dataset.note;

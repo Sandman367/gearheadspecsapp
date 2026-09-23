@@ -5733,6 +5733,47 @@ class ApiTest(unittest.TestCase):
         s, r = adm.post(f"/api/admin/users/{uid}/retire", {"retired": False})
         self.assertEqual((s, r["retired"]), (200, None))
 
+    def test_v03_a_hidden_alternative_is_hidden_from_riders(self):
+        """A manager takes an alternative down without having to flag it
+        first; a reader stops seeing it at once, the manager still does so
+        they can put it back, and nothing is deleted."""
+        adm = self.as_("admin")
+        bike = self._identity_bike(adm, "ALT HIDE", 2004, 2004)
+        mgr, rider = self.as_("cb919_dave"), self.as_("sohc_sam")
+        con = sqlite3.connect(self.db)
+        sid = con.execute("SELECT s.id FROM specs s JOIN spec_fields f ON f.field_key=s.field_key"
+                          " WHERE s.bike_id=? AND f.value_type='text' AND f.spec_type<>'fixed' LIMIT 1",
+                          (bike,)).fetchone()[0]
+        con.close()
+        mgr.patch(f"/api/specs/{sid}", {"value": "the stock one"})
+        s, a = rider.post(f"/api/specs/{sid}/alternates", {"text": "brown/yellow"})
+        self.assertEqual(s, 200, a)
+        alt_id = a["id"]
+
+        def alts_for(client):
+            _, sheet = client.get(f"/api/bikes/{bike}/specs")
+            row = next(x for c in sheet["categories"] for x in c["specs"] if x["id"] == sid)
+            return [(x["text"], x["paused"]) for x in row["alternates"]]
+        self.assertEqual(alts_for(self.anon()), [("brown/yellow", 0)])
+
+        # a rider cannot hide it; another bike's manager cannot; this one can
+        self.assertEqual(rider.post(f"/api/alternates/{alt_id}/pause", {"paused": True})[0], 403)
+        self.assertEqual(self.as_("m.alvarez").post(f"/api/alternates/{alt_id}/pause", {"paused": True})[0], 403)
+        s, r = mgr.post(f"/api/alternates/{alt_id}/pause", {"paused": True})
+        self.assertEqual((s, r["paused"], r["text"]), (200, True, "brown/yellow"))
+
+        self.assertEqual(alts_for(self.anon()), [], "a hidden alternative still reached a reader")
+        self.assertEqual(alts_for(rider), [])
+        self.assertEqual(alts_for(mgr), [("brown/yellow", 1)], "the manager lost sight of what they hid")
+        con = sqlite3.connect(self.db)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM spec_alternates WHERE id=?", (alt_id,)).fetchone()[0], 1,
+                         "hiding deleted the alternative")
+        con.close()
+        # and back
+        s, r = mgr.post(f"/api/alternates/{alt_id}/pause", {"paused": False})
+        self.assertEqual((s, r["paused"]), (200, False))
+        self.assertEqual(alts_for(self.anon()), [("brown/yellow", 0)])
+
     def test_v02_admin_sets_the_example_value_a_field_shows_in_every_entry_box(self):
         """"e.g. K&N KN-145" on the field reaches the spec on every bike, so
         people entering a value can see the shape it should take. It is an
