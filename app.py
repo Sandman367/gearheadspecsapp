@@ -1833,11 +1833,81 @@ def bike_field_requests(ctx):
     return {"fields": fields, "proposals": proposals, "categories": CATEGORY_ORDER}
 
 
+FIELD_REQUEST_MAX = 25
+
+
+def _ask_for_field(ctx, bike_id, key, reasoning):
+    """One rider asking for one field on one bike. Returns what was filed and
+    how many riders are now waiting on it, or raises the reason it cannot be
+    asked for -- which the batch below catches per spec."""
+    field = one(ctx.conn.execute(
+        "SELECT field_key, label FROM spec_fields WHERE field_key=?", (key,)))
+    if not field:
+        raise HttpError(404, "no such field on the Spec Tree")
+    if ctx.conn.execute("SELECT 1 FROM specs WHERE bike_id=? AND field_key=? AND paused=0",
+                        (bike_id, key)).fetchone():
+        raise HttpError(409, f"this bike already lists {field['label']} -- "
+                             "use \"request this spec\" on it instead")
+    try:
+        cur = ctx.conn.execute(
+            "INSERT INTO field_requests (bike_id, field_key, user_id, reasoning)"
+            " VALUES (?,?,?,?)", (bike_id, key, ctx.user["id"], reasoning))
+    except sqlite3.IntegrityError:
+        raise HttpError(409, f"you have already asked for {field['label']} on this bike")
+    n = ctx.conn.execute(
+        "SELECT COUNT(*) FROM field_requests WHERE bike_id=? AND field_key=? AND status='pending'",
+        (bike_id, key)).fetchone()[0]
+    return {"id": cur.lastrowid, "field_key": key, "label": field["label"], "requests": n}
+
+
+def _ask_for_fields(ctx, bike_id, keys, reasoning, one_only=False):
+    """Several specs in one ask, sharing the one reason the rider typed.
+
+    Each key is taken on its own: one already asked for is no reason to throw
+    away the other four, so it comes back under `skipped` saying why and the
+    rest go through. A single `field_key` keeps the old answer exactly -- one
+    spec, one error if it cannot be asked for.
+    """
+    if not isinstance(keys, list):
+        raise HttpError(400, "field_keys must be a list of field keys")
+    wanted = []
+    for k in keys:
+        k = k.strip() if isinstance(k, str) else ""
+        if k and k not in wanted:
+            wanted.append(k)
+    if not wanted:
+        raise HttpError(400, "pick at least one spec from the list, or name the one that is missing")
+    if len(wanted) > FIELD_REQUEST_MAX:
+        raise HttpError(400, f"{len(wanted)} specs in one ask -- {FIELD_REQUEST_MAX} at a time is "
+                             "the limit, so the rider who maintains this bike gets a list they "
+                             "can work through")
+    if one_only:
+        got = _ask_for_field(ctx, bike_id, wanted[0], reasoning)
+        ctx.conn.commit()
+        return {"kind": "request", "id": got["id"], "requests": got["requests"]}
+
+    asked, skipped = [], []
+    for k in wanted:
+        try:
+            asked.append(_ask_for_field(ctx, bike_id, k, reasoning))
+        except HttpError as e:
+            skipped.append({"field_key": k, "why": e.message})
+    if not asked:
+        ctx.conn.rollback()
+        raise HttpError(409, skipped[0]["why"] if len(skipped) == 1 else
+                        "none of those could be asked for: "
+                        + "; ".join(s["why"] for s in skipped))
+    ctx.conn.commit()
+    return {"kind": "request", "count": len(asked), "asked": asked, "skipped": skipped,
+            "requests": asked[0]["requests"] if len(asked) == 1 else None}
+
+
 @route("POST", r"/api/bikes/(\d+)/field-requests", role="user")
 def request_field(ctx):
-    """Ask for a field on this bike. `field_key` for one on the tree; or
-    `field_name` + `category` for one that is not, which files a branch
-    proposal for admin under this rider's name."""
+    """Ask for one or more fields on this bike. `field_key` for a single one
+    on the tree, `field_keys` for several at once; or `field_name` +
+    `category` for one that is not on the tree, which files a branch proposal
+    for admin under this rider's name."""
     bike_id = int(ctx.params[0])
     if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
         raise HttpError(404, "bike not found")
@@ -1845,27 +1915,16 @@ def request_field(ctx):
     if reasoning and len(reasoning) > 500:
         raise HttpError(400, "reasoning is limited to 500 characters")
 
-    key = (ctx.body.get("field_key") or "").strip()
-    if key:
-        field = one(ctx.conn.execute(
-            "SELECT field_key, label FROM spec_fields WHERE field_key=?", (key,)))
-        if not field:
-            raise HttpError(404, "no such field on the Spec Tree")
-        if ctx.conn.execute("SELECT 1 FROM specs WHERE bike_id=? AND field_key=? AND paused=0",
-                            (bike_id, key)).fetchone():
-            raise HttpError(409, f"this bike already lists {field['label']} -- "
-                                 "use \"request this spec\" on it instead")
-        try:
-            cur = ctx.conn.execute(
-                "INSERT INTO field_requests (bike_id, field_key, user_id, reasoning)"
-                " VALUES (?,?,?,?)", (bike_id, key, ctx.user["id"], reasoning))
-        except sqlite3.IntegrityError:
-            raise HttpError(409, f"you have already asked for {field['label']} on this bike")
-        n = ctx.conn.execute(
-            "SELECT COUNT(*) FROM field_requests WHERE bike_id=? AND field_key=? AND status='pending'",
-            (bike_id, key)).fetchone()[0]
-        ctx.conn.commit()
-        return {"kind": "request", "id": cur.lastrowid, "requests": n}
+    # One spec, or a handful. A rider reading down the tree finds three or
+    # four things this bike should list and does not, and one trip should
+    # carry them all: `field_keys` for the list, `field_key` for a single.
+    keys = ctx.body.get("field_keys")
+    one_only = keys is None
+    if one_only:
+        single = (ctx.body.get("field_key") or "").strip()
+        keys = [single] if single else []
+    if keys or not one_only:
+        return _ask_for_fields(ctx, bike_id, keys, reasoning, one_only)
 
     name = (ctx.body.get("field_name") or "").strip()
     category = ctx.body.get("category")

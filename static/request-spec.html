@@ -39,9 +39,12 @@
   .field-opt:hover{ background: rgba(217,154,43,0.06); }
   .field-opt.on{ background: rgba(217,154,43,0.12); }
   .field-opt .dot{
-    width: 12px; height: 12px; border: 1px solid var(--text-dim); border-radius: 50%; flex: none;
+    width: 12px; height: 12px; border: 1px solid var(--text-dim); border-radius: 2px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; line-height: 1; color: var(--bg);
   }
   .field-opt.on .dot{ background: var(--amber); border-color: var(--amber); }
+  .field-opt.on .dot::after{ content: "\2713"; }
   .field-opt .lbl{ flex: 1; }
   .field-opt .asked{ font-size: 10.5px; color: var(--amber); white-space: nowrap; }
   .field-opt .asked.mine{ color: var(--good); }
@@ -51,12 +54,25 @@
   }
   .field-opt .state.online{ border-color: var(--good); color: var(--good); }
   .field-opt .state.offline{ border-color: var(--amber); color: var(--amber); }
-  .field-opt.have{ opacity: 0.55; cursor: default; }
-  .field-opt.have:hover{ background: none; }
+  .field-opt.have, .field-opt.done{ opacity: 0.55; cursor: default; }
+  .field-opt.have:hover, .field-opt.done:hover{ background: none; }
   .field-list .none{ padding: 14px 10px; font-size: 11.5px; color: var(--text-faint); }
 
   .chosen{ margin-top: 10px; font-size: 11.5px; color: var(--text-dim); min-height: 1.4em; }
   .chosen b{ color: var(--text); }
+  /* Everything picked so far, each droppable on its own: with a list this
+     long, the tally is the only way to see what is actually going. */
+  .chosen .picked{ display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .picked-tag{
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 10.5px; padding: 3px 6px 3px 9px;
+    border: 1px solid var(--amber-dim); color: var(--amber);
+  }
+  .picked-tag button{
+    background: none; border: 0; color: inherit; cursor: pointer;
+    font-size: 13px; line-height: 1; padding: 0 2px;
+  }
+  .chosen-count{ font-size: 11px; color: var(--text-faint); }
   .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
   .form-note{ font-size: 11px; color: var(--text-faint); }
 
@@ -84,7 +100,8 @@
 <script>
 const BIKE_ID = Number(new URLSearchParams(location.search).get("bike"));
 let BIKE = null, DATA = null;
-let PICKED = null;          // field_key from the list
+let PICKED = [];            // field_keys from the list, in pick order
+const MAX_PICK = 25;        // what the server accepts in one ask
 let MODE = "list";          // "list" | "new"
 let FILTER = "";
 
@@ -114,10 +131,15 @@ function fieldList(){
   let out = "", cat = null;
   for(const f of fields){
     if(f.category !== cat){ cat = f.category; out += `<div class="field-cat">${esc(cat)}</div>`; }
+    const on = PICKED.includes(f.field_key);
+    // Already on the sheet, or already asked for by you: nothing left to ask.
+    const shut = f.status === "online" ? "have" : f.mine ? "done" : "";
     out += `
-      <button type="button" class="field-opt${PICKED === f.field_key ? " on" : ""}${f.status === "online" ? " have" : ""}"
-              ${f.status === "online" ? `disabled title="Already on this bike's sheet — use “Request this spec” there if it's empty."`
-                : `data-pick="${esc(f.field_key)}" role="radio" aria-checked="${PICKED === f.field_key}"`}>
+      <button type="button" class="field-opt${on ? " on" : ""}${shut ? " " + shut : ""}"
+              ${shut ? `disabled title="${f.status === "online"
+                  ? "Already on this bike's sheet — use “Request this spec” there if it's empty."
+                  : "You have already asked for this one on this bike."}"`
+                : `data-pick="${esc(f.field_key)}" role="checkbox" aria-checked="${on}"`}>
         <span class="dot"></span>
         <span class="lbl">${esc(f.label)}</span>
         <span class="state ${esc(f.status)}" title="${
@@ -132,9 +154,30 @@ function fieldList(){
   return out;
 }
 
+function chosenHTML(){
+  if(!PICKED.length) return "Nothing chosen yet — tick as many as you need.";
+  const tags = PICKED.map(k => {
+    const f = DATA.fields.find(x => x.field_key === k);
+    return `<span class="picked-tag">${esc(f ? f.label : k)}
+      <button type="button" data-unpick="${esc(k)}" title="Take it off the list">×</button></span>`;
+  }).join("");
+  return `<div class="picked">${tags}</div>
+    <div class="chosen-count">${PICKED.length} spec${PICKED.length === 1 ? "" : "s"} chosen${
+      PICKED.length > 1 ? " — they go to the manager as one ask, sharing the reason you write below." : ""}</div>`;
+}
+
+function sendLabel(){
+  if(MODE === "new") return "Send to admin as a proposal";
+  return PICKED.length > 1 ? `Ask for these ${PICKED.length} specs` : "Ask for this spec";
+}
+
+function refreshChosen(){
+  const box = document.querySelector(".chosen");
+  if(box) box.innerHTML = chosenHTML();
+}
+
 function render(){
   const signedIn = !!ME.user;
-  const picked = DATA.fields.find(f => f.field_key === PICKED);
   const asked = DATA.fields.filter(f => f.requests > 0);
 
   document.getElementById("content").innerHTML = `
@@ -162,15 +205,16 @@ function render(){
         <div class="way-head">
           <h3>A spec on the tree</h3>
           <p>Every field GearHeadSpecs tracks, and where it stands on this bike: already
-             listed, offline here, or not on this bike. Pick one it doesn't list — or one
-             that's offline, to ask for it to go online. If others have asked for the
-             same, you join them.</p>
+             listed, offline here, or not on this bike. Tick everything it doesn't list —
+             as many as you like — or one that's offline, to ask for it to go online.
+             They all travel as a single ask. If others have asked for the same, you
+             join them.</p>
         </div>
         <div class="way-body">
           <input type="text" class="field-search" id="field-search" value="${esc(FILTER)}"
                  placeholder="Search — coolant, fuse, sprocket…" autocomplete="off">
-          <div class="field-list" role="radiogroup" id="field-list">${fieldList()}</div>
-          <div class="chosen">${picked ? `Chosen: <b>${esc(picked.label)}</b> (${esc(picked.category)})` : "Nothing chosen yet."}</div>
+          <div class="field-list" role="group" aria-label="Specs on the tree" id="field-list">${fieldList()}</div>
+          <div class="chosen">${chosenHTML()}</div>
         </div>
       </div>
 
@@ -206,8 +250,7 @@ function render(){
           <textarea id="reason" maxlength="500"
                     placeholder="Where you needed it, what you were doing — one line is plenty."></textarea></div>
         <div class="form-actions">
-          <button class="primary-btn" id="send" ${signedIn ? "" : "disabled"}>${
-            MODE === "new" ? "Send to admin as a proposal" : "Ask for this spec"}</button>
+          <button class="primary-btn" id="send" ${signedIn ? "" : "disabled"}>${sendLabel()}</button>
           <a class="ghost-btn" style="text-decoration:none" href="/index.html?bike=${BIKE_ID}">Cancel</a>
           ${signedIn ? "" : `<span class="form-note">Sign in to send.</span>`}
         </div>
@@ -247,27 +290,59 @@ function render(){
   });
 }
 
+function messageFor(r){
+  if(r.kind === "proposal"){
+    return "Sent to admin as a proposal. You'll see it under “already asked for” until they decide.";
+  }
+  const asked = r.asked || [];
+  const skipped = r.skipped || [];
+  let msg;
+  if(asked.length === 1){
+    msg = asked[0].requests > 1
+      ? `Asked for ${asked[0].label} — ${asked[0].requests} riders now want it on the bike.`
+      : `Asked for ${asked[0].label} — the rider who maintains this bike will see it.`;
+  } else {
+    msg = `Asked for ${asked.length} specs — they reach the rider who maintains this bike as one list.`;
+  }
+  // Say what did not go, rather than letting it disappear quietly.
+  if(skipped.length === 1) msg += ` One was skipped: ${skipped[0].why}.`;
+  else if(skipped.length) msg += ` ${skipped.length} were skipped — already asked for, or already listed.`;
+  return msg;
+}
+
 function syncMode(){
   document.getElementById("way-list").classList.toggle("on", MODE === "list");
   document.getElementById("way-new").classList.toggle("on", MODE === "new");
-  document.getElementById("send").textContent =
-    MODE === "new" ? "Send to admin as a proposal" : "Ask for this spec";
+  document.getElementById("send").textContent = sendLabel();
 }
 
 document.addEventListener("click", guard(async (e) => {
   const pick = e.target.closest("[data-pick]");
   if(pick){
-    PICKED = pick.dataset.pick;
+    const key = pick.dataset.pick;
+    const at = PICKED.indexOf(key);
+    if(at === -1 && PICKED.length >= MAX_PICK){
+      toast(`${MAX_PICK} specs is as many as one ask can carry. Send these, then start another.`, "error");
+      return;
+    }
+    if(at === -1) PICKED.push(key); else PICKED.splice(at, 1);
     MODE = "list";
     const name = document.getElementById("new-name");
     if(name) name.value = "";
-    document.querySelectorAll(".field-opt").forEach(b => {
-      const on = b.dataset.pick === PICKED;
-      b.classList.toggle("on", on); b.setAttribute("aria-checked", on);
-    });
-    const f = DATA.fields.find(x => x.field_key === PICKED);
-    document.querySelector(".chosen").innerHTML =
-      `Chosen: <b>${esc(f.label)}</b> (${esc(f.category)})`;
+    pick.classList.toggle("on", at === -1);
+    pick.setAttribute("aria-checked", at === -1);
+    refreshChosen();
+    syncMode();
+    return;
+  }
+
+  const unpick = e.target.closest("[data-unpick]");
+  if(unpick){
+    const key = unpick.dataset.unpick;
+    PICKED = PICKED.filter(k => k !== key);
+    const btn = document.querySelector(`.field-opt[data-pick="${key}"]`);
+    if(btn){ btn.classList.remove("on"); btn.setAttribute("aria-checked", "false"); }
+    refreshChosen();
     syncMode();
     return;
   }
@@ -280,16 +355,12 @@ document.addEventListener("click", guard(async (e) => {
                category: document.getElementById("new-cat").value,
                value_type: document.getElementById("new-vt").value || "text", reasoning };
     } else {
-      if(!PICKED){ toast("Pick a spec from the list, or name one on the right.", "error"); return; }
-      body = { field_key: PICKED, reasoning };
+      if(!PICKED.length){ toast("Tick a spec in the list, or name one on the right.", "error"); return; }
+      body = { field_keys: PICKED, reasoning };
     }
     const r = await API.post(`/api/bikes/${BIKE_ID}/field-requests`, body);
-    toast(r.kind === "proposal"
-      ? "Sent to admin as a proposal. You'll see it under “already asked for” until they decide."
-      : r.requests > 1
-        ? `Asked — ${r.requests} riders now want this on the bike.`
-        : "Asked — the rider who maintains this bike will see it.", "ok");
-    PICKED = null; MODE = "list";
+    toast(messageFor(r), "ok");
+    PICKED = []; MODE = "list";
     await load();
     return;
   }

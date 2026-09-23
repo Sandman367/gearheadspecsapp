@@ -5894,5 +5894,54 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.anon().get(f"/api/bikes/{bike}")[1]["lead_manager"]["username"], "m.alvarez")
 
 
+    def test_j03_a_rider_can_ask_for_several_specs_at_once(self):
+        """One read down the tree turns up three things the bike should list
+        and does not. They travel as one ask, sharing the one reason typed;
+        a spec already asked for, or already on the sheet, is skipped by name
+        rather than sinking the others."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "FIELDREQ MANY", 2006, 2007)
+        rider = self.as_("sohc_sam")
+        s, b = rider.get(f"/api/bikes/{bike}/field-requests")
+        want = [f["field_key"] for f in b["fields"] if f["status"] == "missing"][:3]
+        self.assertEqual(len(want), 3, "a fresh bike is missing most of the tree")
+        online = next(f["field_key"] for f in b["fields"] if f["status"] == "online")
+
+        s, r = rider.post(f"/api/bikes/{bike}/field-requests",
+                          {"field_keys": want, "reasoning": "rebuilding it over winter"})
+        self.assertEqual(s, 200, r)
+        self.assertEqual(r["count"], 3)
+        self.assertEqual([a["field_key"] for a in r["asked"]], want)
+        self.assertEqual(r["skipped"], [])
+        s, b = rider.get(f"/api/bikes/{bike}/field-requests")
+        state = {f["field_key"]: f for f in b["fields"]}
+        for k in want:
+            self.assertEqual((state[k]["requests"], state[k]["mine"]), (1, 1), k)
+
+        # one already asked for, one already on the sheet, one new: the new one
+        # goes, the other two come back saying why
+        fresh = next(f["field_key"] for f in b["fields"]
+                     if f["status"] == "missing" and not f["mine"])
+        s, r = rider.post(f"/api/bikes/{bike}/field-requests",
+                          {"field_keys": [want[0], online, fresh]})
+        self.assertEqual(s, 200, r)
+        self.assertEqual([a["field_key"] for a in r["asked"]], [fresh])
+        self.assertEqual({k["field_key"] for k in r["skipped"]}, {want[0], online})
+
+        # nothing askable at all is still a refusal, and the list has a ceiling
+        self.assertEqual(rider.post(f"/api/bikes/{bike}/field-requests",
+                                    {"field_keys": [want[0], online]})[0], 409)
+        self.assertEqual(rider.post(f"/api/bikes/{bike}/field-requests",
+                                    {"field_keys": []})[0], 400)
+        self.assertEqual(rider.post(f"/api/bikes/{bike}/field-requests",
+                                    {"field_keys": [f"made_up_{i}" for i in range(26)]})[0], 400)
+        # a single key answers exactly as it always did
+        s, b = rider.get(f"/api/bikes/{bike}/field-requests")
+        solo = next(f["field_key"] for f in b["fields"]
+                    if f["status"] == "missing" and not f["mine"])
+        s, r = rider.post(f"/api/bikes/{bike}/field-requests", {"field_key": solo})
+        self.assertEqual((s, r["kind"], r["requests"]), (200, "request", 1))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
