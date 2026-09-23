@@ -5943,5 +5943,86 @@ class ApiTest(unittest.TestCase):
         self.assertEqual((s, r["kind"], r["requests"]), (200, "request", 1))
 
 
+    # -- one front brake pad spec per bike --------------------------------
+    SINGLE_DISC_ANSWERS = dict(CB750_ANSWERS, q20="A")
+    SINGLE_DISC_ANSWERS.pop("q20a")          # q20a is only asked for twin discs
+
+    def test_w01_a_bike_lists_one_front_brake_pad_spec_not_two(self):
+        """The tree carries five front-pad fields, one per kind of front brake.
+        A bike gets exactly the one its answers call for.
+
+        In production three rows in field_triggers pointed at the wrong answer,
+        and since a bike collects fields from the questionnaire AND from
+        field_triggers, the wrong pad field landed on top of the right one --
+        "Front Left Brake Pads" and "Front Brake Pad Left" on the same bike.
+        This builds that state on purpose and then runs the migration over it.
+        """
+        import migrate_front_brake_pads as mig
+        adm = self.as_("admin")
+
+        # single front disc, left: one pad field, the left one
+        one_disc = self._new_bike(adm, "ONE DISC TEST", 1981, 1982)
+        s, _ = adm.post(f"/api/questionnaire/{one_disc}/build",
+                        {"answers": self.SINGLE_DISC_ANSWERS})
+        self.assertEqual(s, 200)
+        # twin discs sharing one pad part: one pad field, the shared one
+        twin = self._new_bike(adm, "TWIN DISC TEST", 1983, 1984)
+        adm.post(f"/api/questionnaire/{twin}/build", {"answers": self.CB750_ANSWERS})
+
+        def pads(bike):
+            con = sqlite3.connect(self.db)
+            got = {r[0] for r in con.execute(
+                "SELECT field_key FROM specs WHERE bike_id=? AND field_key IN"
+                " ('front_left_brake_pads','front_right_brake_pads','front_brake_pads',"
+                "  'front_brake_pad_left','front_brake_pad_right')", (bike,))}
+            con.close()
+            return got
+
+        self.assertEqual(pads(one_disc), {"front_left_brake_pads"})
+        self.assertEqual(pads(twin), {"front_brake_pads"})
+
+        # now break it the way production was broken, and add a third bike whose
+        # duplicate somebody has actually filled in
+        filled = self._new_bike(adm, "FILLED DUPE TEST", 1985, 1986)
+        adm.post(f"/api/questionnaire/{filled}/build",
+                 {"answers": self.SINGLE_DISC_ANSWERS})
+        con = sqlite3.connect(self.db)
+        con.execute("INSERT OR IGNORE INTO field_triggers (field_key, question_id, option_label)"
+                    " VALUES ('front_brake_pad_left','q20','A')")
+        con.execute("INSERT OR IGNORE INTO field_triggers (field_key, question_id, option_label)"
+                    " VALUES ('front_left_brake_pads','q20','C')")
+        for b in (one_disc, filled):
+            con.execute("INSERT INTO specs (bike_id, field_key, value, confidence)"
+                        " VALUES (?,'front_brake_pad_left',NULL,'pending')", (b,))
+        con.execute("INSERT INTO specs (bike_id, field_key, value, confidence)"
+                    " VALUES (?,'front_left_brake_pads','EBC FA142HH','pending')", (twin,))
+        con.commit(); con.close()
+        self.assertEqual(pads(one_disc), {"front_left_brake_pads", "front_brake_pad_left"})
+        self.assertEqual(len(pads(twin)), 2)
+
+        mig.migrate(self.db)
+
+        # the empty duplicates are gone, each bike keeps the right one
+        self.assertEqual(pads(one_disc), {"front_left_brake_pads"})
+        self.assertEqual(pads(filled), {"front_left_brake_pads"})
+        # the one somebody filled in is KEPT -- a sourced value is not the
+        # migration's to throw away, it is reported for a person to look at
+        self.assertEqual(pads(twin), {"front_brake_pads", "front_left_brake_pads"})
+
+        con = sqlite3.connect(self.db)
+        trig = {(r[0], r[1], r[2]) for r in con.execute(
+            "SELECT field_key, question_id, option_label FROM field_triggers"
+            " WHERE field_key LIKE '%brake_pad%'")}
+        con.close()
+        self.assertIn(("front_brake_pad_left", "q20a", "B"), trig,
+                      "the left/right pair belongs on 'twin discs, different pads'")
+        self.assertNotIn(("front_brake_pad_left", "q20", "A"), trig)
+        self.assertNotIn(("front_left_brake_pads", "q20", "C"), trig)
+
+        # and running it again does nothing
+        mig.migrate(self.db)
+        self.assertEqual(pads(one_disc), {"front_left_brake_pads"})
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
