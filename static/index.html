@@ -525,6 +525,74 @@
   .svc-spec b{ color: var(--text-dim); font-weight: 400; }
   .odo{ width: 120px; }
 
+  /* ---------- how it works ----------
+     The landing page's only piece of prose. It fills the space under the
+     search that is otherwise blank before a bike is chosen, and it goes away
+     the moment one is open: nobody reading a spec sheet needs to be told what
+     a spec sheet is. */
+  .how{ display: none; margin: 2px 0 10px; }
+  .how.visible{ display: block; }
+  .how-title{
+    font-family: var(--display); font-size: 15px; letter-spacing: 0.06em;
+    text-transform: uppercase; margin: 0 0 4px; color: var(--text);
+  }
+  .how-lead{
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
+    color: var(--amber); margin: 0 0 14px;
+  }
+  /* Stock and Alts side by side, because the whole point is that they are two
+     separate things -- the layout says so before the words do. */
+  .how-pair{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .how-card{
+    border: 1px solid var(--line); border-left-width: 2px;
+    background: var(--panel); padding: 14px 16px;
+  }
+  .how-card.stock{ border-left-color: var(--amber); }
+  .how-card.alts{ border-left-color: var(--text-faint); }
+  .how-card p{ margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--text-dim); }
+  .how-card .term{
+    font-family: var(--display); font-size: 14.5px; letter-spacing: 0.05em;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .how-card.stock .term{ color: var(--amber); }
+  .how-card.alts .term{ color: var(--text); }
+  .how-card .chip{
+    font-family: var(--mono); font-size: 10.5px; font-style: normal;
+    border: 1px solid var(--line); padding: 1px 5px; color: var(--text-faint);
+    white-space: nowrap;
+  }
+  .how-rules{
+    border-top: 1px solid var(--line); margin-top: 16px; padding-top: 14px;
+    display: grid; gap: 9px;
+  }
+  .how-rules p{
+    margin: 0; font-size: 12.5px; line-height: 1.65;
+    color: var(--text-dim); max-width: 88ch;
+  }
+  .how-rules b{ color: var(--text); font-weight: 500; }
+  .how-cta{
+    margin-top: 16px; padding: 15px 17px;
+    border: 1px solid var(--line); border-left: 2px solid var(--amber);
+    background: var(--panel-2);
+  }
+  .how-cta h3{
+    font-family: var(--display); font-size: 14px; letter-spacing: 0.04em;
+    margin: 0 0 5px; color: var(--text);
+  }
+  .how-cta p{
+    margin: 0 0 12px; font-size: 12.5px; line-height: 1.65;
+    color: var(--text-dim); max-width: 80ch;
+  }
+  .how-actions{ display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .how-actions a{ text-decoration: none; }
+
+  footer .footer-line{ color: var(--text-dim); font-size: 11.5px; margin: 0 0 7px; }
+  footer .footer-fine{ margin: 0; }
+
+  @media (max-width: 760px){
+    .how-pair{ grid-template-columns: 1fr; }
+  }
+
   footer{
     max-width: 700px; margin: 26px auto 0; padding: 0 16px;
     color: var(--text-faint); font-size: 10.5px; line-height: 1.6;
@@ -609,14 +677,49 @@
       <div class="result-count" id="result-count">Loading…</div>
       <div id="results"></div>
       <div id="detail-container"></div>
+
+      <!-- Verbatim the copy the site is explained in; the markup only gives it
+           shape. Hidden until the boot decides whether a bike is open. -->
+      <section class="how" id="how-it-works" aria-labelledby="how-title">
+        <h2 class="how-title" id="how-title">How it works</h2>
+        <p class="how-lead">Two kinds of numbers, never mixed.</p>
+
+        <div class="how-pair">
+          <div class="how-card stock">
+            <p><span class="term">Stock</span> is the factory spec: what the manufacturer
+              called for on that bike, that year, straight from the service manual or parts
+              fiche. Nothing else goes in that slot. Anyone can fill a blank, but it's
+              marked <em class="chip">Unsourced</em> until the bike's manager checks it
+              against the book.</p>
+          </div>
+          <div class="how-card alts">
+            <p><span class="term">Alts</span> are what riders actually run instead: a heavier
+              oil, sintered pads, a size up on the rear. Each one gets its own line and its
+              own votes, and none of them ever replaces stock.</p>
+          </div>
+        </div>
+
+        <div class="how-rules">
+          <p><b>Votes</b> push the best-supported values to the top. <b>Flags</b> go straight
+            to the rider who manages that bike, so a bad number gets checked by someone who
+            knows the machine instead of sitting in a moderation queue.</p>
+          <p><b>Spec missing? Request it.</b> Managers see which blanks riders want filled first.</p>
+          <p>Every value shows who entered it and when.</p>
+        </div>
+
+        <div id="how-cta"></div>
+      </section>
+
     </div>
   </div>
 </main>
 
 <footer>
-  CC values are inferred from model naming convention for sort ordering — not a
-  verified spec field. Prototype build, part numbers/specs pending community +
-  admin verification.
+  <p class="footer-line">GearHeadSpecs. Checked by riders. Still, crack the manual
+    before you put a wrench on it.</p>
+  <p class="footer-fine">CC values are inferred from model naming convention for sort
+    ordering — not a verified spec field. Prototype build, part numbers/specs pending
+    community + admin verification.</p>
 </footer>
 
 <script src="/api.js"></script>
@@ -2441,8 +2544,42 @@ async function refreshSpecs(){
 }
 
 /* ------------------------------------------------------------------ boot */
+/* The explainer is landing furniture. Rather than hunting down every place
+   that opens or closes a bike, it watches the one thing that actually says
+   whether one is open. */
+function syncLanding(){
+  const how = byId("how-it-works"), detail = byId("detail-container");
+  if(how && detail) how.classList.toggle("visible", !detail.innerHTML.trim());
+}
+
+/* The sign-in pitch is for people who are not signed in. A rider already
+   signed in gets the one line that is still news to them. */
+function renderHowCta(){
+  const box = byId("how-cta");
+  if(!box) return;
+  box.innerHTML = ME.user ? `
+    <div class="how-cta">
+      <h3>Got a number we don't?</h3>
+      <p>Fill blanks, add what you run, and vote or flag what you see. Put your bike in
+        My Garage and its service log tracks what's due, straight off the same specs.</p>
+    </div>` : `
+    <div class="how-cta">
+      <h3>Got a number we don't?</h3>
+      <p>Sign in to fill blanks, add what you run, and vote or flag what you see. Put your
+        bike in My Garage and its service log tracks what's due, straight off the same specs.</p>
+      <div class="how-actions">
+        <a class="primary-btn" href="/register.html">Create account</a>
+        <a class="ghost-btn" href="/login.html">Sign in</a>
+      </div>
+    </div>`;
+}
+
 (async function(){
   await initChrome("/index.html");
+  renderHowCta();
+  new MutationObserver(syncLanding).observe(
+    byId("detail-container"), { childList: true, subtree: true });
+  syncLanding();
   await loadGarage();
   resetFilters();
   await loadFilters();
