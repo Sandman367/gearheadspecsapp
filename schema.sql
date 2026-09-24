@@ -376,6 +376,13 @@ CREATE TABLE specs (
   paused_at  TEXT,
 
   entered_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+
+  -- Where the value came from when no person typed it. 'catalogue' means it
+  -- was seeded from a published model list when the catalogue was built --
+  -- not from a manual and not from a rider. NULL means entered_by is the
+  -- answer. Every value on the page says one or the other; a blank beside a
+  -- number would be the site quietly passing off its own import as sourced.
+  value_source TEXT,
   updated_at TEXT    NOT NULL DEFAULT (datetime('now')),
   created_at TEXT    NOT NULL DEFAULT (datetime('now')),
 

@@ -458,6 +458,7 @@
   }
   .archived-alt > span:first-child{ text-decoration: line-through; }
   .alt-hide{ margin-left: 8px; font-size: 10px; }
+  .cell-dim.seeded{ font-style: italic; opacity: 0.85; }
   .spec-note{
     font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
     border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
@@ -714,7 +715,8 @@
             to the rider who manages that bike, so a bad number gets checked by someone who
             knows the machine instead of sitting in a moderation queue.</p>
           <p><b>Spec missing? Request it.</b> Managers see which blanks riders want filled first.</p>
-          <p>Every value shows who entered it and when.</p>
+          <p>Every value shows where it came from and when — the rider who entered it,
+            or the catalogue list it was seeded from.</p>
         </div>
 
         <div id="how-cta"></div>
@@ -1160,6 +1162,22 @@ function renderPhotoBlock(){
 }
 let PHOTO_UPLOAD_YEAR = null;
 
+/* Where this value came from, and when. A rider's name when somebody typed
+   it; the catalogue import when nobody did. Never blank beside a number --
+   an unattributed figure reads as the site's own, which is the one thing
+   this site must not imply. */
+function valueSource(s){
+  const when = s.value_at ? ` · ${esc(String(s.value_at).slice(0, 10))}` : "";
+  if(s.entered_by_username){
+    return `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username,
+      s.entered_by_role, s.entered_by_retired, s.entered_by_founder)}${when}</span>`;
+  }
+  if(s.value !== null && s.value !== "" && s.value_source === "catalogue"){
+    return `<span class="cell-dim seeded" title="Seeded from a published model list when this catalogue was built — not from a manual, and nobody has sourced it since.">from the catalogue list${when}</span>`;
+  }
+  return "";
+}
+
 function renderDetail(){
   const bike = BIKE;
   PHOTO_VIEW = null;
@@ -1401,7 +1419,7 @@ function renderSpec(s, opts = {}){
         ${confidenceBadge(s.confidence)}
         ${typeBadge(s.spec_type)}
         ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
-        ${s.entered_by_username ? `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username, s.entered_by_role, s.entered_by_retired, s.entered_by_founder)}</span>` : ""}
+        ${valueSource(s)}
         ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
             data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
             title="${locked

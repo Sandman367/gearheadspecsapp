@@ -6024,5 +6024,75 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(pads(one_disc), {"front_left_brake_pads"})
 
 
+    # -- every value says where it came from ------------------------------
+    def test_w02_a_value_nobody_typed_says_so(self):
+        """5,452 of the values on the live site were seeded from published
+        model lists, not entered by a rider, and the page showed nothing at
+        all beside them -- which reads as the site's own figure. Each one now
+        names the import, and the moment a rider writes over it the value is
+        theirs and the import is no longer credited.
+        """
+        import migrate_value_source as mig
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "SEEDED VALUE TEST", 1996, 1997)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+
+        def sheet():
+            s, d = self.anon().get(f"/api/bikes/{bike}/specs")
+            self.assertEqual(s, 200, d)
+            return {x["field_key"]: x for c in d["categories"] for x in c["specs"]}
+
+        key = next(k for k, v in sheet().items()
+                   if v["value"] is None and v["value_type"] == "text")
+
+        # the import, as it really ran: a value with nobody's name on it
+        con = sqlite3.connect(self.db)
+        con.execute("UPDATE specs SET value='14T', entered_by=NULL, value_source=NULL"
+                    " WHERE bike_id=? AND field_key=?", (bike, key))
+        con.commit(); con.close()
+        row = sheet()[key]
+        self.assertEqual((row["value"], row["entered_by_username"], row["value_source"]),
+                         ("14T", None, None), "the state the migration has to find")
+
+        mig.migrate(self.db)
+        row = sheet()[key]
+        self.assertEqual(row["value_source"], "catalogue")
+        self.assertIsNone(row["entered_by_username"], "the import has no author to name")
+        self.assertTrue(row["value_at"], "and it says when, because the page promises when")
+
+        # A seeded slot is not blank, so "add the stock value" refuses it the
+        # same as any other filled spec: it is corrected, not filled.
+        mgr = self.as_("gp_hayes")
+        self.assertEqual(mgr.post(f"/api/specs/{row['id']}/value", {"value": "15T"})[0], 409)
+
+        # Confirming it WITHOUT changing it leaves the origin alone. The
+        # manager vouched for the import; they did not become its author, and
+        # erasing the source here would leave the value saying nothing at all.
+        s, r = mgr.patch(f"/api/specs/{row['id']}", {"confidence": "mfr"})
+        self.assertEqual(s, 200, r)
+        row = sheet()[key]
+        self.assertEqual((row["value"], row["entered_by_username"], row["value_source"]),
+                         ("14T", None, "catalogue"))
+
+        # Changing it takes it: the value is now the manager's word, not the list's
+        s, r = mgr.patch(f"/api/specs/{row['id']}", {"value": "15T"})
+        self.assertEqual(s, 200, r)
+        row = sheet()[key]
+        self.assertEqual((row["value"], row["entered_by_username"], row["value_source"]),
+                         ("15T", "gp_hayes", None))
+
+        # and a value a person typed is never relabelled as seeded
+        mig.migrate(self.db)
+        self.assertIsNone(sheet()[key]["value_source"])
+
+        # nothing with a value is left saying nothing at all
+        con = sqlite3.connect(self.db)
+        orphans = con.execute(
+            "SELECT COUNT(*) FROM specs WHERE value IS NOT NULL AND value <> ''"
+            "  AND entered_by IS NULL AND value_source IS NULL").fetchone()[0]
+        con.close()
+        self.assertEqual(orphans, 0, "a value with neither an author nor a source")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

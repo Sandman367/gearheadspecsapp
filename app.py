@@ -620,6 +620,10 @@ def get_bike_specs(ctx):
         "       f.spec_type AS field_spec_type,"
         "       u.username AS entered_by_username, s.entered_by, u.role AS entered_by_role,"
         "       u.retired_tier AS entered_by_retired, u.founder AS entered_by_founder,"
+        # Where it came from and when, for every value: a username, or the
+        # import that seeded it. The page promises both, so both are sent.
+        "       s.value_source,"
+        "       COALESCE(s.updated_at, s.created_at) AS value_at,"
         "       vc.votes, rc.requests,"
         "       EXISTS(SELECT 1 FROM spec_votes v"
         "              WHERE v.spec_id=s.id AND v.user_id=?) AS my_vote,"
@@ -859,7 +863,7 @@ def submit_spec_value(ctx):
         raise HttpError(400, "value is limited to 500 characters")
 
     cur = ctx.conn.execute(
-        "UPDATE specs SET value=?, confidence='pending', entered_by=?,"
+        "UPDATE specs SET value=?, confidence='pending', value_source=NULL, entered_by=?,"
         " updated_at=datetime('now')"
         # Re-check emptiness in the UPDATE itself: two people filling the same
         # blank at once would otherwise have the second silently overwrite the
@@ -898,11 +902,16 @@ def edit_spec(ctx):
     # rider who did the work and shifts it onto the manager's profile stats.
     changed = value != spec["value"]
     entered_by = ctx.user["id"] if changed else spec["entered_by"]
+    # Where the value came from moves with the credit, for the same reason.
+    # A manager confirming a seeded value without changing it has not sourced
+    # it; clearing this would leave the row with no author AND no origin,
+    # which is the unattributed number this column exists to prevent.
+    source = None if changed else spec["value_source"]
 
     ctx.conn.execute(
-        "UPDATE specs SET value=?, confidence=?, entered_by=?,"
+        "UPDATE specs SET value=?, confidence=?, value_source=?, entered_by=?,"
         " updated_at=datetime('now') WHERE id=?",
-        (value, confidence, entered_by, spec_id))
+        (value, confidence, source, entered_by, spec_id))
     ctx.conn.commit()
     return {"ok": True, "value_changed": changed}
 
@@ -1078,12 +1087,16 @@ def split_spec_year(ctx):
     ctx.conn.execute(
         "UPDATE specs SET year_from=?, year_to=?, updated_at=datetime('now')"
         " WHERE id=?", (first, at - 1, spec_id))
+    # The copy carries the original's provenance, not the splitter's name.
+    # Cutting a year span in two is not sourcing a value, and signing the new
+    # row with whoever happened to do it would invent an attribution.
     cur = ctx.conn.execute(
         "INSERT INTO specs (bike_id, field_key, value, confidence, spec_type,"
-        " tools, entered_by, year_from, year_to)"
-        " VALUES (?,?,?,?,?,?,?,?,?)",
+        " tools, entered_by, value_source, year_from, year_to)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?)",
         (spec["bike_id"], spec["field_key"], spec["value"], spec["confidence"],
-         spec["spec_type"], spec["tools"], ctx.user["id"], at, last))
+         spec["spec_type"], spec["tools"], spec["entered_by"], spec["value_source"],
+         at, last))
     ctx.conn.commit()
     return {"ok": True, "label": spec["label"],
             "earlier": {"id": spec_id, "year_from": first, "year_to": at - 1},
@@ -1619,7 +1632,7 @@ def fix_flag(ctx):
     new_value = check_value(ctx.conn, f["spec_id"], ctx.field("new_value"))
     was_by = ctx.conn.execute("SELECT entered_by FROM specs WHERE id=?", (f["spec_id"],)).fetchone()[0]
     ctx.conn.execute(
-        "UPDATE specs SET value=?, entered_by=?, updated_at=datetime('now')"
+        "UPDATE specs SET value=?, value_source=NULL, entered_by=?, updated_at=datetime('now')"
         " WHERE id=?", (new_value, ctx.user["id"], f["spec_id"]))
     ctx.conn.execute(
         "UPDATE value_flags SET status='fixed', old_value=?, new_value=?, old_entered_by=?,"
@@ -3480,7 +3493,7 @@ def answer_question(ctx):
     if confidence not in ("confirmed", "mfr", "pending"):
         raise HttpError(400, "unknown confidence")
     ctx.conn.execute(
-        "UPDATE specs SET value=?, confidence=?, entered_by=?,"
+        "UPDATE specs SET value=?, confidence=?, value_source=NULL, entered_by=?,"
         " updated_at=datetime('now') WHERE id=?",
         (ctx.field("value"), confidence, ctx.user["id"], spec["id"]))
     ctx.conn.commit()
@@ -4875,7 +4888,7 @@ def decide_not_sure(ctx):
             raise HttpError(400, "this question is not tied to a field, so there "
                                  "is nothing to write a value to")
         ctx.conn.execute(
-            "UPDATE specs SET value=?, confidence='confirmed', entered_by=?,"
+            "UPDATE specs SET value=?, confidence='confirmed', value_source=NULL, entered_by=?,"
             " updated_at=datetime('now') WHERE bike_id=? AND field_key=?",
             (value, ctx.user["id"], n["bike_id"], n["field_key"]))
     ctx.conn.execute(
@@ -5148,11 +5161,11 @@ def split_bike(ctx):
     def copy_spec(s, year_from, year_to):
         cur = c.execute(
             "INSERT INTO specs (bike_id, field_key, value, confidence, spec_type, tools,"
-            " paused, paused_by, paused_at, entered_by, year_from, year_to)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " paused, paused_by, paused_at, entered_by, value_source, year_from, year_to)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (new_id, s["field_key"], s["value"], s["confidence"], s["spec_type"],
              s["tools"], s["paused"], s["paused_by"], s["paused_at"], s["entered_by"],
-             year_from, year_to))
+             s["value_source"], year_from, year_to))
         c.execute(
             "INSERT INTO spec_alternates (spec_id, text, submitted_by, confirmed_fit, paused)"
             " SELECT ?, text, submitted_by, confirmed_fit, paused FROM spec_alternates"
