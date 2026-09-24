@@ -90,6 +90,15 @@
 
   /* ---- search ---- */
   .search-panel{ border: 1px solid var(--line); background: var(--panel); padding: 16px; margin-bottom: 18px; }
+  /* What to do with the three dropdowns, sitting directly above them rather
+     than stranded below the panel where it read as a result. It changes as
+     the drill-down narrows, so it is announced rather than silently swapped. */
+  .search-hint{
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.01em;
+    color: var(--text-dim); margin: 0 0 12px;
+    padding-left: 9px; border-left: 2px solid var(--amber-dim);
+  }
+  .search-hint:empty{ display: none; }
   .search-grid{ display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
   .field-label{
     font-size: 10px; letter-spacing: 0.02em;
@@ -653,6 +662,7 @@
 
     <div class="search-col">
       <div class="search-panel">
+        <p class="search-hint" id="search-hint" aria-live="polite">Pick a make, then a model, to open a bike.</p>
         <div class="search-grid">
           <div>
             <span class="field-label">Make</span>
@@ -751,6 +761,7 @@ const els = {
   model: byId("model-select"),
   results: byId("results"),
   count: byId("result-count"),
+  hint: byId("search-hint"),
 };
 
 /* ---------------------------------------------------------------- search */
@@ -819,15 +830,27 @@ const search = guard(async (autoOpen = false) => {
     // Counting is still worth saying — it is how you can tell the filters are
     // biting — but "Showing 200 of 261" would be a lie next to an empty list.
     els.count.textContent = bikes;
-    els.results.innerHTML =
-      data.bikes.length === 1
-        ? ""                       // it opened below; saying more is noise
-        : anyFilter()
-          ? `<div class="empty">${bikes} match. Narrow it down with Model.</div>`
-          : `<div class="empty">Pick a make, then a model, to open a bike.</div>`;
+    els.hint.textContent =
+      data.total === 0
+        ? "Nothing matches those filters."   // "narrow it down" would be absurd
+        : data.bikes.length === 1
+          ? ""                     // it opened below; saying more is noise
+          : anyFilter()
+            ? `${bikes} match. Narrow it down with Model.`
+            : "Pick a make, then a model, to open a bike.";
+    // A rider whose machine is not in the catalogue needs the way to ask for
+    // it, not an empty page.
+    els.results.innerHTML = data.total === 0
+      ? `<div class="empty"><a href="/request-bike.html">Can't find your bike? Ask for it to be added →</a></div>`
+      : "";
     return;
   }
 
+  // Model chosen and several bikes still answer to it, as the two VT1100C
+  // Shadows do: the list below is the last step, so say that.
+  els.hint.textContent = data.bikes.length
+    ? `${data.bikes.length} bikes share that model — pick the one you want.`
+    : "";
   els.count.textContent = data.bikes.length < data.total
     ? `Showing ${data.bikes.length} of ${data.total} bikes`
     : bikes;
