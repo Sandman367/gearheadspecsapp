@@ -596,7 +596,8 @@
   .how-actions a{ text-decoration: none; }
 
   footer .footer-line{ color: var(--text-dim); font-size: 11.5px; margin: 0 0 7px; }
-  footer .footer-fine{ margin: 0; }
+  footer .footer-fine{ margin: 0 0 6px; }
+  footer .footer-fine:last-child{ margin-bottom: 0; }
 
   @media (max-width: 760px){
     .how-pair{ grid-template-columns: 1fr; }
@@ -727,9 +728,18 @@
 <footer>
   <p class="footer-line">GearHeadSpecs. Checked by riders. Still, crack the manual
     before you put a wrench on it.</p>
-  <p class="footer-fine">CC values are inferred from model naming convention for sort
-    ordering — not a verified spec field. Prototype build, part numbers/specs pending
-    community + admin verification.</p>
+  <!-- What the site actually does, in the site's own terms. It promises no
+       checking, by us or by anyone later: "pending verification" is a promise
+       that something will be verified, and nothing here ever is. Every claim
+       is attributed to the person who made it. -->
+  <p class="footer-fine">Every value here was entered by a rider and carries their name.
+    <b>Mfr-sourced</b> and <b>Manual-confirmed</b> mean that bike's manager says they
+    checked it against the book — GearHeadSpecs does not check specs itself and does not
+    warrant any value on this site. Confirm against the service manual or parts fiche for
+    your exact machine and year before you order a part or turn a bolt.</p>
+  <p class="footer-fine">Engine displacement orders the model list. It comes from the
+    research behind the catalogue, not from the model name, and it is unconfirmed like
+    any other value. Prototype build.</p>
 </footer>
 
 <script src="/api.js"></script>
