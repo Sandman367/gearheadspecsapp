@@ -673,6 +673,23 @@ CREATE INDEX idx_spec_notes_bike ON spec_notes (bike_id, field_key);
 CREATE UNIQUE INDEX idx_spec_notes_one_per_bike ON spec_notes (bike_id, field_key) WHERE bike_id IS NOT NULL;
 CREATE UNIQUE INDEX idx_spec_notes_one_site ON spec_notes (field_key) WHERE bike_id IS NULL;
 
+-- The emailed "set a new password" link.
+--
+-- The token itself is never stored, for the same reason a password is not:
+-- a stolen copy of this table must not open anybody's account. What is kept
+-- is its SHA-256, and the link in the mail is the only place the real token
+-- exists. Single use, one hour, and issuing a new one spends the old ones.
+CREATE TABLE password_resets (
+  id         INTEGER PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT    NOT NULL UNIQUE,
+  expires_at TEXT    NOT NULL,
+  used_at    TEXT,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_password_resets_user ON password_resets (user_id, used_at);
+CREATE INDEX idx_password_resets_expiry ON password_resets (expires_at);
+
 CREATE TABLE spec_tools (
   id         INTEGER PRIMARY KEY,
   bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,

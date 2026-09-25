@@ -2230,6 +2230,28 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(s, 400)
         self.assertIn("already reach every bike", b["error"])
 
+    def _mail_trap(self):
+        """Catch what the site would have sent, so a test can read the link.
+
+        The token exists in exactly one place -- the message -- because the
+        database keeps only its hash. Reading it any other way would be
+        testing a shortcut the real flow does not have.
+        """
+        sent = []
+        real, real_key = app.send_email, app.MAIL_KEY
+        app.send_email = lambda to, subject, body: sent.append(
+            {"to": to, "subject": subject, "body": body})
+        # The routes refuse to promise a mail the site cannot send, so a test
+        # of the flow has to stand a configured site up.
+        app.MAIL_KEY = "test-key-not-a-real-one"
+        self.addCleanup(lambda: setattr(app, "send_email", real))
+        self.addCleanup(lambda: setattr(app, "MAIL_KEY", real_key))
+        return sent
+
+    @staticmethod
+    def _link_token(message):
+        return message["body"].split("token=")[1].split()[0].strip()
+
     def _uid(self, username):
         con = sqlite3.connect(self.db)
         row = con.execute("SELECT id FROM users WHERE username=?", (username,)).fetchone()
@@ -6092,6 +6114,95 @@ class ApiTest(unittest.TestCase):
             "  AND entered_by IS NULL AND value_source IS NULL").fetchone()[0]
         con.close()
         self.assertEqual(orphans, 0, "a value with neither an author nor a source")
+
+
+    # -- forgotten passwords ----------------------------------------------
+    def test_x01_a_reset_link_works_once_and_tells_nobody_who_has_an_account(self):
+        """A rider who forgets their password had no way back in: the only
+        routes to a new one were knowing the old one, or admin doing it by
+        hand. The link fixes that without becoming two other things -- a way
+        to find out who has an account here, and a spare key left in an inbox.
+        """
+        mail = self._mail_trap()
+        s, _ = self.anon().post("/api/auth/register", {
+            "username": "lost_lena", "email": "lost.lena@example.com",
+            "password": "firstpass1"})
+        self.assertEqual(s, 200)
+        uid = self._uid("lost_lena")
+
+        # an address nobody has gets the same answer as one that exists --
+        # otherwise the form tells a stranger who is registered here
+        s, a = self.anon().post("/api/auth/forgot", {"email": "nobody@example.com"})
+        s2, b = self.anon().post("/api/auth/forgot", {"email": "lost.lena@example.com"})
+        self.assertEqual((s, s2), (200, 200))
+        self.assertEqual(a, b, "the answer must not depend on whether the account exists")
+        self.assertEqual([m["to"] for m in mail], ["lost.lena@example.com"],
+                         "and no mail goes to an address with no account")
+
+        # the token lives in the message; the database keeps only a hash of it
+        first = self._link_token(mail[-1])
+        con = sqlite3.connect(self.db)
+        stored = con.execute("SELECT token_hash FROM password_resets WHERE user_id=?",
+                             (uid,)).fetchone()[0]
+        con.close()
+        self.assertEqual(len(stored), 64)
+        self.assertNotIn(first, stored)
+
+        # asking again spends the first link, so an old mail stops working
+        self.anon().post("/api/auth/forgot", {"email": "lost.lena@example.com"})
+        second = self._link_token(mail[-1])
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.anon().post(
+            "/api/auth/reset", {"token": first, "password": "secondpass1"})[0], 400,
+            "the superseded link must be dead")
+
+        # a made-up token is refused, and so is a password too short to matter
+        self.assertEqual(self.anon().post(
+            "/api/auth/reset", {"token": "not-a-real-token", "password": "secondpass1"})[0], 400)
+        self.assertEqual(self.anon().post(
+            "/api/auth/reset", {"token": second, "password": "short"})[0], 400)
+
+        # the live link works, once
+        s, r = self.anon().post("/api/auth/reset", {"token": second, "password": "secondpass1"})
+        self.assertEqual((s, r["username"]), (200, "lost_lena"))
+        self.assertEqual(self.anon().post(
+            "/api/auth/reset", {"token": second, "password": "thirdpass1"})[0], 400,
+            "a spent link is spent")
+
+        # and the new password is the one that signs in
+        self.assertEqual(self.anon().post("/api/auth/login", {
+            "username": "lost_lena", "password": "firstpass1"})[0], 401)
+        self.assertEqual(self.anon().post("/api/auth/login", {
+            "username": "lost_lena", "password": "secondpass1"})[0], 200)
+
+    def test_x02_an_expired_link_and_a_suspended_account_get_nothing(self):
+        mail = self._mail_trap()
+        adm = self.as_("admin")
+        self.anon().post("/api/auth/register", {
+            "username": "stale_sam", "email": "stale.sam@example.com",
+            "password": "firstpass1"})
+        uid = self._uid("stale_sam")
+
+        self.anon().post("/api/auth/forgot", {"email": "stale.sam@example.com"})
+        token = self._link_token(mail[-1])
+        con = sqlite3.connect(self.db)
+        con.execute("UPDATE password_resets SET expires_at='2000-01-01 00:00:00'"
+                    " WHERE user_id=?", (uid,))
+        con.commit(); con.close()
+        s, r = self.anon().post("/api/auth/reset", {"token": token, "password": "secondpass1"})
+        self.assertEqual(s, 400)
+        self.assertIn("expired", r["error"])
+
+        # a live link goes dead the moment the account is suspended, and a
+        # suspended account is issued no new one
+        self.anon().post("/api/auth/forgot", {"email": "stale.sam@example.com"})
+        live = self._link_token(mail[-1])
+        adm.post(f"/api/admin/users/{uid}/suspend", {"suspended": True})
+        self.assertEqual(self.anon().post(
+            "/api/auth/reset", {"token": live, "password": "secondpass1"})[0], 400)
+        before = len(mail)
+        self.anon().post("/api/auth/forgot", {"email": "stale.sam@example.com"})
+        self.assertEqual(len(mail), before, "no link for a suspended account")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forgotten Password — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  main{ max-width: 460px; }
+  .said{
+    border: 1px solid var(--line); border-left: 2px solid var(--amber);
+    background: var(--panel-2); padding: 15px 17px; font-size: 12.5px;
+    line-height: 1.65; color: var(--text-dim);
+  }
+  .said b{ color: var(--text); font-weight: 500; }
+  .form-actions{ display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  .form-actions a{ text-decoration: none; font-size: 11.5px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Forgotten Password</h1>
+  </div>
+</header>
+
+<main>
+  <div id="content">
+    <div class="panel">
+      <div class="panel-head">
+        <div><h3>Send me a link</h3>
+          <p>The address you signed up with. We'll send a link that lets you set a
+             new password; it works once and lasts an hour.</p></div>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <label for="email">Email</label>
+          <input type="email" id="email" autocomplete="email" maxlength="254"
+                 placeholder="you@example.com">
+        </div>
+        <div class="form-actions">
+          <button class="primary-btn" id="send">Send the link</button>
+          <a href="/login.html">Back to sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+
+/* The answer never says whether the address is on file. Telling a stranger
+   "no account with that address" turns this form into a way to find out who
+   has an account here. */
+async function send(){
+  const email = byId("email").value.trim();
+  if(!email){ toast("Put in the address you signed up with.", "error"); return; }
+  const btn = byId("send");
+  btn.disabled = true;
+  try {
+    await API.post("/api/auth/forgot", { email });
+    byId("content").innerHTML = `
+      <div class="panel"><div class="panel-head"><div>
+        <h3>Check your email</h3>
+        <p>If <b>${esc(email)}</b> belongs to an account here, a link is on its way.</p>
+      </div></div>
+      <div class="panel-body">
+        <div class="said">The link works <b>once</b> and stops working in <b>an hour</b>.
+          Asking for another one cancels this one, so use the newest mail if you ask twice.
+          <br><br>Nothing has changed on your account yet — your password only changes
+          when you use the link and set a new one.</div>
+        <div class="form-actions">
+          <a class="ghost-btn" style="text-decoration:none" href="/login.html">Back to sign in</a>
+        </div>
+      </div></div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.addEventListener("click", guard(async (e) => {
+  if(e.target.id === "send") await send();
+}));
+document.addEventListener("keydown", guard(async (e) => {
+  if(e.key === "Enter" && e.target.id === "email") await send();
+}));
+
+(async () => {
+  await initChrome(null);
+  // Offering a reset the site cannot deliver would be worse than not offering
+  // one: the rider waits for a mail that is never coming.
+  if(ME && ME.mail === false){
+    byId("content").innerHTML = `
+      <div class="panel">
+        <div class="panel-head"><div><h3>Not switched on yet</h3>
+          <p>This site cannot send email at the moment, so it cannot send you a link.</p></div></div>
+        <div class="panel-body">
+          <div class="said">Ask the site admin to set a new password for you.
+            <br><br>Nothing is wrong with your account — the reset email just is not
+            running yet.</div>
+          <div class="form-actions">
+            <a class="ghost-btn" style="text-decoration:none" href="/login.html">Back to sign in</a>
+          </div>
+        </div>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>

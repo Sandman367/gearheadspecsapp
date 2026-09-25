@@ -32,6 +32,8 @@
         </div>
         <div class="form-actions">
           <button type="submit" class="primary-btn" id="submit-btn">Sign In</button>
+          <a class="ghost-link" id="forgot-link" href="/forgot.html" hidden
+             style="font-size:11.5px;color:var(--text-dim)">Forgotten your password?</a>
         </div>
       </form>
 
@@ -72,7 +74,11 @@ document.getElementById("login-form").addEventListener("submit", guard(async (e)
   }
 }));
 
-initChrome("/login.html");
+initChrome("/login.html").then(() => {
+  // Shown only when the site can actually send the mail.
+  const link = document.getElementById("forgot-link");
+  if(link && ME && ME.mail) link.hidden = false;
+});
 </script>
 </body>
 </html>

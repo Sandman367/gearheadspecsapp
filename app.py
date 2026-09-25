@@ -22,6 +22,8 @@ import hashlib
 import hmac
 import secrets
 import mimetypes
+import threading
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -44,6 +46,20 @@ PORT = int(os.environ.get("PORT", "8420"))
 # Local by default. On a server set HOST=0.0.0.0 (or put it behind a reverse
 # proxy that talks to 127.0.0.1) -- see DEPLOY.md.
 HOST = os.environ.get("HOST", "127.0.0.1")
+
+# ---------------------------------------------------------------------------
+# Mail
+#
+# Sent through Resend's HTTPS API with urllib rather than an SDK, because this
+# project has no dependencies and is not about to grow one to send a handful of
+# messages. With no key set nothing is sent and the message is written to the
+# log instead -- so a development box works, and a deploy that has lost its key
+# says so in the log rather than dropping a password reset on the floor.
+# ---------------------------------------------------------------------------
+MAIL_KEY = os.environ.get("RESEND_API_KEY") or None
+MAIL_FROM = os.environ.get("MAIL_FROM") or "GearHeadSpecs <noreply@gearheadspecs.com>"
+SITE_URL = (os.environ.get("SITE_URL") or "http://127.0.0.1:8420").rstrip("/")
+RESET_HOURS = 1
 SESSION_DAYS = 14
 IMPERSONATE_HOURS = 4      # a test sign-in as another member lasts this long
 PBKDF2_ROUNDS = 200_000
@@ -375,8 +391,11 @@ def logout(ctx):
 
 @route("GET", r"/api/auth/me")
 def me(ctx):
+    # Whether the site can send mail at all. A page must not offer a password
+    # reset it cannot deliver: with no key the link would promise an email
+    # that never arrives, and write the token into the server log instead.
     if not ctx.user:
-        return {"user": None}
+        return {"user": None, "mail": bool(MAIL_KEY)}
     managed = rows(ctx.conn.execute(
         "SELECT bike_id FROM bike_managers WHERE user_id=?", (ctx.user["id"],)))
     public = {k: v for k, v in ctx.user.items() if k != "token"}
@@ -389,7 +408,8 @@ def me(ctx):
         if back and back["role"] == "admin" and back["id"] != ctx.user["id"]:
             testing = {"admin": back["username"]}
     return {"user": public, "manages": [m["bike_id"] for m in managed],
-            "unread": _unread_counts(ctx.conn, ctx.user), "testing_as": testing}
+            "unread": _unread_counts(ctx.conn, ctx.user), "testing_as": testing,
+            "mail": bool(MAIL_KEY)}
 
 
 # ===========================================================================
@@ -2966,6 +2986,121 @@ def _note_of(conn, bike_id, key):
             " FROM spec_notes n LEFT JOIN users u ON u.id = n.written_by"
             " WHERE n.bike_id=? AND n.field_key=?", (bike_id, key)))
     return row
+
+
+# ===========================================================================
+# MAIL
+# ===========================================================================
+def send_email(to, subject, body):
+    """Hand one message to Resend. Returns nothing: nobody waits on it.
+
+    Mail is slow and fails in ways that have nothing to do with the request
+    that triggered it, so it goes out on its own thread. A reset endpoint that
+    blocked for fifteen seconds on a DNS timeout would be worse than one whose
+    mail is a second late, and an endpoint that 500s because the mail provider
+    is down would tell an attacker which addresses exist.
+    """
+    if not MAIL_KEY:
+        print(f"[mail] no RESEND_API_KEY set, so nothing was sent\n"
+              f"  to:      {to}\n  subject: {subject}\n  ---\n"
+              + "\n".join("  " + ln for ln in body.splitlines()), flush=True)
+        return
+
+    def deliver():
+        payload = json.dumps({"from": MAIL_FROM, "to": [to],
+                              "subject": subject, "text": body}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails", data=payload, method="POST",
+            headers={"Authorization": f"Bearer {MAIL_KEY}",
+                     "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                r.read()
+        except Exception as e:                      # noqa: BLE001 - logged, never raised
+            print(f"[mail] FAILED to={to} subject={subject!r}: {e}", flush=True)
+
+    threading.Thread(target=deliver, daemon=True).start()
+
+
+# ===========================================================================
+# FORGOTTEN PASSWORDS
+# ===========================================================================
+def _hash_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+@route("POST", r"/api/auth/forgot")
+def request_password_reset(ctx):
+    """Send a reset link, if that address belongs to an account.
+
+    The answer is the same either way. Saying "no account with that address"
+    would turn this form into a way to find out who has an account here, which
+    is somebody's business and not a stranger's.
+    """
+    if not MAIL_KEY:
+        raise HttpError(503, "password reset by email is not switched on yet — "
+                             "ask the site admin to set your password")
+    email = (ctx.body.get("email") or "").strip().lower()
+    same = {"ok": True, "sent": True}
+    if not email or not EMAIL_RE.match(email):
+        return same
+    user = one(ctx.conn.execute(
+        "SELECT id, username, email, suspended FROM users"
+        " WHERE email = ? COLLATE NOCASE", (email,)))
+    # A suspended account is not a way back in either, and its owner does not
+    # need a link they cannot use.
+    if not user or user["suspended"]:
+        return same
+
+    # One live link at a time. A second request spends the first, so a link
+    # forwarded or left in an inbox stops working the moment another is asked
+    # for -- and a mailbox full of valid links never accumulates.
+    ctx.conn.execute(
+        "UPDATE password_resets SET used_at = datetime('now')"
+        " WHERE user_id = ? AND used_at IS NULL", (user["id"],))
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=RESET_HOURS)
+    ctx.conn.execute(
+        "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?,?,?)",
+        (user["id"], _hash_token(token), expires.strftime("%Y-%m-%d %H:%M:%S")))
+    ctx.conn.commit()
+
+    link = f"{SITE_URL}/reset.html?token={quote(token)}"
+    send_email(
+        user["email"], "Set a new GearHeadSpecs password",
+        f"Somebody asked for a new password for {user['username']} on GearHeadSpecs.\n\n"
+        f"Set one here:\n{link}\n\n"
+        f"The link works once and stops working in {RESET_HOURS} hour"
+        f"{'' if RESET_HOURS == 1 else 's'}.\n\n"
+        "If that was not you, nothing has happened to your account and you can\n"
+        "ignore this. Your password only changes when somebody uses the link.\n")
+    return same
+
+
+@route("POST", r"/api/auth/reset")
+def use_password_reset(ctx):
+    """Spend a reset link and set the new password.
+
+    _set_password ends every session for the user, which is the point: if
+    somebody else had got into the account, this is what puts them out."""
+    token = (ctx.body.get("token") or "").strip()
+    password = ctx.body.get("password") or ""
+    row = one(ctx.conn.execute(
+        "SELECT r.id, r.user_id, r.used_at, r.expires_at, u.username, u.suspended"
+        " FROM password_resets r JOIN users u ON u.id = r.user_id"
+        " WHERE r.token_hash = ?", (_hash_token(token),))) if token else None
+    if not row or row["used_at"] or row["suspended"]:
+        raise HttpError(400, "that link has already been used, or is not valid — "
+                             "ask for a new one")
+    if datetime.strptime(row["expires_at"], "%Y-%m-%d %H:%M:%S").replace(
+            tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HttpError(400, f"that link expired — they last {RESET_HOURS} hour"
+                             f"{'' if RESET_HOURS == 1 else 's'}. Ask for a new one")
+    _set_password(ctx.conn, row["user_id"], password)
+    ctx.conn.execute("UPDATE password_resets SET used_at = datetime('now')"
+                     " WHERE id = ?", (row["id"],))
+    ctx.conn.commit()
+    return {"ok": True, "username": row["username"]}
 
 
 # ===========================================================================

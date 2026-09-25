@@ -22,7 +22,7 @@ sys.path.insert(0, ROOT)
 
 MIGRATIONS = ["migrate_manager_tiers", "migrate_year_photos", "migrate_spec_notes",
               "migrate_field_example", "migrate_front_brake_pads",
-              "migrate_value_source"]
+              "migrate_value_source", "migrate_password_resets"]
 
 
 def main():
