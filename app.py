@@ -23,6 +23,7 @@ import hmac
 import secrets
 import mimetypes
 import threading
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
@@ -3016,6 +3017,16 @@ def send_email(to, subject, body):
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 r.read()
+        except urllib.error.HTTPError as e:
+            # The status alone is not a diagnosis -- a 403 from Resend can mean
+            # an unverified domain, a key scoped to another domain, or a from
+            # address that is not on the domain. The body says which, so log it.
+            try:
+                why = e.read().decode("utf-8", "replace")[:500]
+            except Exception:                       # noqa: BLE001
+                why = "(no body)"
+            print(f"[mail] FAILED to={to} subject={subject!r}: HTTP {e.code} — {why}",
+                  flush=True)
         except Exception as e:                      # noqa: BLE001 - logged, never raised
             print(f"[mail] FAILED to={to} subject={subject!r}: {e}", flush=True)
 
