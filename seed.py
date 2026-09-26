@@ -69,7 +69,7 @@ CATALOG_FIELD_MAP = {
 # Columns that are not specs: identity or provenance.
 NON_SPEC_COLUMNS = {"Model", "Year", "Notes", "CC", "CC_note"}
 
-CATEGORY_ORDER = ["General", "Engine", "Drive", "Fuel and Air",
+CATEGORY_ORDER = ["General", "Engine", "Drive", "Brakes", "Fuel and Air",
                   "Controls", "Suspension", "Electrical", "Gear and Accessories"]
 
 

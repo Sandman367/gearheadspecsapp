@@ -3815,7 +3815,7 @@ def admin_unplaced_fields(ctx):
 # Mirrors seed.CATEGORY_ORDER. The browse page groups by consecutive runs of
 # sort_order, so a category's fields have to stay contiguous: each category owns
 # a 1000-wide band, and its index here is what picks the band.
-CATEGORY_ORDER = ["General", "Engine", "Drive", "Fuel and Air",
+CATEGORY_ORDER = ["General", "Engine", "Drive", "Brakes", "Fuel and Air",
                   "Controls", "Suspension", "Electrical", "Gear and Accessories"]
 BAND = 1000
 
