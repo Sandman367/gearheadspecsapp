@@ -3010,10 +3010,16 @@ def send_email(to, subject, body):
     def deliver():
         payload = json.dumps({"from": MAIL_FROM, "to": [to],
                               "subject": subject, "text": body}).encode("utf-8")
+        # A User-Agent is not optional here. urllib announces itself as
+        # "Python-urllib/3.x", and the bot protection in front of the mail API
+        # refuses that signature outright -- a Cloudflare 1010, which arrives
+        # as a bare 403 and reads exactly like a rejected API key.
         req = urllib.request.Request(
             "https://api.resend.com/emails", data=payload, method="POST",
             headers={"Authorization": f"Bearer {MAIL_KEY}",
-                     "Content-Type": "application/json"})
+                     "Content-Type": "application/json",
+                     "Accept": "application/json",
+                     "User-Agent": "GearHeadSpecs/1.0 (+https://www.gearheadspecs.com)"})
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 r.read()
