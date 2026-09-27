@@ -30,6 +30,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
+import fuses
 import questionnaire
 import wire_colors
 import fuel_octane
@@ -192,7 +193,12 @@ def check_value(conn, spec_id, value):
             return fuel_octane.normalise_octane(value)
         if row["value_type"] == "ethanol":
             return fuel_octane.normalise_ethanol(value)
-    except (wire_colors.WireColorError, fuel_octane.FuelValueError) as e:
+        if row["value_type"] == "fuse":
+            # normalise_set for the same reason as wires: a fuse box row is
+            # one fact about the bike, not five competing answers.
+            return fuses.normalise_set(value)
+    except (wire_colors.WireColorError, fuel_octane.FuelValueError,
+            fuses.FuseError) as e:
         raise HttpError(400, f"{row['label']}: {e}")
     return value
 
@@ -200,7 +206,7 @@ def check_value(conn, spec_id, value):
 # What a field's values ARE: typed text, or one of the closed vocabularies.
 # Chosen when a field is created and changeable afterwards; "text" is the
 # default, so a field nobody typed a choice for is a text box.
-VALUE_TYPES = ("text", "wire_color", "fuel_octane", "ethanol")
+VALUE_TYPES = ("text", "wire_color", "fuel_octane", "ethanol", "fuse")
 
 
 def value_type_from(body):
@@ -219,6 +225,8 @@ def normalise_for_type(value_type, value):
         return fuel_octane.normalise_octane(value)
     if value_type == "ethanol":
         return fuel_octane.normalise_ethanol(value)
+    if value_type == "fuse":
+        return fuses.normalise_set(value)
     return value
 
 
@@ -622,6 +630,20 @@ def wire_color_vocabulary(ctx):
     Harley BE. The value never changes; only the label does.
     """
     return wire_colors.vocabulary(ctx.arg("make", "") or None)
+
+
+@route("GET", r"/api/fuses")
+def fuse_vocabulary(ctx):
+    """The fuse sizes, and the ratings each size comes in with the colour that
+    rating is.
+
+    No `?make=` here, unlike wire colours: a fuse is standard across every
+    manufacturer, and the colour is set by ISO 8820 rather than by whoever
+    drew the wiring diagram. What DOES vary is the size, which is why the
+    ratings are listed per size -- a 50A mini does not exist, and the picker
+    should not offer one.
+    """
+    return fuses.vocabulary()
 
 
 @route("GET", r"/api/bikes/(\d+)/specs")
@@ -4564,7 +4586,8 @@ def admin_set_value_type(ctx):
             for it in items:
                 try:
                     canon = normalise_for_type(new, it["value"])
-                except (wire_colors.WireColorError, fuel_octane.FuelValueError) as e:
+                except (wire_colors.WireColorError, fuel_octane.FuelValueError,
+            fuses.FuseError) as e:
                     bad.append({"bike": it["display_name"], "value": it["value"], "why": str(e)})
                     continue
                 if canon != it["value"]:

@@ -279,7 +279,7 @@ CREATE TABLE spec_fields (
   -- same reason wire colours are: free text gives "91 or better", "91+",
   -- "premium" and "95 RON" for one fact.
   value_type       TEXT    NOT NULL DEFAULT 'text'
-                     CHECK (value_type IN ('text','wire_color','fuel_octane','ethanol')),
+                     CHECK (value_type IN ('text','wire_color','fuel_octane','ethanol','fuse')),
   sort_order       INTEGER NOT NULL DEFAULT 0,
 
   -- What a good value looks like: "K&N KN-145", "0.16 +/- 0.03 mm". Admin
@@ -647,7 +647,7 @@ CREATE TABLE branch_proposals (
   -- What the values will be, as the proposer sees it: text unless they say
   -- otherwise. Offered to admin as the preselected choice on approval.
   value_type   TEXT    NOT NULL DEFAULT 'text'
-                 CHECK (value_type IN ('text','wire_color','fuel_octane','ethanol')),
+                 CHECK (value_type IN ('text','wire_color','fuel_octane','ethanol','fuse')),
   status       TEXT    NOT NULL DEFAULT 'pending'
                  CHECK (status IN ('pending','approved','rejected')),
   admin_note   TEXT,

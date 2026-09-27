@@ -6450,5 +6450,94 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(n, 0)
 
 
+    # -- fuses ------------------------------------------------------------
+    def test_99m_a_fuse_is_a_size_a_rating_and_what_it_protects(self):
+        """Three facts that belong together. Held apart as three text fields
+        they drift; held together the colour comes free, because blade fuses
+        are colour coded by rating under ISO 8820."""
+        import fuses
+        for v, want in [("mini 10A", "mini 10A"),
+                        ("10A mini", "mini 10A"),
+                        ("ATO 15", "regular 15A"),
+                        ("AGC 5A", "glass 5A"),
+                        ("micro2 7.5A", "micro2 7.5A"),
+                        ("starter: maxi 30A, horn: mini 10A",
+                         "starter: maxi 30A, horn: mini 10A")]:
+            self.assertEqual(fuses.normalise_set(v), want, v)
+
+        # THE COLOUR DEPENDS ON THE FAMILY. A violet regular blade is 3A; a
+        # violet Maxi is 100A. Getting this backwards would put a wrong part
+        # in somebody's hand.
+        self.assertEqual(fuses.color_of("regular", 3), "violet")
+        self.assertEqual(fuses.color_of("maxi", 100), "violet")
+        self.assertEqual(fuses.color_of("regular", 15), "blue")
+        self.assertEqual(fuses.color_of("maxi", 60), "blue")
+        # and nothing derives a rating FROM a colour, because blue is two
+        # different ratings in Maxi and that question has no answer
+
+        # glass is not colour coded, and says so rather than inventing one
+        self.assertIsNone(fuses.color_of("glass", 20))
+
+    def test_99n_a_fuse_that_does_not_exist_is_refused(self):
+        import fuses
+        for bad in ("mini 50A",          # minis stop at 40
+                    "maxi 3A",           # maxis start at 15
+                    "mini",              # no rating
+                    "10A",               # no size
+                    "banana 10A",        # no such size
+                    "mini 0A"):
+            with self.assertRaises(fuses.FuseError, msg=bad):
+                fuses.normalise_set(bad)
+        # the refusal says what IS available, so the next try can succeed
+        try:
+            fuses.normalise_set("mini 50A")
+        except fuses.FuseError as e:
+            self.assertIn("40A", str(e))
+
+    def test_99o_a_fuse_value_survives_the_api(self):
+        """The value type has to reach the database and come back whole,
+        normalised the same way whatever the manual called the size."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "FUSE TEST", 2002, 2004)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+        mgr = self.as_("gp_hayes")
+
+        con = sqlite3.connect(self.db)
+        con.execute("UPDATE spec_fields SET value_type='fuse' WHERE field_key='fuse_type'")
+        con.commit(); con.close()
+
+        s, d = mgr.get(f"/api/bikes/{bike}/specs")
+        spec = next((x for c in d["categories"] for x in c["specs"]
+                     if x["field_key"] == "fuse_type"), None)
+        if spec is None:
+            self.skipTest("this bike does not carry the fuse_type field")
+
+        # what a manual says, normalised to what the database keeps
+        s, r = mgr.post(f"/api/specs/{spec['id']}/value", {"value": "headlight: ATO 15"})
+        self.assertEqual(s, 200, r)
+        s, d = self.anon().get(f"/api/bikes/{bike}/specs")
+        got = next(x for c in d["categories"] for x in c["specs"] if x["id"] == spec["id"])
+        self.assertEqual(got["value"], "headlight: regular 15A")
+        self.assertEqual(got["value_type"], "fuse")
+
+        # and a fuse that does not exist is refused with the reason
+        s, r = mgr.patch(f"/api/specs/{spec['id']}", {"value": "mini 50A"})
+        self.assertEqual(s, 400)
+        self.assertIn("50A", r["error"])
+
+    def test_99p_the_fuse_vocabulary_is_served(self):
+        s, v = self.anon().get("/api/fuses")
+        self.assertEqual(s, 200)
+        keys = {f["key"] for f in v["families"]}
+        self.assertTrue({"mini", "regular", "maxi", "micro2", "glass"} <= keys)
+        mini = next(f for f in v["families"] if f["key"] == "mini")
+        # the picker offers only ratings that size comes in
+        amps = {a["amp"] for a in mini["amps"]}
+        self.assertIn(10, amps)
+        self.assertNotIn(50, amps, "a 50A mini does not exist and must not be offered")
+        ten = next(a for a in mini["amps"] if a["amp"] == 10)
+        self.assertEqual((ten["color"], ten["text"]), ("red", "10A"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

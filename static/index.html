@@ -527,6 +527,55 @@
   .archive-row .cat{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
   .archive-row .val{ color: var(--text-dim); }
   .archive-row .keeps{ font-size: 10.5px; color: var(--text-faint); }
+  /* ---------- fuses ----------
+     A blade fuse is colour coded by rating, so the page draws the part rather
+     than describing it. The rating leads, because that is what a rider is
+     matching against the one in their hand. */
+  .fuse-one{ display: block; }
+  .fuse-one + .fuse-one{ margin-top: 7px; }
+  .fuse{ display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .fuse-svg{ flex: none; vertical-align: middle; }
+  .fuse-n{
+    font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
+    min-width: 10px;
+  }
+  .fuse-amp{ font-family: var(--mono); font-size: 15px; color: var(--text); font-weight: 600; }
+  .fuse-family{ font-size: 12px; color: var(--text-dim); }
+  .fuse-codes{
+    font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
+    border: 1px solid var(--line); padding: 1px 5px; white-space: nowrap;
+  }
+  .fuse-role{
+    font-size: 11px; color: var(--amber); border: 1px solid var(--amber-dim);
+    padding: 1px 6px; white-space: nowrap;
+  }
+
+  /* the picker */
+  .fp-fams{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .fp-fam{
+    font-family: var(--mono); font-size: 11px; padding: 5px 9px;
+    border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text-dim); cursor: pointer;
+  }
+  .fp-fam:hover{ border-color: var(--text-faint); }
+  .fp-fam.on{ border-color: var(--amber); color: var(--amber); background: rgba(217,154,43,0.08); }
+  .fp-preview{
+    display: flex; align-items: center; gap: 14px; padding: 11px 13px;
+    border: 1px solid var(--line); background: var(--bg); margin-bottom: 12px;
+  }
+  .fp-big{ font-family: var(--mono); font-size: 22px; color: var(--text); }
+  .fp-desc{ font-size: 12px; color: var(--text-dim); }
+  .fp-mm{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+  .fp-list{ display: grid; gap: 6px; margin-bottom: 10px; }
+  .fp-item{
+    display: flex; align-items: center; gap: 9px; padding: 6px 8px;
+    border: 1px solid var(--line); background: var(--panel-2); cursor: pointer;
+  }
+  .fp-item.on{ border-color: var(--amber); }
+  .fp-i{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .fp-empty-item{ font-size: 11.5px; color: var(--text-faint); font-style: italic; }
+  .fp-role{ flex: 1; min-width: 100px; font-size: 11.5px; }
+
   .spec-note{
     font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
     border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
@@ -818,6 +867,7 @@
 <script src="/api.js"></script>
 <script src="/wire.js"></script>
 <script src="/fuel.js"></script>
+<script src="/fuse.js"></script>
 <script>
 let SPECS = null;
 // Whether the signed-in user manages the bike currently open. Drives the
@@ -1001,6 +1051,9 @@ const openBike = guard(async (bikeId, opts = {}) => {
   }
   if(every.some(x => x.value_type === "fuel_octane" || x.value_type === "ethanol")){
     await loadFuelVocabulary();
+  }
+  if(every.some(x => x.value_type === "fuse")){
+    await loadFuseVocabulary();
   }
   MANAGES_THIS_BIKE = !!(ME.user && (ME.user.role === 'admin' ||
     (ME.manages || []).includes(bike.bike_id)));
@@ -1467,6 +1520,7 @@ function valueLine(opts){
         : opts.wire ? wireValueHTML(text, opts.wireId || "w")
         : opts.vtype === "fuel_octane" ? octaneValueHTML(text, { alt: label !== "Stock" })
         : opts.vtype === "ethanol" ? ethanolValueHTML(text, { alt: label !== "Stock" })
+        : opts.vtype === "fuse" ? fuseValueHTML(text, opts.wireId || "f")
         : esc(text)}</span>
       ${confirmedFit ? `<span class="fit-check" title="Confirmed fit">✓</span>` : ""}
       ${opts.altId && MANAGES_THIS_BIKE ? `<button class="action-btn alt-hide" data-alt-pause="${opts.altId}" data-to="1"
@@ -1895,6 +1949,7 @@ document.addEventListener("click", guard(async (e) => {
     const wire = spec && spec.value_type === "wire_color";
     const octane = spec && spec.value_type === "fuel_octane";
     const ethanol = spec && spec.value_type === "ethanol";
+    const fuse = spec && spec.value_type === "fuse";
     const sib = octane ? ethanolSibling() : null;
     byId(`spec-form-${id}`).innerHTML = `
       <div class="inline-box good" style="margin-top:10px">
@@ -1903,7 +1958,9 @@ document.addEventListener("click", guard(async (e) => {
           manual or parts list gives it. It shows as <em>Unsourced</em> until the
           rider who maintains this bike confirms it. If you run something else
           instead, don't put it here — suggest it as an alternative under the spec.</div>
-        ${wire
+        ${fuse
+          ? fusePickerHTML(`val${id}`, "")
+          : wire
           ? wirePickerHTML(`val${id}`, "")
           : octane
             ? fuelPickerHTML(`val${id}`, "", { withEthanol: !!sib, ethanol: sib ? (sib.value || "") : "" })
@@ -1915,7 +1972,8 @@ document.addEventListener("click", guard(async (e) => {
         <div class="form-actions">
           <button class="ghost-btn" data-cancel="${id}">Cancel</button>
           <button class="primary-btn" data-save-value="${id}"${
-            wire ? ` data-wire="val${id}"` : octane ? ` data-fuel="val${id}"${sib ? ` data-fuel-sib="${sib.id}"` : ""}`
+            fuse ? ` data-fuse="val${id}"`
+            : wire ? ` data-wire="val${id}"` : octane ? ` data-fuel="val${id}"${sib ? ` data-fuel-sib="${sib.id}"` : ""}`
             : ethanol ? ` data-fuel-eth-only="val${id}"` : ""}>Save stock value</button>
         </div>
       </div>`;
@@ -1927,7 +1985,10 @@ document.addEventListener("click", guard(async (e) => {
   if(saveValue){
     const id = saveValue.dataset.saveValue;
     let value;
-    if(saveValue.dataset.wire){
+    if(saveValue.dataset.fuse){
+      value = fusePickerValue(saveValue.dataset.fuse);
+      if(!value){ toast("Pick a size and a rating first.", "error"); return; }
+    } else if(saveValue.dataset.wire){
       value = wirePickerValue(saveValue.dataset.wire);
       if(!value){ toast("Choose a base colour first.", "error"); return; }
     } else if(saveValue.dataset.fuel){
@@ -2799,6 +2860,9 @@ async function refreshSpecs(){
   }
   if(allSpecs().some(x => x.value_type === "fuel_octane" || x.value_type === "ethanol")){
     await loadFuelVocabulary();
+  }
+  if(allSpecs().some(x => x.value_type === "fuse")){
+    await loadFuseVocabulary();
   }
   MANAGES_THIS_BIKE = !!(ME.user && (ME.user.role === 'admin' ||
     (ME.manages || []).includes(BIKE.bike_id)));
