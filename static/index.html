@@ -472,11 +472,18 @@
      starting -- which matters most on a switch with two of them, where the
      second colour of wire 1 would otherwise line up with wire 2. */
   .wire-run{ display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
-  .wire-run > *:not(:first-child){
-    margin-left: 15px; padding-left: 14px;
-    border-left: 2px solid var(--amber-dim);
-  }
+  .wire-run > *:not(:first-child){ margin-left: 26px; }
   .wire-run > .wire:not(:first-child){ padding-top: 3px; padding-bottom: 1px; }
+  /* A bracket around the whole wire, not a rule beside part of it. Two wires
+     that both change colour have to read as two things, and a line that only
+     runs down the continuation leaves the second colour of wire 1 looking
+     like the start of wire 2. */
+  .wire-one.changes{ position: relative; padding: 3px 0 3px 15px; }
+  .wire-one.changes::before{
+    content: ""; position: absolute; left: 1px; top: 0; bottom: 0; width: 9px;
+    border: 2px solid var(--amber-dim); border-right: 0;
+    border-radius: 10px 0 0 10px;
+  }
   .wire-change{
     display: inline-flex; align-items: center; gap: 6px;
     font-family: var(--mono); font-size: 10px; color: var(--text-faint);
@@ -501,6 +508,25 @@
   .wire-diagrams .row{ display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 2px 0; }
   .wire-diagrams .row.off a{ color: var(--text-faint); text-decoration: line-through; }
 
+  /* The archive: off the sheet, behind one button that is only there when
+     something is behind it. */
+  .archive-bar{ margin: 0 0 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .archive-panel{
+    border: 1px solid var(--line); border-left: 2px solid var(--text-faint);
+    background: var(--panel-2); padding: 13px 15px; margin-bottom: 18px;
+  }
+  .archive-panel h4{
+    font-family: var(--display); font-size: 13px; letter-spacing: 0.04em;
+    margin: 0 0 3px; color: var(--text);
+  }
+  .archive-panel .sub{ font-size: 11.5px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.55; }
+  .archive-row{
+    display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+    padding: 6px 0; border-top: 1px solid var(--line); font-size: 12.5px;
+  }
+  .archive-row .cat{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .archive-row .val{ color: var(--text-dim); }
+  .archive-row .keeps{ font-size: 10.5px; color: var(--text-faint); }
   .spec-note{
     font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
     border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
@@ -1247,6 +1273,22 @@ function wireDiagramsHTML(){
     </div>`;
 }
 
+/* The archive button is only on the page when there is something in the
+   archive. A button that opens an empty drawer is furniture. */
+function archiveBarHTML(){
+  if(!MANAGES_THIS_BIKE) return "";
+  const n = (SPECS && SPECS.archived_count) || 0;
+  if(!n) return "";
+  return `<div class="archive-bar">
+      <button class="action-btn" data-archive-open="1">
+        Archive (${n})
+      </button>
+      <span class="cell-dim">${n} spec${n === 1 ? "" : "s"} you have taken off this sheet.
+        Nothing was deleted.</span>
+    </div>
+    <div id="archive-panel"></div>`;
+}
+
 function renderDetail(){
   const bike = BIKE;
   PHOTO_VIEW = null;
@@ -1259,7 +1301,8 @@ function renderDetail(){
              above. Add the stock value to a gap, suggest an alternative you run
              instead, or flag, vote and request any of them here.
              Missing a spec altogether?
-             <a id="request-spec-link" href="/request-spec.html?bike=${bike.bike_id}">Ask for one this bike doesn't list</a>.</p></div>
+             <a id="request-spec-link" href="/request-spec.html?bike=${bike.bike_id}">Ask for one this bike doesn't list</a>.</p>
+          ${archiveBarHTML()}</div>
         <div class="btn-row">
           <span class="field-label" style="margin:0 6px 0 0;align-self:center">Year</span>
           <select id="garage-year" style="width:auto">${
@@ -1534,6 +1577,8 @@ function renderSpec(s, opts = {}){
               ? "Put it back online — riders can read and vote on it again"
               : "Take it offline while you check it. Riders keep seeing the field, not the value; nothing is deleted."}">${
             s.paused ? "▶ Put back online" : "❙❙ Take offline"}</button>` : ""}
+        ${iManage ? `<button class="action-btn" data-archive="${s.id}"
+            title="Take this spec off the sheet entirely — for you as well as riders. For a spec this machine simply does not have. Nothing is deleted, and it is one button to put back.">⤓ Archive</button>` : ""}
       </div>
       ${s.header_only && iManage ? `<div class="paused-note mine"><strong>Header
           only.</strong> Riders see this in the header at the top and not in this
@@ -2051,6 +2096,50 @@ document.addEventListener("click", guard(async (e) => {
   if(diagramPause){
     const r = await API.post(`/api/wiring-diagrams/${diagramPause.dataset.diagramPause}/pause`, {});
     toast(r.paused ? `"${r.title}" hidden from riders.` : `"${r.title}" is back.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const archOpen = e.target.closest("[data-archive-open]");
+  if(archOpen){
+    const slot = byId("archive-panel");
+    if(slot.dataset.open){ slot.innerHTML = ""; slot.dataset.open = ""; return; }
+    const r = await API.get(`/api/bikes/${BIKE.bike_id}/archive`);
+    slot.dataset.open = "1";
+    slot.innerHTML = `
+      <div class="archive-panel">
+        <h4>Archived on this bike</h4>
+        <div class="sub">Off the sheet for everyone, including you. Values,
+          alternatives, votes and flags are all still here — putting one back
+          restores it exactly as it was.</div>
+        ${r.specs.map(x => `<div class="archive-row">
+            <span class="cat">${esc(x.category)}</span>
+            <strong>${esc(x.label)}</strong>
+            ${x.value ? `<span class="val">${esc(String(x.value).slice(0, 60))}</span>`
+                      : `<span class="cell-dim">no value</span>`}
+            <span class="keeps">${x.alternates ? `${x.alternates} alternative${
+              x.alternates === 1 ? "" : "s"} kept · ` : ""}${
+              x.archived_by ? "by " + esc(x.archived_by) : ""}${
+              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+            <button class="action-btn" data-unarchive="${x.id}">Put back on the sheet</button>
+          </div>`).join("")}
+      </div>`;
+    return;
+  }
+
+  const unarch = e.target.closest("[data-unarchive]");
+  if(unarch){
+    const r = await API.post(`/api/specs/${unarch.dataset.unarchive}/archive`, { archived: false });
+    toast(`${r.label} is back on the sheet.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const arch = e.target.closest("[data-archive]");
+  if(arch){
+    const r = await API.post(`/api/specs/${arch.dataset.archive}/archive`, { archived: true });
+    toast(`${r.label} archived — off the sheet, nothing deleted. `
+        + `Open Archive (${r.count}) to put it back.`, "ok");
     await refreshSpecs();
     return;
   }

@@ -677,6 +677,7 @@ def get_bike_specs(ctx):
         "                  WHERE h.bike_id = s.bike_id"
         "                    AND h.field_key = s.field_key), 0) AS header_only,"
         "       s.paused, s.paused_at, pu.username AS paused_by_username,"
+        "       s.archived,"
         "       f.value_type, s.year_from, s.year_to,"
         # The other headings this bike's manager put the field under, and
         # whether they took it out of its home heading on this bike.
@@ -741,6 +742,12 @@ def get_bike_specs(ctx):
     # Whoever looks after this bike keeps seeing everything — they cannot judge
     # a value they have taken offline if the page hides it from them too.
     manages = bool(ctx.user) and manages_bike(ctx.conn, ctx.user, bike_id)
+
+    # An archived spec is off the sheet for everyone including the manager --
+    # that is the difference between archived and offline. The count is what
+    # puts the button on the page, so it is counted before they are dropped.
+    archived_count = sum(1 for s in spec_rows if s["archived"])
+    spec_rows = [s for s in spec_rows if not s["archived"]]
 
     categories, unplaced = [], []
     for s in spec_rows:
@@ -807,7 +814,8 @@ def get_bike_specs(ctx):
     # the page offers it -- a rider tracing a circuit wants the colour and the
     # drawing in front of them at once.
     return {"categories": categories, "unplaced": unplaced,
-            "wiring_diagrams": _diagrams_for(ctx.conn, bike_id, manages)}
+            "wiring_diagrams": _diagrams_for(ctx.conn, bike_id, manages),
+            "archived_count": archived_count}
 
 
 # ===========================================================================
@@ -3122,6 +3130,60 @@ def use_password_reset(ctx):
                      " WHERE id = ?", (row["id"],))
     ctx.conn.commit()
     return {"ok": True, "username": row["username"]}
+
+
+# ===========================================================================
+# THE ARCHIVE
+#
+# Offline hides a value from riders and keeps the spec on its manager's sheet.
+# Archived takes it off the sheet entirely -- for the manager too -- because a
+# spec that does not belong on this machine should not sit there forever with
+# a "Put back" nobody will press. Reversible, and nothing is destroyed.
+# ===========================================================================
+@route("POST", r"/api/specs/(\d+)/archive", role="manager")
+def archive_spec(ctx):
+    """Put a spec in this bike's archive, or take it back out."""
+    spec_id = int(ctx.params[0])
+    sp = one(ctx.conn.execute(
+        "SELECT s.id, s.bike_id, s.archived, s.value, f.label FROM specs s"
+        " JOIN spec_fields f ON f.field_key = s.field_key WHERE s.id=?", (spec_id,)))
+    if not sp:
+        raise HttpError(404, "spec not found")
+    require_manages(ctx.conn, ctx.user, sp["bike_id"])
+    want = ctx.body.get("archived")
+    new = (0 if sp["archived"] else 1) if want is None else (1 if want else 0)
+    if new:
+        ctx.conn.execute(
+            "UPDATE specs SET archived=1, archived_by=?, archived_at=datetime('now')"
+            " WHERE id=?", (ctx.user["id"], spec_id))
+    else:
+        ctx.conn.execute(
+            "UPDATE specs SET archived=0, archived_by=NULL, archived_at=NULL"
+            " WHERE id=?", (spec_id,))
+    if ctx.user["role"] == "admin":
+        log_action(ctx, "spec.archive" if new else "spec.unarchive",
+                   f'{"Archived" if new else "Restored"} {sp["label"]}',
+                   target=str(spec_id), detail={"bike_id": sp["bike_id"]})
+    ctx.conn.commit()
+    n = ctx.conn.execute("SELECT COUNT(*) FROM specs WHERE bike_id=? AND archived=1",
+                         (sp["bike_id"],)).fetchone()[0]
+    return {"ok": True, "archived": bool(new), "label": sp["label"], "count": n}
+
+
+@route("GET", r"/api/bikes/(\d+)/archive", role="manager")
+def list_archived_specs(ctx):
+    """What this bike's manager has put away, and what it still holds -- a
+    value somebody sourced is not lost by archiving, and the list says so."""
+    bike_id = int(ctx.params[0])
+    require_manages(ctx.conn, ctx.user, bike_id)
+    return {"specs": rows(ctx.conn.execute(
+        "SELECT s.id, s.field_key, f.label, f.category, s.value, s.paused,"
+        "       s.archived_at, u.username AS archived_by,"
+        "       (SELECT COUNT(*) FROM spec_alternates a WHERE a.spec_id = s.id) AS alternates"
+        " FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
+        " LEFT JOIN users u ON u.id = s.archived_by"
+        " WHERE s.bike_id = ? AND s.archived = 1"
+        " ORDER BY f.category, f.sort_order", (bike_id,)))}
 
 
 # ===========================================================================

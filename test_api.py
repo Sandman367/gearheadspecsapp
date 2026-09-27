@@ -6318,5 +6318,69 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.anon().get(f"/api/bikes/{bike}/specs")[1]["wiring_diagrams"], [])
 
 
+    # -- the archive ------------------------------------------------------
+    def test_99j_an_archived_spec_leaves_the_sheet_and_comes_back_whole(self):
+        """Offline hides a value from riders and keeps the spec on its
+        manager's sheet -- right for a value being checked, wrong for one this
+        machine simply does not have, which would otherwise sit there forever
+        behind a "Put back" nobody presses. Archived takes it off the sheet for
+        everyone and loses nothing."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "ARCHIVE TEST", 1994, 1996)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+        mgr = self.as_("gp_hayes")
+
+        def on_sheet(who, key):
+            s, d = who.get(f"/api/bikes/{bike}/specs")
+            return any(x["field_key"] == key
+                       for c in d["categories"] for x in c["specs"]) , d
+
+        key = next(x["field_key"] for c in mgr.get(f"/api/bikes/{bike}/specs")[1]["categories"]
+                   for x in c["specs"] if x["value_type"] == "text")
+        spec_id = next(x["id"] for c in mgr.get(f"/api/bikes/{bike}/specs")[1]["categories"]
+                       for x in c["specs"] if x["field_key"] == key)
+
+        # something worth keeping on it, so "nothing is deleted" can be checked
+        mgr.post(f"/api/specs/{spec_id}/value", {"value": "a sourced value"})
+        self.as_("sohc_sam").post(f"/api/specs/{spec_id}/alternates", {"text": "what I run"})
+
+        # a rider cannot archive
+        self.assertEqual(self.as_("sohc_sam").post(
+            f"/api/specs/{spec_id}/archive", {"archived": True})[0], 403)
+
+        s, r = mgr.post(f"/api/specs/{spec_id}/archive", {"archived": True})
+        self.assertEqual((s, r["archived"], r["count"]), (200, True, 1))
+
+        # gone for the rider AND for the manager -- that is the whole point
+        there, d = on_sheet(self.anon(), key)
+        self.assertFalse(there)
+        there, d = on_sheet(mgr, key)
+        self.assertFalse(there, "archived is off the manager's sheet too, unlike offline")
+        self.assertEqual(d["archived_count"], 1)
+
+        # the button only exists when there is something behind it
+        s, other = adm.get(f"/api/bikes/{self.cb919}/specs")
+        self.assertEqual(other["archived_count"], 0)
+
+        # and the archive itself says what is being kept
+        s, arch = mgr.get(f"/api/bikes/{bike}/archive")
+        self.assertEqual(s, 200)
+        row = next(x for x in arch["specs"] if x["id"] == spec_id)
+        self.assertEqual((row["value"], row["alternates"], row["archived_by"]),
+                         ("a sourced value", 1, "gp_hayes"))
+        # a rider cannot read another bike's archive
+        self.assertEqual(self.as_("sohc_sam").get(f"/api/bikes/{bike}/archive")[0], 403)
+
+        # back, exactly as it was
+        s, r = mgr.post(f"/api/specs/{spec_id}/archive", {"archived": False})
+        self.assertEqual((s, r["archived"]), (200, False))
+        there, d = on_sheet(self.anon(), key)
+        self.assertTrue(there)
+        self.assertEqual(d["archived_count"], 0)
+        back = next(x for c in d["categories"] for x in c["specs"] if x["id"] == spec_id)
+        self.assertEqual(back["value"], "a sourced value")
+        self.assertEqual(len(back["alternates"]), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

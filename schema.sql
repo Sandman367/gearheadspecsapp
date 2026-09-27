@@ -375,6 +375,16 @@ CREATE TABLE specs (
   paused_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   paused_at  TEXT,
 
+  -- The third state. Offline hides a spec from riders and keeps it on the
+  -- manager's sheet, which is right for a value being checked and wrong for
+  -- one that is simply not part of this machine -- a carb field on a bike
+  -- somebody converted. Archived takes it off the sheet for everyone and
+  -- leaves it behind one button that only appears when something is there.
+  -- Nothing is destroyed: value, alternates, votes and flags all survive.
+  archived   INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0,1)),
+  archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  archived_at TEXT,
+
   entered_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
 
   -- Where the value came from when no person typed it. 'catalogue' means it

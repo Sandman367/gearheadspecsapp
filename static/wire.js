@@ -132,11 +132,14 @@ function wireOneHTML(value, id, opts = {}){
 function wireValueHTML(value, id){
   const set = wireSet(value);
   if(!set.length || !wireParts(set[0].value).length) return esc(String(value || ""));
+  // A wire that changes colour is bracketed on the page, so two wires that
+  // both change cannot be read as one wire with four colours.
+  const cls = w => "wire-one" + (wireRun(w.value).length > 1 ? " changes" : "");
   if(set.length === 1 && !set[0].role){
-    return `<span class="wire-one">${wireOneHTML(set[0].value, id)}</span>`;
+    return `<span class="${cls(set[0])}">${wireOneHTML(set[0].value, id)}</span>`;
   }
   return `<span class="wire-set">${set.map((w, i) =>
-    `<span class="wire-one">${wireOneHTML(w.value, id + "_" + i,
+    `<span class="${cls(w)}">${wireOneHTML(w.value, id + "_" + i,
       { n: i + 1, role: w.role })}</span>`).join("")}</span>`;
 }
 
