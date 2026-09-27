@@ -803,7 +803,11 @@ def get_bike_specs(ctx):
             by_name[name]["echoes"].append(s)
     order = {n: i for i, n in enumerate(CATEGORY_ORDER)}
     categories.sort(key=lambda c: order.get(c["name"], 99))
-    return {"categories": categories, "unplaced": unplaced}
+    # The wiring diagram belongs to the bike, and every wire-colour spec on
+    # the page offers it -- a rider tracing a circuit wants the colour and the
+    # drawing in front of them at once.
+    return {"categories": categories, "unplaced": unplaced,
+            "wiring_diagrams": _diagrams_for(ctx.conn, bike_id, manages)}
 
 
 # ===========================================================================
@@ -3118,6 +3122,94 @@ def use_password_reset(ctx):
                      " WHERE id = ?", (row["id"],))
     ctx.conn.commit()
     return {"ok": True, "username": row["username"]}
+
+
+# ===========================================================================
+# WIRING DIAGRAMS
+#
+# One per bike rather than per spec: the diagram answers every wire on the
+# machine, so pinning it to one field would mean pasting it onto each of them
+# and keeping them in step by hand.
+# ===========================================================================
+DIAGRAM_TITLE_MAX = 120
+
+
+def _diagrams_for(conn, bike_id, manages=False):
+    """Every diagram on this bike. A paused one stays visible to the manager
+    who paused it -- they need to see it to put it back -- and to nobody else."""
+    return rows(conn.execute(
+        "SELECT d.id, d.title, d.url, d.year_from, d.year_to, d.paused,"
+        "       u.username AS added_by"
+        " FROM wiring_diagrams d LEFT JOIN users u ON u.id = d.added_by"
+        " WHERE d.bike_id = ?" + ("" if manages else " AND d.paused = 0") +
+        " ORDER BY d.year_from IS NULL DESC, d.year_from, d.id", (bike_id,)))
+
+
+@route("GET", r"/api/bikes/(\d+)/wiring-diagrams")
+def list_wiring_diagrams(ctx):
+    bike_id = int(ctx.params[0])
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    manages = bool(ctx.user) and manages_bike(ctx.conn, ctx.user, bike_id)
+    return {"diagrams": _diagrams_for(ctx.conn, bike_id, manages), "manages": manages}
+
+
+@route("POST", r"/api/bikes/(\d+)/wiring-diagrams", role="manager")
+def add_wiring_diagram(ctx):
+    """The bike's manager points at the diagram for this machine."""
+    bike_id = int(ctx.params[0])
+    require_manages(ctx.conn, ctx.user, bike_id)
+    url = (ctx.body.get("url") or "").strip()
+    if not re.match(r"^https?://", url):
+        raise HttpError(400, "a diagram link must start with http:// or https://")
+    title = (ctx.body.get("title") or "").strip() or "Wiring diagram"
+    if len(title) > DIAGRAM_TITLE_MAX:
+        raise HttpError(400, f"a title is limited to {DIAGRAM_TITLE_MAX} characters")
+    y0, y1 = ctx.body.get("year_from"), ctx.body.get("year_to")
+    y0 = int(y0) if y0 else None
+    y1 = int(y1) if y1 else None
+    if y0 and y1 and y1 < y0:
+        raise HttpError(400, "the last year cannot be before the first")
+    try:
+        cur = ctx.conn.execute(
+            "INSERT INTO wiring_diagrams (bike_id, title, url, year_from, year_to,"
+            " added_by) VALUES (?,?,?,?,?,?)",
+            (bike_id, title, url, y0, y1, ctx.user["id"]))
+    except sqlite3.IntegrityError:
+        raise HttpError(409, "that diagram is already on this bike")
+    ctx.conn.commit()
+    return {"ok": True, "id": cur.lastrowid,
+            "diagrams": _diagrams_for(ctx.conn, bike_id, True)}
+
+
+@route("POST", r"/api/wiring-diagrams/(\d+)/pause", role="manager")
+def pause_wiring_diagram(ctx):
+    """Take a diagram down without losing it -- a dead link, or one that turned
+    out to be for the wrong year."""
+    did = int(ctx.params[0])
+    d = one(ctx.conn.execute(
+        "SELECT id, bike_id, paused, title FROM wiring_diagrams WHERE id=?", (did,)))
+    if not d:
+        raise HttpError(404, "no such diagram")
+    require_manages(ctx.conn, ctx.user, d["bike_id"])
+    want = ctx.body.get("paused")
+    new = (0 if d["paused"] else 1) if want is None else (1 if want else 0)
+    ctx.conn.execute("UPDATE wiring_diagrams SET paused=? WHERE id=?", (new, did))
+    ctx.conn.commit()
+    return {"ok": True, "paused": bool(new), "title": d["title"],
+            "diagrams": _diagrams_for(ctx.conn, d["bike_id"], True)}
+
+
+@route("DELETE", r"/api/wiring-diagrams/(\d+)", role="manager")
+def delete_wiring_diagram(ctx):
+    did = int(ctx.params[0])
+    d = one(ctx.conn.execute("SELECT id, bike_id FROM wiring_diagrams WHERE id=?", (did,)))
+    if not d:
+        raise HttpError(404, "no such diagram")
+    require_manages(ctx.conn, ctx.user, d["bike_id"])
+    ctx.conn.execute("DELETE FROM wiring_diagrams WHERE id=?", (did,))
+    ctx.conn.commit()
+    return {"ok": True, "diagrams": _diagrams_for(ctx.conn, d["bike_id"], True)}
 
 
 # ===========================================================================

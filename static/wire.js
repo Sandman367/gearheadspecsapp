@@ -18,6 +18,42 @@ async function loadWireVocabulary(make){
 
 const wireParts = v => String(v || "").split("/").map(p => p.trim()).filter(Boolean);
 
+/* A wire does not always keep its colour: it leaves the switch black/white and
+   carries on past a connector as blue/red. Same wire, and a rider tracing it
+   has to be told, or they decide they are on the wrong one.
+
+   "a > b @ where" is one wire in two segments; a value with no ">" is a run of
+   one, so everything written before this reads unchanged. */
+function wireRun(value){
+  return String(value || "").split(">").map(p => p.trim()).filter(Boolean)
+    .map(part => {
+      const i = part.indexOf("@");
+      return i === -1
+        ? { value: part.trim(), where: "" }
+        : { value: part.slice(0, i).trim(), where: part.slice(i + 1).trim() };
+    });
+}
+/* The picker's live run. A segment that has been added but not yet coloured
+   is dropped by wireRunValue -- it has no colours to write -- so re-reading
+   the run from the string would lose it, and the next swatch would edit the
+   PREVIOUS segment instead. Exactly the bug the SET already avoids by being
+   passed through as an array. */
+function wireRunOf(w){
+  return Array.isArray(w._run) && w._run.length
+    ? w._run.map(x => ({...x}))
+    : wireRun(w.value);
+}
+
+function wirePutRun(w, run, seg){
+  w._run = run.map(x => ({...x}));
+  w.value = wireRunValue(run);
+  if(seg !== undefined) w._seg = seg;
+}
+
+const wireRunValue = run => run
+  .filter(s => wireParts(s.value).length)
+  .map((s, i) => s.value + (i && s.where ? " @ " + s.where : "")).join(" > ");
+
 /* A value is a LIST of wires. A kickstand switch has two; recorded one each
    they become two specs, or two "alternates" competing when both are correct.
    One wire is a list of one, so everything written before this still reads. */
@@ -70,23 +106,38 @@ function wireSVG(value, id){
 
 /* How a wire colour appears in a value line: one row per wire, so a two-wire
    switch reads as two wires rather than one run-on string. */
+/* One wire, however many colours it wears along the way. The segments after
+   the first are drawn behind an arrow and carry where the change happens,
+   because "it turns blue/red" is useless without "at the connector under the
+   seat". */
+function wireOneHTML(value, id, opts = {}){
+  const run = wireRun(value);
+  const seg = (s, i) => `
+    <span class="wire">
+      ${i === 0 && opts.n ? `<span class="wire-n">${opts.n}</span>` : ""}
+      ${wireSVG(s.value, id + "_s" + i)}
+      <span class="wire-abbr">${esc(wireAbbr(s.value))}</span>
+      ${i === 0 && opts.role ? `<span class="wire-role">${esc(opts.role)}</span>` : ""}
+      <span class="wire-name">${esc(wireName(s.value))}</span>
+    </span>`;
+  if(run.length < 2) return seg(run[0] || { value, where: "" }, 0);
+  return `<span class="wire-run">${run.map((s, i) => (i === 0 ? "" : `
+      <span class="wire-change" title="This wire changes colour here — same wire, same circuit">
+        <span class="arrow">&#8595;</span>${s.where
+          ? `<span class="at">at ${esc(s.where)}</span>`
+          : `<span class="at">changes colour</span>`}
+      </span>`) + seg(s, i)).join("")}</span>`;
+}
+
 function wireValueHTML(value, id){
   const set = wireSet(value);
   if(!set.length || !wireParts(set[0].value).length) return esc(String(value || ""));
   if(set.length === 1 && !set[0].role){
-    const v = set[0].value;
-    return `<span class="wire">${wireSVG(v, id)}`
-         + `<span class="wire-abbr">${esc(wireAbbr(v))}</span>`
-         + `<span class="wire-name">${esc(wireName(v))}</span></span>`;
+    return `<span class="wire-one">${wireOneHTML(set[0].value, id)}</span>`;
   }
-  return `<span class="wire-set">${set.map((w, i) => `
-    <span class="wire">
-      <span class="wire-n">${i + 1}</span>
-      ${wireSVG(w.value, id + "_" + i)}
-      <span class="wire-abbr">${esc(wireAbbr(w.value))}</span>
-      ${w.role ? `<span class="wire-role">${esc(w.role)}</span>` : ""}
-      <span class="wire-name">${esc(wireName(w.value))}</span>
-    </span>`).join("")}</span>`;
+  return `<span class="wire-set">${set.map((w, i) =>
+    `<span class="wire-one">${wireOneHTML(w.value, id + "_" + i,
+      { n: i + 1, role: w.role })}</span>`).join("")}</span>`;
 }
 
 /* ---- the picker ---------------------------------------------------------
@@ -106,7 +157,14 @@ function wirePickerHTML(id, current, cur){
                                      : wireSet(current);
   if(!set.length) set.push({role: "", value: ""});
   let idx = cur === undefined ? set.length - 1 : Math.min(cur, set.length - 1);
-  const p = wireParts(set[idx].value);
+  // Within the current wire, the swatches edit one SEGMENT: a wire that
+  // changes colour at a connector is still one wire, and the picker follows
+  // it along rather than making the rider file two specs.
+  const run = wireRunOf(set[idx]);
+  if(!run.length) run.push({value: "", where: ""});
+  let seg = Math.min(Number(set[idx]._seg ?? run.length - 1), run.length - 1);
+  if(seg < 0) seg = 0;
+  const p = wireParts(run[seg].value);
   const multi = set.length > 1;
 
   const row = (field, chosen, allowNone, label, hint) => `
@@ -146,11 +204,43 @@ function wirePickerHTML(id, current, cur){
         </div>`).join("")}
     </div>` : "";
 
+  // Shown once a wire has more than one colour, or as the single button that
+  // says a wire CAN have more than one -- which is the thing riders do not
+  // know they are allowed to record.
+  const segs = `
+    <div class="wp-segs">
+      ${run.length > 1 ? run.map((sg, i) => `
+        <button type="button" class="wp-seg${i === seg ? " on" : ""}"
+                data-wire-seg="${id}" data-i="${i}">
+          ${i ? `<span class="wp-seg-arrow">&#8594;</span>` : ""}
+          ${wireParts(sg.value).length
+            ? wireSVG(sg.value, id + "_g" + i) +
+              `<span class="wire-abbr">${esc(wireAbbr(sg.value))}</span>`
+            : `<span class="wp-empty-item">not chosen</span>`}
+        </button>`).join("") : ""}
+      <button type="button" class="wp-seg-add" data-wire-seg-add="${id}"
+              ${run.length >= (WIRE.max_segments || 4) || !p.length ? "disabled" : ""}
+              title="The same wire, a different colour after a connector">
+        + colour change
+      </button>
+      ${run.length > 1 ? `<button type="button" class="wp-del"
+          data-wire-seg-del="${id}" data-i="${seg}"
+          title="Drop this length of the run">×</button>` : ""}
+    </div>
+    ${seg > 0 ? `<div class="wp-where">
+        <label>Where it changes</label>
+        <input type="text" maxlength="${WIRE.max_where || 60}"
+               placeholder="e.g. 6-pin connector under the seat"
+               value="${esc(run[seg].where || "")}"
+               data-wire-where="${id}" data-i="${seg}">
+      </div>` : ""}`;
+
   return `
     <div class="wire-picker" id="wp-${id}"
          data-value="${esc(wireSetValue(set))}"
-         data-set="${esc(JSON.stringify(set))}" data-cur="${idx}">
+         data-set="${esc(JSON.stringify(set))}" data-cur="${idx}" data-seg="${seg}">
       ${list}
+      ${segs}
       <div class="wp-preview">${wirePreviewHTML(p, multi ? idx + 1 : 0)}</div>
       ${row("base", p[0] || "", false, "Base color")}
       ${row("s1", p[1] || "", true, "Stripe", "optional")}
@@ -207,6 +297,48 @@ document.addEventListener("click", (e) => {
     return;
   }
 
+  const segGo = e.target.closest("[data-wire-seg]");
+  if(segGo){
+    const b = box(segGo.dataset.wireSeg);
+    if(!b) return;
+    const set = wireCurrentSet(b);
+    const cur = Number(b.dataset.cur) || 0;
+    if(set[cur]) set[cur]._seg = Number(segGo.dataset.i);
+    wireRedraw(b, set, cur);
+    return;
+  }
+
+  const segAdd = e.target.closest("[data-wire-seg-add]");
+  if(segAdd){
+    const b = box(segAdd.dataset.wireSegAdd);
+    if(!b) return;
+    const set = wireCurrentSet(b);
+    const cur = Number(b.dataset.cur) || 0;
+    const run = wireRunOf(set[cur]);
+    run.push({value: "", where: ""});
+    // The new length has no colour yet, so it is not written into the value
+    // until one is picked -- but the picker has to move to it regardless,
+    // which is why the run is carried as an array and not re-read from the
+    // string it would have vanished from.
+    wirePutRun(set[cur], run, run.length - 1);
+    wireRedraw(b, set, cur);
+    return;
+  }
+
+  const segDel = e.target.closest("[data-wire-seg-del]");
+  if(segDel){
+    const b = box(segDel.dataset.wireSegDel);
+    if(!b) return;
+    const set = wireCurrentSet(b);
+    const cur = Number(b.dataset.cur) || 0;
+    const run = wireRunOf(set[cur]);
+    if(run.length <= 1) return;
+    run.splice(Number(segDel.dataset.i), 1);
+    wirePutRun(set[cur], run, Math.min(Number(segDel.dataset.i), run.length - 1));
+    wireRedraw(b, set, cur);
+    return;
+  }
+
   const add = e.target.closest("[data-wire-add]");
   if(add){
     const b = box(add.dataset.wireAdd);
@@ -236,7 +368,10 @@ document.addEventListener("click", (e) => {
   const set = wireCurrentSet(b);
   const cur = Number(b.dataset.cur) || 0;
   if(!set[cur]) set[cur] = {role: "", value: ""};
-  const parts = wireParts(set[cur].value);
+  const run = wireRunOf(set[cur]);
+  if(!run.length) run.push({value: "", where: ""});
+  const sgi = Math.min(Number(b.dataset.seg) || 0, run.length - 1);
+  const parts = wireParts(run[sgi].value);
   const idx = {base: 0, s1: 1, s2: 2}[btn.dataset.field];
   const key = btn.dataset.key;
 
@@ -253,12 +388,32 @@ document.addEventListener("click", (e) => {
       for(let j = 0; j < i; j++) if(parts[i] === parts[j]) parts.splice(i--, 1);
     }
   }
-  set[cur].value = parts.filter(Boolean).join("/");
+  run[sgi].value = parts.filter(Boolean).join("/");
+  wirePutRun(set[cur], run, sgi);
   wireRedraw(b, set, cur);
 });
 
-/* Roles are typed, so they are read back on input rather than on redraw. */
+/* Where a wire changes colour is typed, so it is read back on input. It is
+   deliberately NOT a redraw: rebuilding the picker on every keystroke would
+   take the caret with it. */
 document.addEventListener("input", (e) => {
+  const w = e.target.closest("[data-wire-where]");
+  if(w){
+    const b = byId("wp-" + w.dataset.wireWhere);
+    if(!b) return;
+    const set = wireCurrentSet(b);
+    const cur = Number(b.dataset.cur) || 0;
+    const run = wireRunOf(set[cur]);
+    const i = Number(w.dataset.i);
+    if(run[i]){
+      run[i].where = w.value;
+      wirePutRun(set[cur], run, i);
+      b.dataset.set = JSON.stringify(set);
+      b.dataset.value = wireSetValue(set);
+    }
+    return;
+  }
+
   const inp = e.target.closest("[data-wire-role]");
   if(!inp) return;
   const b = byId("wp-" + inp.dataset.wireRole);

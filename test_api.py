@@ -3536,7 +3536,7 @@ class ApiTest(unittest.TestCase):
         parsed = wire_colors.parse_set(
             "to switch: green/white, to harness: green/black")
         self.assertEqual([r for r, _ in parsed], ["to switch", "to harness"])
-        self.assertEqual(parsed[0][1], ["green", "white"])
+        self.assertEqual(parsed[0][1], [{"colors": ["green", "white"], "where": None}])
 
     def test_99c_single_wire_values_are_unchanged(self):
         """Everything written before this must still mean what it meant."""
@@ -6203,6 +6203,119 @@ class ApiTest(unittest.TestCase):
         before = len(mail)
         self.anon().post("/api/auth/forgot", {"email": "stale.sam@example.com"})
         self.assertEqual(len(mail), before, "no link for a suspended account")
+
+
+    # -- a wire that changes colour ---------------------------------------
+    def test_99f_a_wire_can_change_colour_at_a_connector(self):
+        """A wire leaves the kickstand switch black/white, reaches a connector
+        and carries on blue/red. Same wire, same circuit -- and a rider who
+        finds blue/red where the spec said black/white has to be told that, or
+        they decide they are on the wrong wire and stop trusting the sheet."""
+        v = "black/white > blue/red @ 6-pin connector under seat"
+        self.assertEqual(wire_colors.normalise_set(v), v, "the run round-trips")
+
+        run = wire_colors.parse_set(v)[0][1]
+        self.assertEqual(len(run), 2)
+        self.assertEqual(run[0], {"colors": ["black", "white"], "where": None})
+        self.assertEqual(run[1]["colors"], ["blue", "red"])
+        self.assertEqual(run[1]["where"], "6-pin connector under seat")
+
+        # every segment is written in the rider's own manual's abbreviations
+        d = wire_colors.describe_set(v, "Honda")[0]
+        self.assertTrue(d["changes"])
+        self.assertEqual([x["abbr"] for x in d["segments"]], ["Bl/W", "Bu/R"])
+        self.assertEqual(d["segments"][1]["where"], "6-pin connector under seat")
+        # the top-level fields still describe the colour AT the component, so
+        # anything reading this before runs existed reads the same
+        self.assertEqual((d["value"], d["abbr"]), ("black/white", "Bl/W"))
+
+        # a run and a set compose: two wires, one of which changes
+        both = "kickstand: black/white > blue/red @ C4, ground: green"
+        self.assertEqual(wire_colors.normalise_set(both), both)
+        out = wire_colors.describe_set(both, "Honda")
+        self.assertEqual([o["changes"] for o in out], [True, False])
+
+        # The case this exists for: a switch with TWO wires, both of which
+        # change colour at the same plug. Each wire carries its own run --
+        # they are not one wire with four colours, and a rider tracing the
+        # green/white has to follow it to blue/red and not to brown/yellow.
+        pair = ("to ECU: green/white > blue/red @ the 4-pin plug, "
+                "ground: green/black > brown/yellow @ the 4-pin plug")
+        self.assertEqual(wire_colors.normalise_set(pair), pair)
+        out = wire_colors.describe_set(pair, "Honda")
+        self.assertEqual([o["role"] for o in out], ["to ECU", "ground"])
+        self.assertEqual([o["changes"] for o in out], [True, True])
+        self.assertEqual([[x["abbr"] for x in o["segments"]] for o in out],
+                         [["G/W", "Bu/R"], ["G/Bl", "Br/Y"]])
+        # and each run keeps its own change point, even when it is the same plug
+        self.assertEqual([o["segments"][1]["where"] for o in out],
+                         ["the 4-pin plug", "the 4-pin plug"])
+
+    def test_99g_a_colour_change_is_bounded_and_says_where(self):
+        bad = [
+            # a wire that changes five times is two wires
+            "black > white > red > green > blue",
+            # only a colour AFTER a change can say where it changed
+            "black/white @ somewhere > blue/red",
+            "black/white > blue/red @ " + "x" * 61,
+        ]
+        for v in bad:
+            with self.assertRaises(wire_colors.WireColorError, msg=v):
+                wire_colors.normalise_set(v)
+
+    def test_99h_a_run_survives_the_api(self):
+        """The value has to make it through check_value and come back whole."""
+        mgr = self.as_("m.alvarez")
+        sp = self._wire_spec(mgr, self.cb919)
+        run = "black/white > blue/red @ 6-pin connector under seat"
+        s, r = mgr.patch(f"/api/specs/{sp['id']}", {"value": run})
+        self.assertEqual(s, 200, r)
+        s, d = self.anon().get(f"/api/bikes/{self.cb919}/specs")
+        got = [x for c in d["categories"] for x in c["specs"] if x["id"] == sp["id"]]
+        self.assertEqual(got[0]["value"], run)
+
+    # -- the wiring diagram, once per bike --------------------------------
+    def test_99i_the_wiring_diagram_belongs_to_the_bike(self):
+        """A diagram answers every wire on the machine, so it is attached once
+        and shows on all of them -- not pasted onto each spec by hand."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "DIAGRAM TEST", 1999, 2001)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+        mgr = self.as_("gp_hayes")
+
+        # a rider cannot add one, and a manager must give a real link
+        self.assertEqual(self.as_("sohc_sam").post(
+            f"/api/bikes/{bike}/wiring-diagrams", {"url": "https://example.com/d.pdf"})[0], 403)
+        self.assertEqual(mgr.post(
+            f"/api/bikes/{bike}/wiring-diagrams", {"url": "not-a-link"})[0], 400)
+
+        s, r = mgr.post(f"/api/bikes/{bike}/wiring-diagrams",
+                        {"url": "https://example.com/cb.pdf", "title": "Factory diagram",
+                         "year_from": 1999, "year_to": 2000})
+        self.assertEqual(s, 200, r)
+        did = r["id"]
+        # the same link twice is the same diagram
+        self.assertEqual(mgr.post(f"/api/bikes/{bike}/wiring-diagrams",
+                                  {"url": "https://example.com/cb.pdf"})[0], 409)
+
+        # it rides along with the spec sheet, so every wire can offer it
+        s, d = self.anon().get(f"/api/bikes/{bike}/specs")
+        self.assertEqual([x["title"] for x in d["wiring_diagrams"]], ["Factory diagram"])
+        self.assertEqual(d["wiring_diagrams"][0]["added_by"], "gp_hayes")
+
+        # hidden means hidden from riders, still there for the manager
+        s, r = mgr.post(f"/api/wiring-diagrams/{did}/pause", {})
+        self.assertEqual((s, r["paused"]), (200, True))
+        self.assertEqual(self.anon().get(f"/api/bikes/{bike}/specs")[1]["wiring_diagrams"], [])
+        self.assertEqual(len(mgr.get(f"/api/bikes/{bike}/specs")[1]["wiring_diagrams"]), 1)
+
+        mgr.post(f"/api/wiring-diagrams/{did}/pause", {"paused": False})
+        self.assertEqual(len(self.anon().get(f"/api/bikes/{bike}/specs")[1]["wiring_diagrams"]), 1)
+
+        # and it can be removed outright
+        s, r = mgr.delete(f"/api/wiring-diagrams/{did}")
+        self.assertEqual(s, 200, r)
+        self.assertEqual(self.anon().get(f"/api/bikes/{bike}/specs")[1]["wiring_diagrams"], [])
 
 
 if __name__ == "__main__":

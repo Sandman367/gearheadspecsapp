@@ -459,6 +459,48 @@
   .archived-alt > span:first-child{ text-decoration: line-through; }
   .alt-hide{ margin-left: 8px; font-size: 10px; }
   .cell-dim.seeded{ font-style: italic; opacity: 0.85; }
+  /* ---------- a wire that changes colour ----------
+     One wire, several jackets. The arrow and the "at ..." are the whole
+     point: a rider who finds blue/red where the spec said black/white needs
+     to know they are still on the right wire. */
+  .wire-one{ display: block; }
+  .wire-one + .wire-one{ margin-top: 11px; }
+  /* A column, not a row: the run has an order, and a reader has to be able to
+     tell which colour comes first.
+     Everything after the first colour is indented and hangs off one unbroken
+     rule, so the run reads as one wire continuing rather than as a new wire
+     starting -- which matters most on a switch with two of them, where the
+     second colour of wire 1 would otherwise line up with wire 2. */
+  .wire-run{ display: flex; flex-direction: column; align-items: flex-start; gap: 0; }
+  .wire-run > *:not(:first-child){
+    margin-left: 15px; padding-left: 14px;
+    border-left: 2px solid var(--amber-dim);
+  }
+  .wire-run > .wire:not(:first-child){ padding-top: 3px; padding-bottom: 1px; }
+  .wire-change{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-faint);
+    padding-top: 3px; padding-bottom: 3px;
+  }
+  .wire-change .arrow{ color: var(--amber); font-size: 11px; }
+  .wire-change .at{
+    border-bottom: 1px dotted var(--line); padding-bottom: 1px;
+  }
+
+  /* the diagram, offered on every wire on the bike */
+  .wire-diagrams{
+    margin-top: 8px; padding: 7px 0 3px 9px;
+    border-left: 2px solid var(--blue-dim);
+  }
+  .wire-diagrams .who{
+    display: block; font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 3px;
+  }
+  .wire-diagrams a{ font-size: 11.5px; color: var(--blue); }
+  .wire-diagrams .years{ color: var(--text-faint); font-size: 10.5px; }
+  .wire-diagrams .row{ display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 2px 0; }
+  .wire-diagrams .row.off a{ color: var(--text-faint); text-decoration: line-through; }
+
   .spec-note{
     font-size: 11.5px; color: var(--text-dim); line-height: 1.55;
     border-left: 2px solid var(--amber-dim); padding: 5px 0 5px 9px; margin: 8px 0 2px;
@@ -1178,6 +1220,33 @@ function valueSource(s){
   return "";
 }
 
+/* The wiring diagram belongs to the bike, so every wire-colour spec offers
+   the same one rather than each carrying its own copy. A rider tracing a
+   circuit wants the colour and the drawing at the same time. */
+function wireDiagramsHTML(){
+  const list = (SPECS && SPECS.wiring_diagrams) || [];
+  const iManage = MANAGES_THIS_BIKE;
+  if(!list.length){
+    return iManage ? `<div class="wire-diagrams">
+        <span class="who">Wiring diagram</span>
+        <button class="action-btn" data-add-diagram="1"
+          title="Add the diagram for this bike. It shows on every wire colour on the sheet.">+ Add the wiring diagram</button>
+      </div>` : "";
+  }
+  return `<div class="wire-diagrams">
+      <span class="who">Wiring diagram for this bike</span>
+      ${list.map(d => `<div class="row${d.paused ? " off" : ""}">
+        <a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.title)} ↗</a>
+        ${d.year_from || d.year_to ? `<span class="years">${
+          esc(String(d.year_from || ""))}–${esc(String(d.year_to || ""))}</span>` : ""}
+        ${d.added_by ? `<span class="years">· ${esc(d.added_by)}</span>` : ""}
+        ${iManage ? `<button class="action-btn" data-diagram-pause="${d.id}"
+            >${d.paused ? "Put back" : "Hide"}</button>` : ""}
+      </div>`).join("")}
+      ${iManage ? `<button class="action-btn" data-add-diagram="1">+ Add another</button>` : ""}
+    </div>`;
+}
+
 function renderDetail(){
   const bike = BIKE;
   PHOTO_VIEW = null;
@@ -1528,6 +1597,7 @@ function renderSpec(s, opts = {}){
           <button class="action-btn" data-save-alt="${s.id}" data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock value, for riders to vote on. Never replaces the stock value.">Suggest alternative</button>
         </div>`) : ""}
+      ${s.value_type === "wire_color" ? wireDiagramsHTML() : ""}
       <div class="spec-foot">
         <a class="action-btn" href="/enrich.html?bike=${BIKE.bike_id}&field=${encodeURIComponent(s.field_key)}"
            title="Tools and links for this spec">⚒ Guides</a>
@@ -1966,6 +2036,25 @@ document.addEventListener("click", guard(async (e) => {
   }
 
   // ---- the bike's photo ---------------------------------------------------
+  const addDiagram = e.target.closest("[data-add-diagram]");
+  if(addDiagram){
+    const url = prompt("Link to the wiring diagram for this bike:");
+    if(!url) return;
+    const title = prompt("What to call it:", "Wiring diagram") || "Wiring diagram";
+    const r = await API.post(`/api/bikes/${BIKE.bike_id}/wiring-diagrams`, { url, title });
+    toast("Diagram added — it shows on every wire colour on this bike.", "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const diagramPause = e.target.closest("[data-diagram-pause]");
+  if(diagramPause){
+    const r = await API.post(`/api/wiring-diagrams/${diagramPause.dataset.diagramPause}/pause`, {});
+    toast(r.paused ? `"${r.title}" hidden from riders.` : `"${r.title}" is back.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
   const altPause = e.target.closest("[data-alt-pause]");
   if(altPause){
     const to = altPause.dataset.to === "1";

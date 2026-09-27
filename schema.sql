@@ -703,6 +703,28 @@ CREATE TABLE spec_tools (
 
 CREATE INDEX idx_spec_tools_target ON spec_tools (bike_id, field_key);
 
+-- The wiring diagram, once per bike, shown on every wire it explains.
+--
+-- spec_links are per (bike, field), which is right for a video about one
+-- spec and wrong for the diagram that answers every electrical spec on the
+-- machine: it would have to be pasted onto each one and kept in step by
+-- hand. This belongs to the bike, and every wire-colour spec shows it.
+CREATE TABLE wiring_diagrams (
+  id         INTEGER PRIMARY KEY,
+  bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  title      TEXT    NOT NULL,
+  url        TEXT    NOT NULL,
+  -- Which years this one covers, when a bike spans a change. Both NULL means
+  -- every year the bike covers, which is what most of them are.
+  year_from  INTEGER,
+  year_to    INTEGER,
+  added_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  paused     INTEGER NOT NULL DEFAULT 0 CHECK (paused IN (0,1)),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (bike_id, url)
+);
+CREATE INDEX idx_wiring_diagrams_bike ON wiring_diagrams (bike_id, paused);
+
 CREATE TABLE spec_links (
   id         INTEGER PRIMARY KEY,
   bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,

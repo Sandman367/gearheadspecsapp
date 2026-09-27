@@ -160,6 +160,21 @@ MAX_STRIPES = 2          # base + 2 stripes; second is rare but real on BMW/Duca
 MAX_WIRES = 8            # a stator is 3, an R/R connector 5, a switch block up to 8
 MAX_ROLE = 40
 
+# A wire does not always keep its colour. It leaves the kickstand switch
+# black/white, reaches a connector under the seat, and carries on the other
+# side as blue/red -- same wire, same circuit, different jacket. A rider
+# tracing it needs to know that, or they conclude they are on the wrong wire.
+#
+# So a wire is a RUN of segments, written with ">" between them, and each
+# segment after the first can say where it starts with "@":
+#
+#     black/white > blue/red @ 6-pin connector under seat
+#
+# Four segments is the ceiling. A wire that changes colour five times is
+# either two wires or a wiring loom nobody should be tracing by colour.
+MAX_SEGMENTS = 4
+MAX_WHERE = 60
+
 
 class WireColorError(ValueError):
     """A value that is not a wire colour this vocabulary can express."""
@@ -241,8 +256,43 @@ def describe(value):
 # and still means the same thing.
 # --------------------------------------------------------------------------
 
+def parse_run(chunk):
+    """[{"colors": [keys], "where": str|None}, ...] for one wire.
+
+    A wire with no ">" is a run of one, so every value written before this
+    existed still parses and still means the same thing.
+    """
+    parts = [p.strip() for p in str(chunk).split(">") if p.strip()]
+    if not parts:
+        raise WireColorError("a wire colour needs at least a base colour")
+    if len(parts) > MAX_SEGMENTS:
+        raise WireColorError(
+            f"at most {MAX_SEGMENTS} colour changes on one wire -- past that it "
+            "is two wires, not one")
+    run = []
+    for i, part in enumerate(parts):
+        where = None
+        if "@" in part:
+            part, where = part.split("@", 1)
+            part, where = part.strip(), where.strip()
+            if not where:
+                where = None
+            elif len(where) > MAX_WHERE:
+                raise WireColorError(
+                    f"where a wire changes colour is limited to {MAX_WHERE} characters")
+        if i == 0 and where:
+            # The first segment is at the component the spec is about, so
+            # there is nothing to say about where it starts.
+            raise WireColorError(
+                "only a colour AFTER a change can say where it changes -- "
+                "write it as \"black/white > blue/red @ the connector\"")
+        run.append({"colors": parse(part), "where": where})
+    return run
+
+
 def parse_set(value):
-    """[(role_or_None, [colour keys]), ...] for a wire colour value."""
+    """[(role_or_None, run), ...] for a wire colour value, where a run is
+    the list of segments parse_run returns."""
     if value is None or not str(value).strip():
         raise WireColorError("a wire colour needs at least a base colour")
     chunks = [c.strip() for c in str(value).split(",") if c.strip()]
@@ -262,7 +312,7 @@ def parse_set(value):
             elif len(role) > MAX_ROLE:
                 raise WireColorError(
                     f"a wire's role is limited to {MAX_ROLE} characters")
-        out.append((role, parse(chunk)))
+        out.append((role, parse_run(chunk)))
 
     roles = [r for r, _ in out if r]
     if len(set(roles)) != len(roles):
@@ -270,22 +320,42 @@ def parse_set(value):
     return out
 
 
+def _run_text(run):
+    return " > ".join(
+        "/".join(seg["colors"]) + (f" @ {seg['where']}" if seg["where"] else "")
+        for seg in run)
+
+
 def normalise_set(value):
     """The form that goes in the database."""
     return ", ".join(
-        (f"{role}: " if role else "") + "/".join(keys)
-        for role, keys in parse_set(value))
+        (f"{role}: " if role else "") + _run_text(run)
+        for role, run in parse_set(value))
 
 
 def describe_set(value, make=None):
-    """One readable line per wire, for a page or a screen reader."""
+    """One readable line per wire, for a page or a screen reader.
+
+    `segments` carries the whole run. `value`, `abbr` and `name` describe the
+    FIRST segment -- the colour at the component this spec is about -- so
+    anything written before runs existed reads exactly as it did.
+    """
     out = []
-    for role, keys in parse_set(value):
-        abbr = "/".join(label(make, k) for k in keys)
-        name = COLORS[keys[0]]["name"] + "".join(
-            " / " + COLORS[k]["name"].lower() + " stripe" for k in keys[1:])
-        out.append({"role": role, "value": "/".join(keys),
-                    "abbr": abbr, "name": name})
+    for role, run in parse_set(value):
+        segments = []
+        for seg in run:
+            keys = seg["colors"]
+            segments.append({
+                "value": "/".join(keys),
+                "abbr": "/".join(label(make, k) for k in keys),
+                "name": COLORS[keys[0]]["name"] + "".join(
+                    " / " + COLORS[k]["name"].lower() + " stripe" for k in keys[1:]),
+                "where": seg["where"],
+            })
+        first = segments[0]
+        out.append({"role": role, "value": first["value"], "abbr": first["abbr"],
+                    "name": first["name"], "segments": segments,
+                    "changes": len(segments) > 1})
     return out
 
 
@@ -298,6 +368,8 @@ def vocabulary(make=None):
         "make": make,
         "legend": make in ABBR,
         "max_stripes": MAX_STRIPES,
+        "max_segments": MAX_SEGMENTS,
+        "max_where": MAX_WHERE,
         "max_wires": MAX_WIRES,
         "max_role": MAX_ROLE,
     }
