@@ -473,6 +473,9 @@ BEGIN
   UPDATE specs SET paused = 1, paused_at = datetime('now') WHERE id = NEW.id;
 END;
 
+-- An alternative can be archived like a spec can: hiding one keeps it on
+-- its manager's sheet so they can put it back, which leaves a suggestion
+-- they have already judged wrong sitting in front of them forever.
 CREATE TABLE spec_alternates (
   id            INTEGER PRIMARY KEY,
   spec_id       INTEGER NOT NULL REFERENCES specs(id) ON DELETE CASCADE,
@@ -480,6 +483,9 @@ CREATE TABLE spec_alternates (
   submitted_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   confirmed_fit INTEGER NOT NULL DEFAULT 0 CHECK (confirmed_fit IN (0,1)),
   paused        INTEGER NOT NULL DEFAULT 0 CHECK (paused IN (0,1)),
+  archived      INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0,1)),
+  archived_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  archived_at   TEXT,
   created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 

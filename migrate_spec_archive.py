@@ -29,16 +29,24 @@ def migrate(db_path):
     if not os.path.exists(db_path):
         raise SystemExit(f"no database at {db_path}")
     conn = sqlite3.connect(db_path, timeout=30)
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(specs)")}
-    if "archived" not in cols:
-        conn.execute("ALTER TABLE specs ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
-        conn.execute("ALTER TABLE specs ADD COLUMN archived_by INTEGER REFERENCES users(id)")
-        conn.execute("ALTER TABLE specs ADD COLUMN archived_at TEXT")
+    # The same three columns on both tables: a whole spec can be archived,
+    # and so can one alternative on a spec that stays. Hiding an alternative
+    # already keeps it on the manager's own sheet -- they need that to put it
+    # back -- which leaves a wrong suggestion sitting in front of them forever.
+    for table in ("specs", "spec_alternates"):
+        cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if "archived" not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN archived_by INTEGER REFERENCES users(id)")
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN archived_at TEXT")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_specs_archived"
                  " ON specs (bike_id, archived)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_alternates_archived"
+                 " ON spec_alternates (spec_id, archived)")
     conn.commit()
     n = conn.execute("SELECT COUNT(*) FROM specs WHERE archived=1").fetchone()[0]
-    print(f"specs.archived in place ({n} archived)")
+    a = conn.execute("SELECT COUNT(*) FROM spec_alternates WHERE archived=1").fetchone()[0]
+    print(f"archived in place ({n} spec(s), {a} alternative(s))")
     conn.close()
 
 

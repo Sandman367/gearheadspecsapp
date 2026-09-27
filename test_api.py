@@ -6382,5 +6382,61 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(len(back["alternates"]), 1)
 
 
+    def test_99k_one_alternative_can_be_archived_without_the_spec(self):
+        """Hiding an alternative takes it off the riders' page and leaves it on
+        the manager's, because that is the only way back. Once they have judged
+        it wrong for this bike it should stop being in front of them -- without
+        losing the text, who suggested it, or its votes."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "ALT ARCHIVE TEST", 1991, 1993)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+        mgr, rider = self.as_("gp_hayes"), self.as_("sohc_sam")
+
+        s, d = mgr.get(f"/api/bikes/{bike}/specs")
+        spec = next(x for c in d["categories"] for x in c["specs"] if x["value_type"] == "text")
+        mgr.post(f"/api/specs/{spec['id']}/value", {"value": "the stock one"})
+        s, _ = rider.post(f"/api/specs/{spec['id']}/alternates", {"text": "what I run"})
+        self.assertEqual(s, 200)
+        self.as_("two_stroke_tina").post(f"/api/specs/{spec['id']}/alternates",
+                                         {"text": "and what I run"})
+
+        def alts(who):
+            _, d = who.get(f"/api/bikes/{bike}/specs")
+            row = next(x for c in d["categories"] for x in c["specs"] if x["id"] == spec["id"])
+            return [a["text"] for a in row["alternates"]], d["archived_count"]
+
+        alt_id = next(a["id"] for c in mgr.get(f"/api/bikes/{bike}/specs")[1]["categories"]
+                      for x in c["specs"] if x["id"] == spec["id"]
+                      for a in x["alternates"] if a["text"] == "what I run")
+
+        # a rider cannot archive somebody's alternative
+        self.assertEqual(rider.post(f"/api/alternates/{alt_id}/archive",
+                                    {"archived": True})[0], 403)
+
+        s, r = mgr.post(f"/api/alternates/{alt_id}/archive", {"archived": True})
+        self.assertEqual((s, r["archived"], r["count"]), (200, True, 1))
+
+        # gone for the rider AND the manager -- the other alternative stays,
+        # and so does the spec
+        self.assertEqual(alts(self.anon())[0], ["and what I run"])
+        got, n = alts(mgr)
+        self.assertEqual(got, ["and what I run"], "archived is off the manager's sheet too")
+        self.assertEqual(n, 1)
+
+        # the archive says what it is holding
+        s, arch = mgr.get(f"/api/bikes/{bike}/archive")
+        self.assertEqual(arch["specs"], [])
+        keep = next(x for x in arch["alternates"] if x["id"] == alt_id)
+        self.assertEqual((keep["text"], keep["suggested_by"]), ("what I run", "sohc_sam"))
+
+        # and back it comes -- hidden, not live, since that is where it was
+        s, r = mgr.post(f"/api/alternates/{alt_id}/archive", {"archived": False})
+        self.assertEqual((s, r["archived"]), (200, False))
+        self.assertEqual(alts(self.anon())[0], ["and what I run"], "still hidden from riders")
+        got, n = alts(mgr)
+        self.assertEqual(sorted(got), ["and what I run", "what I run"])
+        self.assertEqual(n, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

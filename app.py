@@ -720,7 +720,7 @@ def get_bike_specs(ctx):
         " ORDER BY f.sort_order, f.label, s.year_from", (uid, uid, uid, bike_id)))
 
     alts = rows(ctx.conn.execute(
-        "SELECT a.id, a.spec_id, a.text, a.confirmed_fit, a.paused,"
+        "SELECT a.id, a.spec_id, a.text, a.confirmed_fit, a.paused, a.archived,"
         "       c.votes, u.username AS submitted_by_username,"
         "       EXISTS(SELECT 1 FROM alternate_votes v"
         "              WHERE v.alternate_id=a.id AND v.user_id=?) AS my_vote,"
@@ -747,6 +747,7 @@ def get_bike_specs(ctx):
     # that is the difference between archived and offline. The count is what
     # puts the button on the page, so it is counted before they are dropped.
     archived_count = sum(1 for s in spec_rows if s["archived"])
+    archived_count += sum(1 for a in alts if a["archived"])
     spec_rows = [s for s in spec_rows if not s["archived"]]
 
     categories, unplaced = [], []
@@ -760,7 +761,11 @@ def get_bike_specs(ctx):
         # An alternate taken down is gone for a reader, the same as a spec
         # taken offline. Its manager keeps seeing it -- they have to, to put
         # it back -- marked as hidden.
-        s["alternates"] = [a for a in by_spec.get(s["id"], []) if manages or not a["paused"]]
+        # Archived is gone for the manager too, which is the difference
+        # between it and hidden. Hidden stays in front of them so they can
+        # put it back; archived has already been decided.
+        s["alternates"] = [a for a in by_spec.get(s["id"], [])
+                           if not a["archived"] and (manages or not a["paused"])]
         # Where this spec shows on this bike. Its home heading, unless taken
         # out of it (on this bike, or site-wide), plus every extra heading.
         # `lead` is the heading that carries the row; the rest mirror it.
@@ -3170,20 +3175,77 @@ def archive_spec(ctx):
     return {"ok": True, "archived": bool(new), "label": sp["label"], "count": n}
 
 
+@route("POST", r"/api/alternates/(\d+)/archive", role="manager")
+def archive_alternate(ctx):
+    """Put ONE alternative away, rather than the whole spec.
+
+    Hiding an alternative takes it off the riders' page but leaves it on the
+    manager's, because that is the only way back. Once they have decided it is
+    simply wrong for this bike, it should stop being in front of them -- while
+    still keeping the text, who suggested it and its votes, so the decision can
+    be undone and the person is not erased.
+    """
+    alt_id = int(ctx.params[0])
+    a = one(ctx.conn.execute(
+        "SELECT a.id, a.text, a.archived, s.bike_id, f.label"
+        " FROM spec_alternates a JOIN specs s ON s.id = a.spec_id"
+        " JOIN spec_fields f ON f.field_key = s.field_key WHERE a.id=?", (alt_id,)))
+    if not a:
+        raise HttpError(404, "no such alternative")
+    require_manages(ctx.conn, ctx.user, a["bike_id"])
+    want = ctx.body.get("archived")
+    new = (0 if a["archived"] else 1) if want is None else (1 if want else 0)
+    if new:
+        # Archived implies hidden: it cannot be off the manager's sheet and
+        # still on the riders'.
+        ctx.conn.execute(
+            "UPDATE spec_alternates SET archived=1, paused=1, archived_by=?,"
+            " archived_at=datetime('now') WHERE id=?", (ctx.user["id"], alt_id))
+    else:
+        ctx.conn.execute(
+            "UPDATE spec_alternates SET archived=0, archived_by=NULL, archived_at=NULL"
+            " WHERE id=?", (alt_id,))
+    if ctx.user["role"] == "admin":
+        log_action(ctx, "alternate.archive" if new else "alternate.unarchive",
+                   f'{"Archived" if new else "Restored"} the alternative "{a["text"]}" on {a["label"]}',
+                   target=str(alt_id), detail={"bike_id": a["bike_id"]})
+    ctx.conn.commit()
+    n = ctx.conn.execute(
+        "SELECT (SELECT COUNT(*) FROM specs WHERE bike_id=? AND archived=1)"
+        "     + (SELECT COUNT(*) FROM spec_alternates a JOIN specs s ON s.id=a.spec_id"
+        "         WHERE s.bike_id=? AND a.archived=1)",
+        (a["bike_id"], a["bike_id"])).fetchone()[0]
+    return {"ok": True, "archived": bool(new), "text": a["text"],
+            "label": a["label"], "count": n}
+
+
 @route("GET", r"/api/bikes/(\d+)/archive", role="manager")
 def list_archived_specs(ctx):
     """What this bike's manager has put away, and what it still holds -- a
     value somebody sourced is not lost by archiving, and the list says so."""
     bike_id = int(ctx.params[0])
     require_manages(ctx.conn, ctx.user, bike_id)
-    return {"specs": rows(ctx.conn.execute(
-        "SELECT s.id, s.field_key, f.label, f.category, s.value, s.paused,"
-        "       s.archived_at, u.username AS archived_by,"
-        "       (SELECT COUNT(*) FROM spec_alternates a WHERE a.spec_id = s.id) AS alternates"
-        " FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
-        " LEFT JOIN users u ON u.id = s.archived_by"
-        " WHERE s.bike_id = ? AND s.archived = 1"
-        " ORDER BY f.category, f.sort_order", (bike_id,)))}
+    return {
+        "specs": rows(ctx.conn.execute(
+            "SELECT s.id, s.field_key, f.label, f.category, s.value, s.paused,"
+            "       s.archived_at, u.username AS archived_by,"
+            "       (SELECT COUNT(*) FROM spec_alternates a WHERE a.spec_id = s.id"
+            "          AND a.archived = 0) AS alternates"
+            " FROM specs s JOIN spec_fields f ON f.field_key = s.field_key"
+            " LEFT JOIN users u ON u.id = s.archived_by"
+            " WHERE s.bike_id = ? AND s.archived = 1"
+            " ORDER BY f.category, f.sort_order", (bike_id,))),
+        "alternates": rows(ctx.conn.execute(
+            "SELECT a.id, a.text, a.archived_at, f.label, f.category,"
+            "       su.username AS suggested_by, u.username AS archived_by,"
+            "       (SELECT COUNT(*) FROM alternate_votes v WHERE v.alternate_id = a.id) AS votes"
+            " FROM spec_alternates a JOIN specs s ON s.id = a.spec_id"
+            " JOIN spec_fields f ON f.field_key = s.field_key"
+            " LEFT JOIN users u ON u.id = a.archived_by"
+            " LEFT JOIN users su ON su.id = a.submitted_by"
+            " WHERE s.bike_id = ? AND a.archived = 1"
+            " ORDER BY f.category, f.sort_order", (bike_id,))),
+    }
 
 
 # ===========================================================================

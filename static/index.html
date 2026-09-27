@@ -1283,8 +1283,8 @@ function archiveBarHTML(){
       <button class="action-btn" data-archive-open="1">
         Archive (${n})
       </button>
-      <span class="cell-dim">${n} spec${n === 1 ? "" : "s"} you have taken off this sheet.
-        Nothing was deleted.</span>
+      <span class="cell-dim">${n} thing${n === 1 ? "" : "s"} you have taken off this sheet —
+        specs, or single alternatives. Nothing was deleted.</span>
     </div>
     <div id="archive-panel"></div>`;
 }
@@ -1608,7 +1608,9 @@ function renderSpec(s, opts = {}){
             isWire ? wireValueHTML(a.text, `h${a.id}`) : esc(a.text)}</span>
             <span class="cell-dim">${a.submitted_by_username ? "by " + esc(a.submitted_by_username) : ""}${
               a.votes ? ` · ${a.votes} vote${a.votes === 1 ? "" : "s"}` : ""}</span>
-            <button class="action-btn" data-alt-pause="${a.id}" data-to="0">Put back</button></div>`).join("")}
+            <button class="action-btn" data-alt-pause="${a.id}" data-to="0">Put back</button>
+            <button class="action-btn" data-alt-archive="${a.id}"
+              title="Put this one alternative away. Off your sheet as well as the riders' — the text, who suggested it and its votes all stay.">⤓ Archive</button></div>`).join("")}
         </div>` : ""}
       ${!hasValue ? renderRequestRow(s) : ""}
       ${s.tools ? `<div class="spec-tools">⚒ <b>Tools required</b> ${esc(s.tools)}</div>` : ""}
@@ -2112,6 +2114,8 @@ document.addEventListener("click", guard(async (e) => {
         <div class="sub">Off the sheet for everyone, including you. Values,
           alternatives, votes and flags are all still here — putting one back
           restores it exactly as it was.</div>
+        ${!r.specs.length && !r.alternates.length
+          ? `<div class="cell-dim">Nothing archived.</div>` : ""}
         ${r.specs.map(x => `<div class="archive-row">
             <span class="cat">${esc(x.category)}</span>
             <strong>${esc(x.label)}</strong>
@@ -2123,7 +2127,34 @@ document.addEventListener("click", guard(async (e) => {
               x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
             <button class="action-btn" data-unarchive="${x.id}">Put back on the sheet</button>
           </div>`).join("")}
+        ${r.alternates.map(x => `<div class="archive-row">
+            <span class="cat">${esc(x.category)}</span>
+            <strong>${esc(x.label)}</strong>
+            <span class="val">Alt: ${esc(String(x.text).slice(0, 50))}</span>
+            <span class="keeps">${x.suggested_by ? "suggested by " + esc(x.suggested_by) : ""}${
+              x.votes ? ` · ${x.votes} vote${x.votes === 1 ? "" : "s"} kept` : ""}${
+              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+            <button class="action-btn" data-alt-unarchive="${x.id}">Put back</button>
+          </div>`).join("")}
       </div>`;
+    return;
+  }
+
+  const altArch = e.target.closest("[data-alt-archive]");
+  if(altArch){
+    const r = await API.post(`/api/alternates/${altArch.dataset.altArchive}/archive`, { archived: true });
+    toast(`"${r.text}" archived — off your sheet too. `
+        + `Open Archive (${r.count}) to put it back.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const altUnarch = e.target.closest("[data-alt-unarchive]");
+  if(altUnarch){
+    const r = await API.post(`/api/alternates/${altUnarch.dataset.altUnarchive}/archive`, { archived: false });
+    toast(`"${r.text}" is back — hidden from riders, and back on your sheet `
+        + `under ${r.label}.`, "ok");
+    await refreshSpecs();
     return;
   }
 
