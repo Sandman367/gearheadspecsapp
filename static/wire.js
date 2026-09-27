@@ -117,8 +117,8 @@ function wireOneHTML(value, id, opts = {}){
       ${i === 0 && opts.n ? `<span class="wire-n">${opts.n}</span>` : ""}
       ${wireSVG(s.value, id + "_s" + i)}
       <span class="wire-abbr">${esc(wireAbbr(s.value))}</span>
-      ${i === 0 && opts.role ? `<span class="wire-role">${esc(opts.role)}</span>` : ""}
       <span class="wire-name">${esc(wireName(s.value))}</span>
+      ${i === 0 && opts.role ? `<span class="wire-role">${esc(opts.role)}</span>` : ""}
     </span>`;
   if(run.length < 2) return seg(run[0] || { value, where: "" }, 0);
   return `<span class="wire-run">${run.map((s, i) => (i === 0 ? "" : `
