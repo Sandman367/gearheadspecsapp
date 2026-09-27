@@ -531,9 +531,25 @@
      A blade fuse is colour coded by rating, so the page draws the part rather
      than describing it. The rating leads, because that is what a rider is
      matching against the one in their hand. */
+  /* A fuse box is a table in the manual and reads best as one here: the
+     ratings line up so a rider can run down the column looking for theirs,
+     and what each one feeds sits in its own column beside it. */
+  .fuse-set{ display: grid; gap: 1px; }
   .fuse-one{ display: block; }
-  .fuse-one + .fuse-one{ margin-top: 7px; }
-  .fuse{ display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .fuse-set > .fuse-one{
+    padding: 3px 0; border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .fuse-set > .fuse-one:first-child{ border-top: 0; }
+  /* number | the part | rating | size | what it feeds | trade codes.
+     Six items, six columns: with five the last one wrapped onto its own
+     line and the table stopped being a table. */
+  .fuse{ display: grid; align-items: center; gap: 4px 10px;
+         grid-template-columns: 16px 34px 48px auto 1fr auto; }
+  .fuse-one:not(.fuse-set > .fuse-one) .fuse{ display: inline-flex; flex-wrap: wrap; }
+  @media (max-width: 620px){
+    .fuse{ grid-template-columns: 14px 30px 42px 1fr; }
+    .fuse .fuse-codes, .fuse .fuse-family{ display: none; }
+  }
   .fuse-svg{ flex: none; vertical-align: middle; }
   .fuse-n{
     font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
@@ -541,6 +557,7 @@
   }
   .fuse-amp{ font-family: var(--mono); font-size: 15px; color: var(--text); font-weight: 600; }
   .fuse-family{ font-size: 12px; color: var(--text-dim); }
+  .fuse-role{ justify-self: start; }
   .fuse-codes{
     font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
     border: 1px solid var(--line); padding: 1px 5px; white-space: nowrap;

@@ -96,7 +96,11 @@ ALIASES.update({
     "torpedo": "ceramic", "bosch": "ceramic", "continental": "ceramic",
 })
 
-MAX_FUSES = 8            # a fuse box row, not the whole box
+# A whole fuse box, not a row of one. A wiring diagram prints the box as a
+# table -- every fuse, its rating, and what it feeds -- and that table is one
+# fact about the bike. Twenty-four covers a big tourer with two boxes; past
+# that it is a car.
+MAX_FUSES = 24
 MAX_ROLE = 40
 
 

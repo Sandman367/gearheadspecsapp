@@ -110,8 +110,8 @@ function fuseOneHTML(value, id, opts = {}){
       <span class="fuse-amp">${esc(row ? row.text : "")}</span>
       <span class="fuse-family">${esc(f.name)}${
         row && row.color_name ? ` · ${esc(row.color_name)}` : ""}</span>
-      ${f.codes ? `<span class="fuse-codes" title="What a manual or a parts bin may call this size">${esc(f.codes)}</span>` : ""}
-      ${opts.role ? `<span class="fuse-role">${esc(opts.role)}</span>` : ""}
+      ${opts.role ? `<span class="fuse-role">${esc(opts.role)}</span>` : `<span></span>`}
+      ${f.codes ? `<span class="fuse-codes" title="What a manual or a parts bin may call this size">${esc(f.codes)}</span>` : `<span></span>`}
     </span>`;
 }
 
