@@ -43,51 +43,103 @@ function fuseParts(value){
   return { family, amp, f, row };
 }
 
-/* The part, at the size and colour it really is. A 25A blade and a glass
-   fuse are both translucent, so both get the glass treatment: that IS what
-   they look like, and a rider hunting a clear fuse should see a clear one. */
+/* The part, at the shape and colour it really is, with its rating printed on
+   it the way the real one is. A rider is matching what is in their hand, so
+   the drawing does the matching: the number is on the fuse, not only beside
+   it.
+
+   Clear is not "no colour": a 25A blade and a glass fuse really are
+   translucent, so both get the glass treatment rather than being left blank. */
 function fuseSVG(value, id){
   const { f, row } = fuseParts(value);
-  const shape = (f && f.shape) || "blade2";
+  const shape = (f && f.shape) || "blade";
+  const legs = (f && f.legs) || 2;
   const hex = row && row.hex;
   const clear = !hex || row.color === "clear";
-  const body = clear ? "#CFCFC8" : hex;
+  const body = clear ? "#D8D8D2" : hex;
   const gid = "fg" + String(id).replace(/[^\w]/g, "");
-  const legs = shape === "blade3" ? [7, 15, 23] : shape === "blade1" ? [15] : [11, 19];
+  const txt = row ? row.text.replace(/A$/, "") : "";
+  // Dark jackets need light type on them and pale ones need dark.
+  const ink = clear || ["yellow", "tan", "pink", "clear", "gray"].includes(row && row.color)
+    ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.95)";
 
-  if(shape === "glass" || shape === "torpedo"){
-    const w = shape === "torpedo" ? 44 : 46;
-    return `<svg class="fuse-svg" viewBox="0 0 ${w} 20" width="${w}" height="20" aria-hidden="true">
-      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#EFEFEA" stop-opacity="0.85"/>
-        <stop offset="0.5" stop-color="#CFCFC8" stop-opacity="0.55"/>
-        <stop offset="1" stop-color="#9A9A94" stop-opacity="0.8"/>
-      </linearGradient></defs>
-      ${shape === "torpedo"
-        ? `<path d="M2 10 L10 4 H34 L42 10 L34 16 H10 Z" fill="url(#${gid})" stroke="#6E6E68"/>`
-        : `<rect x="8" y="3" width="30" height="14" rx="2" fill="url(#${gid})" stroke="#6E6E68"/>
-           <rect x="1" y="5" width="8" height="10" rx="1.5" fill="#C9A15E" stroke="#8A6A32"/>
-           <rect x="37" y="5" width="8" height="10" rx="1.5" fill="#C9A15E" stroke="#8A6A32"/>`}
-      <path d="M12 10 q5 -4 10 0 t10 0" fill="none" stroke="#8A8A84" stroke-width="1.2"/>
+  const shade = `<linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${body}" stop-opacity="${clear ? 0.55 : 1}"/>
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="${body}" stop-opacity="${clear ? 0.55 : 1}"/>
+    </linearGradient>`;
+  const cap = (x) => `<rect x="${x}" y="4" width="7" height="12" rx="1.5"
+      fill="#B9BCC2" stroke="#7E8189" stroke-width="0.7"/>`;
+
+  if(shape === "glass"){
+    // Clear body, the element visible through it, metal caps at both ends.
+    return `<svg class="fuse-svg" viewBox="0 0 46 20" width="46" height="20" aria-hidden="true">
+      <rect x="7" y="4" width="32" height="12" rx="1.5"
+            fill="rgba(226,226,220,0.35)" stroke="#8A8A84" stroke-width="0.8"/>
+      ${cap(1)}${cap(38)}
+      <path d="M10 10 h6 l2 -3 l2 6 l2 -6 l2 6 l2 -3 h6" fill="none"
+            stroke="#9A7B4A" stroke-width="1.1"/>
+      <text x="23" y="13.5" text-anchor="middle" font-size="8"
+            font-family="var(--mono)" fill="rgba(0,0,0,0.55)">${esc(txt)}</text>
     </svg>`;
   }
 
-  // A blade: coloured body, the little window over the element, and the legs.
-  const w = shape === "blade3" ? 32 : 26;
-  return `<svg class="fuse-svg" viewBox="0 0 ${w} 22" width="${w}" height="22" aria-hidden="true">
-    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="${body}" stop-opacity="${clear ? 0.5 : 1}"/>
-      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="${clear ? 0.25 : 0.28}"/>
-      <stop offset="1" stop-color="${body}" stop-opacity="${clear ? 0.5 : 1}"/>
-    </linearGradient></defs>
-    ${legs.map(x => `<rect x="${x - 2}" y="14" width="4" height="7" rx="0.6"
+  if(shape === "sfe"){
+    // White ceramic, a coloured band around the middle that carries the rating.
+    return `<svg class="fuse-svg" viewBox="0 0 46 20" width="46" height="20" aria-hidden="true">
+      <rect x="7" y="4" width="32" height="12" rx="1.5"
+            fill="#EFEFE9" stroke="#A9A9A2" stroke-width="0.8"/>
+      <rect x="15" y="4" width="16" height="12" fill="${body}"
+            fill-opacity="${clear ? 0.35 : 1}"/>
+      ${cap(1)}${cap(38)}
+      <text x="23" y="13.5" text-anchor="middle" font-size="8"
+            font-family="var(--mono)" fill="${ink}">${esc(txt)}</text>
+    </svg>`;
+  }
+
+  if(shape === "torpedo"){
+    // Pointed at both ends, which is the whole way you recognise one.
+    return `<svg class="fuse-svg" viewBox="0 0 46 20" width="46" height="20" aria-hidden="true">
+      <defs>${shade}</defs>
+      <path d="M2 10 L11 4.5 H35 L44 10 L35 15.5 H11 Z"
+            fill="url(#${gid})" stroke="#7E8189" stroke-width="0.8"/>
+      <path d="M2 10 L11 4.5 V15.5 Z M44 10 L35 4.5 V15.5 Z" fill="#B9BCC2" stroke="#7E8189" stroke-width="0.6"/>
+      <text x="23" y="13.2" text-anchor="middle" font-size="8"
+            font-family="var(--mono)" fill="${ink}">${esc(txt)}</text>
+    </svg>`;
+  }
+
+  if(shape === "case"){
+    // A box cartridge: taller than a blade, rating on the top face.
+    return `<svg class="fuse-svg" viewBox="0 0 30 24" width="30" height="24" aria-hidden="true">
+      <defs>${shade}</defs>
+      <rect x="2" y="1.5" width="26" height="9" rx="1.5"
+            fill="${body}" fill-opacity="${clear ? 0.6 : 0.85}" stroke="rgba(0,0,0,0.4)" stroke-width="0.8"/>
+      <rect x="2" y="8" width="26" height="10" rx="1.5"
+            fill="url(#${gid})" stroke="rgba(0,0,0,0.45)" stroke-width="0.9"/>
+      <rect x="7" y="17" width="4" height="6" rx="0.6" fill="#C9A15E" stroke="#8A6A32" stroke-width="0.6"/>
+      <rect x="19" y="17" width="4" height="6" rx="0.6" fill="#C9A15E" stroke="#8A6A32" stroke-width="0.6"/>
+      <text x="15" y="8.6" text-anchor="middle" font-size="8"
+            font-family="var(--mono)" fill="${ink}">${esc(txt)}</text>
+    </svg>`;
+  }
+
+  // A blade. The rating is moulded into the top, the element shows through a
+  // window, and the legs are what tells a Micro3 from the rest.
+  const w = legs === 3 ? 34 : 28;
+  const at = legs === 3 ? [8, 17, 26] : legs === 1 ? [17] : [10, 21];
+  return `<svg class="fuse-svg" viewBox="0 0 ${w} 24" width="${w}" height="24" aria-hidden="true">
+    <defs>${shade}</defs>
+    ${at.map(x => `<rect x="${x - 2}" y="15" width="4" height="8" rx="0.6"
         fill="#C9A15E" stroke="#8A6A32" stroke-width="0.6"/>`).join("")}
-    <rect x="1.5" y="1.5" width="${w - 3}" height="14" rx="2.5"
+    <rect x="1.5" y="1.5" width="${w - 3}" height="15" rx="2.5"
           fill="url(#${gid})" stroke="rgba(0,0,0,0.45)" stroke-width="1"/>
-    <rect x="${w / 2 - 4}" y="4" width="8" height="8" rx="1"
-          fill="rgba(255,255,255,0.35)" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
-    <path d="M${w / 2 - 2.5} 10 l2 -4 l1.5 4 l2 -4" fill="none"
-          stroke="rgba(0,0,0,0.55)" stroke-width="1"/>
+    <rect x="${w / 2 - 5}" y="7.5" width="10" height="7" rx="1"
+          fill="rgba(255,255,255,0.3)" stroke="rgba(0,0,0,0.18)" stroke-width="0.5"/>
+    <path d="M${w / 2 - 3.5} 11.5 l2 -2.5 l1.5 2.5 l2 -2.5" fill="none"
+          stroke="rgba(0,0,0,0.5)" stroke-width="0.9"/>
+    <text x="${w / 2}" y="6.6" text-anchor="middle" font-size="7"
+          font-family="var(--mono)" fill="${ink}">${esc(txt)}</text>
   </svg>`;
 }
 

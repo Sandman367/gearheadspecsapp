@@ -44,43 +44,73 @@ COLORS = {
     "purple":    {"name": "Purple",     "hex": "#6A3FA6"},
 }
 
-# Amp -> colour, per family. Read off ISO 8820 / DIN 72581; the families that
-# share a table share it here rather than repeating it, so a correction lands
-# in one place.
+# Amp -> colour, per family. Read off the reference chart; families that
+# genuinely share a table share it here rather than repeating it, so a
+# correction lands in one place.
+#
+# Mini and low-profile mini STOP AT 30A. Only the standard blade goes on to
+# 35A and 40A -- a 40A mini does not exist, and offering one would be offering
+# a part nobody can buy.
+_STANDARD = {2: "gray", 3: "violet", 4: "pink", 5: "tan", 7.5: "brown",
+             10: "red", 15: "blue", 20: "yellow", 25: "clear", 30: "green",
+             35: "bluegreen", 40: "orange"}
+_MINI = {a: c for a, c in _STANDARD.items() if a <= 30}
 _MICRO = {5: "tan", 7.5: "brown", 10: "red", 15: "blue", 20: "yellow",
           25: "clear", 30: "green"}
-_BLADE = {2: "gray", 3: "violet", 4: "pink", 5: "tan", 7.5: "brown", 10: "red",
-          15: "blue", 20: "yellow", 25: "clear", 30: "green", 35: "bluegreen",
-          40: "orange"}
+
+# Maxi: the chart's ratings, plus the ones it does not draw but that are real
+# and do not conflict with it. Note 15A and 60A are both blue -- which is why
+# nothing here ever reads a rating back OUT of a colour.
 _MAXI = {15: "blue", 20: "yellow", 30: "green", 35: "brown", 40: "orange",
          50: "red", 60: "blue", 70: "tan", 80: "clear", 100: "violet",
          120: "purple"}
-# Not colour coded. The ratings are the ones these are commonly sold in; the
-# fuse says its rating on the cap, which is what a rider reads.
-_GLASS = {r: None for r in (1, 2, 3, 4, 5, 6, 7.5, 10, 15, 20, 25, 30)}
+
+# The cartridge pair. Same ratings, same colours, different housing.
+_CASE = {20: "yellow", 30: "green", 40: "orange", 50: "red", 60: "blue"}
+
+# Glass is not colour coded: the body is clear and the rating is printed on
+# the end cap, which is what a rider reads.
+_AGC = {a: None for a in (0.5, 1, 2, 3, 4, 5, 7.5, 10, 15, 20, 25, 30)}
+
+# Ceramic tube (SFE): a white body with a coloured band. 5A and 20A are both
+# yellow on the chart; that is the chart, and it is harmless because the
+# colour is only ever derived from the rating.
+_SFE = {1: "clear", 2: "pink", 3: "violet", 5: "yellow", 7.5: "brown",
+        10: "red", 15: "blue", 20: "yellow", 30: "green"}
+
+# Ceramic torpedo (European / Bosch). The classic set is 5, 8, 16, 25, 40;
+# the longer series adds the rest. 25A is drawn blue here -- it appears blue
+# on the labelled chart, though a white 25A torpedo also exists in a different
+# length, so this one is worth checking against the part in your hand.
+_TORPEDO = {3: "yellow", 5: "clear", 8: "clear", 10: "red", 15: "blue",
+            16: "red", 20: "yellow", 25: "blue", 30: "blue", 40: "gray",
+            50: "green"}
 
 FAMILIES = {
     "micro2":  {"name": "Micro2", "codes": "APT, ATR", "mm": "9.1 x 3.8 x 15.3",
-                "shape": "blade1", "amps": _MICRO},
+                "shape": "blade", "legs": 2, "amps": _MICRO},
     "micro3":  {"name": "Micro3", "codes": "ATL", "mm": "14.4 x 4.2 x 18.1",
-                "shape": "blade3", "amps": _MICRO},
+                "shape": "blade", "legs": 3, "amps": _MICRO},
     "lpmini":  {"name": "Low-profile mini", "codes": "APS, ATT", "mm": "10.9 x 3.81 x 8.73",
-                "shape": "blade2", "amps": _BLADE},
+                "shape": "blade", "legs": 2, "amps": _MINI},
     "mini":    {"name": "Mini", "codes": "APM, ATM", "mm": "10.9 x 3.6 x 16.3",
-                "shape": "blade2", "amps": _BLADE},
-    "regular": {"name": "Regular", "codes": "ATO, ATC, APR, ATS", "mm": "19.1 x 5.1 x 18.5",
-                "shape": "blade2", "amps": _BLADE},
+                "shape": "blade", "legs": 2, "amps": _MINI},
+    "regular": {"name": "Standard", "codes": "ATO, ATC, APR, ATS", "mm": "19.1 x 5.1 x 18.5",
+                "shape": "blade", "legs": 2, "amps": _STANDARD},
     "maxi":    {"name": "Maxi", "codes": "APX", "mm": "29.2 x 8.5 x 34.3",
-                "shape": "blade2", "amps": _MAXI},
+                "shape": "blade", "legs": 2, "amps": _MAXI},
+    "jcase":   {"name": "JCASE", "codes": "JCASE, Female Maxi", "mm": "",
+                "shape": "case", "legs": 2, "amps": _CASE},
+    "mcase":   {"name": "MCASE", "codes": "MCASE", "mm": "",
+                "shape": "case", "legs": 2, "amps": _CASE},
     "glass":   {"name": "Glass tube", "codes": "AGC, AGU", "mm": "",
-                "shape": "glass", "amps": _GLASS},
-    "ceramic": {"name": "Ceramic (torpedo)", "codes": "GBC", "mm": "",
-                "shape": "torpedo", "amps": _GLASS},
+                "shape": "glass", "legs": 0, "amps": _AGC},
+    "sfe":     {"name": "Ceramic tube", "codes": "SFE", "mm": "",
+                "shape": "sfe", "legs": 0, "amps": _SFE},
+    "torpedo": {"name": "Ceramic torpedo", "codes": "European, Bosch, GBC", "mm": "",
+                "shape": "torpedo", "legs": 0, "amps": _TORPEDO},
 }
 
-# What people write, folded onto the family key. The trade codes matter: a
-# manual says ATO, a parts bin says ATC, and a rider should be able to type
-# whichever one is in front of them.
 ALIASES = {}
 for _key, _f in FAMILIES.items():
     ALIASES[_key] = _key
@@ -91,9 +121,14 @@ for _key, _f in FAMILIES.items():
             ALIASES[_code] = _key
 ALIASES.update({
     "standard": "regular", "ato": "regular", "atc": "regular", "blade": "regular",
+    "regularblade": "regular", "standardblade": "regular",
     "lowprofile": "lpmini", "lowprofilemini": "lpmini", "miniloprofile": "lpmini",
-    "micro": "micro2", "agc": "glass", "agu": "glass", "glasstube": "glass",
-    "torpedo": "ceramic", "bosch": "ceramic", "continental": "ceramic",
+    "lpmini": "lpmini", "micro": "micro2",
+    "agc": "glass", "agu": "glass", "glasstube": "glass",
+    "ceramictube": "sfe", "sfe": "sfe",
+    "ceramic": "torpedo", "bosch": "torpedo", "continental": "torpedo",
+    "european": "torpedo", "gbc": "torpedo", "ceramictorpedo": "torpedo",
+    "femalemaxi": "jcase",
 })
 
 # A whole fuse box, not a row of one. A wiring diagram prints the box as a

@@ -6492,7 +6492,21 @@ class ApiTest(unittest.TestCase):
         try:
             fuses.normalise_set("mini 50A")
         except fuses.FuseError as e:
-            self.assertIn("40A", str(e))
+            self.assertIn("30A", str(e))
+
+        # Mini and low-profile mini stop at 30A; only the standard blade goes
+        # on to 35A and 40A. Sharing one table across all three -- which this
+        # did at first -- offers a 40A mini, which nobody can buy.
+        self.assertEqual(fuses.normalise_set("regular 40A"), "regular 40A")
+        for size in ("mini", "lpmini"):
+            with self.assertRaises(fuses.FuseError, msg=size):
+                fuses.normalise_set(f"{size} 40A")
+
+        # the families off the chart that were missing
+        for v, want in [("jcase 40A", "jcase 40A"), ("MCASE 60A", "mcase 60A"),
+                        ("SFE 10A", "sfe 10A"), ("bosch 16A", "torpedo 16A"),
+                        ("AGC 0.5A", "glass 0.5A")]:
+            self.assertEqual(fuses.normalise_set(v), want, v)
 
     def test_99o_a_fuse_value_survives_the_api(self):
         """The value type has to reach the database and come back whole,
