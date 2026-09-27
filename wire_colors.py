@@ -314,9 +314,11 @@ def parse_set(value):
                     f"a wire's role is limited to {MAX_ROLE} characters")
         out.append((role, parse_run(chunk)))
 
-    roles = [r for r, _ in out if r]
-    if len(set(roles)) != len(roles):
-        raise WireColorError("two wires cannot share the same role")
+    # Two wires CAN go to the same place, and often do -- a turn signal switch
+    # takes two, a stator takes three to one connector. The role says where a
+    # wire goes; it was never an identifier, and refusing a repeat refused the
+    # bike rather than the value. The colours and the wire numbers tell them
+    # apart on the page.
     return out
 
 

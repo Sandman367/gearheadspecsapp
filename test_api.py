@@ -3551,13 +3551,25 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(out[1]["abbr"], "Bu")
         self.assertIsNone(out[1]["role"])
 
-    def test_99e_the_set_is_bounded_and_roles_unique(self):
+    def test_99e_the_set_is_bounded_and_a_role_may_repeat(self):
         with self.assertRaises(wire_colors.WireColorError):
             wire_colors.normalise_set(", ".join(["red"] * 9))
         with self.assertRaises(wire_colors.WireColorError):
-            wire_colors.normalise_set("a: red, a: blue")
-        with self.assertRaises(wire_colors.WireColorError):
             wire_colors.normalise_set("x" * 41 + ": red")
+
+        # Two wires CAN go to the same place, and often do: a turn signal
+        # switch takes two, a stator takes three into one connector. The role
+        # says where a wire goes -- it was never an identifier, and refusing a
+        # repeat refused the bike rather than the value.
+        both = "turn signal switch: green/white, turn signal switch: green/black"
+        self.assertEqual(wire_colors.normalise_set(both), both)
+        out = wire_colors.describe_set(both, "Honda")
+        self.assertEqual([o["role"] for o in out],
+                         ["turn signal switch", "turn signal switch"])
+        self.assertEqual([o["abbr"] for o in out], ["G/W", "G/Bl"],
+                         "the colours are what tell them apart")
+        # two identical wires to one place is a real bike, not a typo to refuse
+        self.assertEqual(wire_colors.normalise_set("sw: red, sw: red"), "sw: red, sw: red")
 
     def test_99f_a_bad_wire_anywhere_in_the_set_is_refused(self):
         """The second wire is checked as hard as the first."""
