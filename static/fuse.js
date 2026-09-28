@@ -50,6 +50,17 @@ function fuseParts(value){
 
    Clear is not "no colour": a 25A blade and a glass fuse really are
    translucent, so both get the glass treatment rather than being left blank. */
+/* The chart's own photograph where there is one, the drawn fuse where there
+   is not -- the chart does not cover every Maxi rating or the longer torpedo
+   series, and those are real parts that should still appear. */
+function fuseArt(value, id){
+  const { row } = fuseParts(value);
+  if(row && row.img){
+    return `<span class="fuse-pic"><img src="${esc(row.img)}" alt="" loading="lazy"></span>`;
+  }
+  return fuseSVG(value, id);
+}
+
 function fuseSVG(value, id){
   const { f, row } = fuseParts(value);
   const shape = (f && f.shape) || "blade";
@@ -158,7 +169,7 @@ function fuseOneHTML(value, id, opts = {}){
   return `
     <span class="fuse">
       ${opts.n ? `<span class="fuse-n">${opts.n}</span>` : ""}
-      ${fuseSVG(value, id)}
+      ${fuseArt(value, id)}
       <span class="fuse-amp">${esc(row ? row.text : "")}</span>
       <span class="fuse-family">${esc(f.name)}${
         row && row.color_name ? ` · ${esc(row.color_name)}` : ""}</span>
@@ -191,12 +202,24 @@ function fusePickerHTML(id, current, cur){
   const fam = FUSE.byKey[family];
   const multi = set.length > 1;
 
+  // What it protects belongs with the fuse you have just picked, not only
+  // once a second one exists. It appears as soon as there is a fuse to
+  // attach it to, which is the moment a rider knows the answer.
+  const protects = (fam && amp) ? `
+    <div class="wp-row">
+      <div class="wp-label">What it protects</div>
+      <input type="text" class="fp-protect" maxlength="${FUSE.max_role || 40}"
+             placeholder="e.g. headlight, ignition, horn"
+             value="${esc(set[idx].role || "")}"
+             data-fuse-role="${id}" data-i="${idx}">
+    </div>` : "";
+
   const list = multi ? `
     <div class="fp-list">
       ${set.map((x, i) => `
         <div class="fp-item${i === idx ? " on" : ""}" data-fuse-go="${id}" data-i="${i}">
           <span class="fp-i">${i + 1}</span>
-          ${x.value ? fuseSVG(x.value, id + "_l" + i) +
+          ${x.value ? fuseArt(x.value, id + "_l" + i) +
               `<span class="fuse-amp">${esc(fuseParts(x.value).row?.text || "")}</span>`
             : `<span class="fp-empty-item">not chosen yet</span>`}
           <input class="fp-role" type="text" maxlength="${FUSE.max_role || 40}"
@@ -214,7 +237,7 @@ function fusePickerHTML(id, current, cur){
       ${list}
       <div class="fp-preview">${
         fam && amp
-          ? `${fuseSVG(set[idx].value, "fpv" + id)}
+          ? `${fuseArt(set[idx].value, "fpv" + id)}
              <div><div class="fp-big">${esc(fuseParts(set[idx].value).row?.text || "")}</div>
                <div class="fp-desc">${esc(fam.name)}${
                  fuseParts(set[idx].value).row?.color_name
@@ -223,7 +246,7 @@ function fusePickerHTML(id, current, cur){
           : `<div class="wp-empty">Pick a size, then a rating</div>`}</div>
 
       <div class="wp-row">
-        <div class="wp-label">Size</div>
+        <div class="wp-label">Type</div>
         <div class="fp-fams">
           ${FUSE.families.map(f => `
             <button type="button" class="fp-fam${f.key === family ? " on" : ""}"
@@ -234,7 +257,7 @@ function fusePickerHTML(id, current, cur){
       </div>
 
       ${fam ? `<div class="wp-row">
-        <div class="wp-label">Rating <em>${esc(fam.name)} comes in these</em></div>
+        <div class="wp-label">Rating <em>what a ${esc(fam.name)} comes in</em></div>
         <div class="wp-swatches">
           ${fam.amps.map(a => `
             <button type="button" class="wp-sw${a.amp === amp ? " on" : ""}"
@@ -245,6 +268,8 @@ function fusePickerHTML(id, current, cur){
             </button>`).join("")}
         </div>
       </div>` : ""}
+
+      ${protects}
 
       <div class="wp-actions">
         <button type="button" class="wp-add" data-fuse-add="${id}"

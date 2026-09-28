@@ -23,6 +23,7 @@ other way, which is well defined.
 Glass and ceramic fuses are not colour coded at all. They are accepted, drawn
 as glass, and say their rating in writing -- which is what the part does.
 """
+import os
 
 # ---------------------------------------------------------------------------
 # What the jackets look like. `clear` is the one that is not a colour: a
@@ -267,6 +268,21 @@ def describe_set(value):
     return out
 
 
+_IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "static", "img", "fuses")
+
+
+def _has_image(family, amp):
+    """Whether the reference chart pictures this exact fuse.
+
+    It does not picture everything: the chart draws Maxi from 20A to 80A, and
+    only the classic five torpedoes. Those ratings are real and stay in the
+    table -- the page falls back to the drawn fuse for them rather than
+    dropping them.
+    """
+    return os.path.exists(os.path.join(_IMG_DIR, f"{family}-{_amp_text(amp)}.png"))
+
+
 def vocabulary():
     """Everything the picker needs: the families, and the ratings each one
     comes in with the colour that rating is."""
@@ -277,7 +293,8 @@ def vocabulary():
              "amps": [{"amp": a, "text": _amp_text(a) + "A",
                        "color": f["amps"][a],
                        "hex": COLORS[f["amps"][a]]["hex"] if f["amps"][a] else None,
-                       "color_name": COLORS[f["amps"][a]]["name"] if f["amps"][a] else None}
+                       "color_name": COLORS[f["amps"][a]]["name"] if f["amps"][a] else None,
+                       "img": f"/img/fuses/{k}-{_amp_text(a)}.png" if _has_image(k, a) else None}
                       for a in sorted(f["amps"])]}
             for k, f in FAMILIES.items()
         ],

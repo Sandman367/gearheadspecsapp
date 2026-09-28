@@ -551,6 +551,17 @@
     .fuse .fuse-codes, .fuse .fuse-family{ display: none; }
   }
   .fuse-svg{ flex: none; vertical-align: middle; }
+  /* The chart's own photograph sits on a pale chip, the way the chart shows
+     it: a 25A blade and a glass fuse really are near-white, so keying the
+     background out would erase the part along with it. */
+  .fuse-pic{
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #F2F2EE; border-radius: 3px; padding: 2px 3px;
+    line-height: 0; flex: none;
+  }
+  .fuse-pic img{ height: 26px; width: auto; display: block; }
+  .fp-preview .fuse-pic img{ height: 44px; }
+  .fp-protect{ width: 100%; }
   .fuse-n{
     font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
     min-width: 10px;
@@ -1994,7 +2005,10 @@ document.addEventListener("click", guard(async (e) => {
             : ethanol ? ` data-fuel-eth-only="val${id}"` : ""}>Save stock value</button>
         </div>
       </div>`;
-    if(!wire && !octane && !ethanol) byId(`value-input-${id}`).focus();
+    // Only the plain text box takes focus; every picker draws its own
+    // controls and there is no input to put a caret in.
+    const box = byId(`value-input-${id}`);
+    if(box) box.focus();
     return;
   }
 
