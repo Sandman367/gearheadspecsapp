@@ -1,0 +1,15 @@
+severity,bike_id,bike,check,detail
+check,2244,Suzuki RV125 VanVan (1972-82),years,1972-2019 is a 47 year span
+check,2246,Suzuki RV200 VanVan,years,1972-2019 is a 47 year span
+check,1060,GasGas MC-E 2 / 3 / 5 (electric minicross),unanswered,no questionnaire answers at all
+check,1039,GasGas TXE (electric trials),unanswered,no questionnaire answers at all
+check,1134,Husqvarna EE 2 / EE 3 / EE 5 (electric minicross),unanswered,no questionnaire answers at all
+check,1208,KTM Freeride E-XC / E-SX / E-SM,unanswered,no questionnaire answers at all
+check,1230,KTM SX-E 2 / SX-E 3 / SX-E 5,unanswered,no questionnaire answers at all
+check,354,Kawasaki Ninja 7 Hybrid / Z7 Hybrid,unanswered,no questionnaire answers at all
+check,1332,Piaggio Piaggio 1 / 1 Active / 1+ (electric),unanswered,no questionnaire answers at all
+check,1566,Vespa Elettrica / Elettrica 70 km/h / Elettrica RED / Primavera Elettrica,unanswered,no questionnaire answers at all
+check,1544,Victory Empulse TT (electric),unanswered,no questionnaire answers at all
+check,1845,GasGas EC 400,two-stroke?,"GasGas EC is a two-stroke family, q5=D"
+check,1847,GasGas EC 450,two-stroke?,"GasGas EC is a two-stroke family, q5=D"
+check,2276,Suzuki JR80 (minis),two-stroke?,"Suzuki JR is a two-stroke family, q5=C"
