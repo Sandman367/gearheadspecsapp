@@ -476,6 +476,25 @@ END;
 -- An alternative can be archived like a spec can: hiding one keeps it on
 -- its manager's sheet so they can put it back, which leaves a suggestion
 -- they have already judged wrong sitting in front of them forever.
+-- A stock value taken off its spec, without taking the spec.
+--
+-- Archiving a spec is right when the machine does not have that part. It is
+-- wrong when the spec belongs and the NUMBER is wrong: removing the row to
+-- get rid of a bad answer hides the question too, and the gap stops reading
+-- as a gap. So the value comes off on its own and waits here, with who
+-- entered it, so the decision is reversible and they are not erased.
+CREATE TABLE archived_values (
+  id           INTEGER PRIMARY KEY,
+  spec_id      INTEGER NOT NULL REFERENCES specs(id) ON DELETE CASCADE,
+  value        TEXT    NOT NULL,
+  confidence   TEXT,
+  entered_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  value_source TEXT,
+  archived_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  archived_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_archived_values_spec ON archived_values (spec_id);
+
 CREATE TABLE spec_alternates (
   id            INTEGER PRIMARY KEY,
   spec_id       INTEGER NOT NULL REFERENCES specs(id) ON DELETE CASCADE,

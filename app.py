@@ -770,6 +770,9 @@ def get_bike_specs(ctx):
     # puts the button on the page, so it is counted before they are dropped.
     archived_count = sum(1 for s in spec_rows if s["archived"])
     archived_count += sum(1 for a in alts if a["archived"])
+    archived_count += ctx.conn.execute(
+        "SELECT COUNT(*) FROM archived_values v JOIN specs s ON s.id = v.spec_id"
+        " WHERE s.bike_id = ?", (bike_id,)).fetchone()[0]
     spec_rows = [s for s in spec_rows if not s["archived"]]
 
     categories, unplaced = [], []
@@ -3192,9 +3195,8 @@ def archive_spec(ctx):
                    f'{"Archived" if new else "Restored"} {sp["label"]}',
                    target=str(spec_id), detail={"bike_id": sp["bike_id"]})
     ctx.conn.commit()
-    n = ctx.conn.execute("SELECT COUNT(*) FROM specs WHERE bike_id=? AND archived=1",
-                         (sp["bike_id"],)).fetchone()[0]
-    return {"ok": True, "archived": bool(new), "label": sp["label"], "count": n}
+    return {"ok": True, "archived": bool(new), "label": sp["label"],
+            "count": _archive_count(ctx.conn, sp["bike_id"])}
 
 
 @route("POST", r"/api/alternates/(\d+)/archive", role="manager")
@@ -3232,13 +3234,83 @@ def archive_alternate(ctx):
                    f'{"Archived" if new else "Restored"} the alternative "{a["text"]}" on {a["label"]}',
                    target=str(alt_id), detail={"bike_id": a["bike_id"]})
     ctx.conn.commit()
-    n = ctx.conn.execute(
+    return {"ok": True, "archived": bool(new), "text": a["text"],
+            "label": a["label"], "count": _archive_count(ctx.conn, a["bike_id"])}
+
+
+@route("POST", r"/api/specs/(\d+)/value/archive", role="manager")
+def archive_spec_value(ctx):
+    """Take the stock VALUE off, and leave the spec where it is.
+
+    The spec goes back to reading as a gap, which is honest: the bike still
+    has that part and nobody has sourced it. The old value is kept whole --
+    text, confidence, who entered it and where it came from -- so this can be
+    undone and the rider who put it there is not erased.
+    """
+    spec_id = int(ctx.params[0])
+    sp = one(ctx.conn.execute(
+        "SELECT s.id, s.bike_id, s.value, s.confidence, s.entered_by,"
+        "       s.value_source, f.label FROM specs s"
+        " JOIN spec_fields f ON f.field_key = s.field_key WHERE s.id=?", (spec_id,)))
+    if not sp:
+        raise HttpError(404, "spec not found")
+    require_manages(ctx.conn, ctx.user, sp["bike_id"])
+    if sp["value"] is None or not str(sp["value"]).strip():
+        raise HttpError(409, f"{sp['label']} has no value to archive")
+
+    ctx.conn.execute(
+        "INSERT INTO archived_values (spec_id, value, confidence, entered_by,"
+        " value_source, archived_by) VALUES (?,?,?,?,?,?)",
+        (spec_id, sp["value"], sp["confidence"], sp["entered_by"],
+         sp["value_source"], ctx.user["id"]))
+    ctx.conn.execute(
+        "UPDATE specs SET value=NULL, confidence='pending', entered_by=NULL,"
+        " value_source=NULL, updated_at=datetime('now') WHERE id=?", (spec_id,))
+    if ctx.user["role"] == "admin":
+        log_action(ctx, "value.archive",
+                   f'Archived the value on {sp["label"]}: {sp["value"]}',
+                   target=str(spec_id), detail={"bike_id": sp["bike_id"]})
+    ctx.conn.commit()
+    return {"ok": True, "label": sp["label"], "value": sp["value"],
+            "count": _archive_count(ctx.conn, sp["bike_id"])}
+
+
+@route("POST", r"/api/archived-values/(\d+)/restore", role="manager")
+def restore_archived_value(ctx):
+    """Put an archived value back on its spec."""
+    aid = int(ctx.params[0])
+    a = one(ctx.conn.execute(
+        "SELECT a.*, s.bike_id, s.value AS current, f.label"
+        " FROM archived_values a JOIN specs s ON s.id = a.spec_id"
+        " JOIN spec_fields f ON f.field_key = s.field_key WHERE a.id=?", (aid,)))
+    if not a:
+        raise HttpError(404, "no such archived value")
+    require_manages(ctx.conn, ctx.user, a["bike_id"])
+    # Somebody has sourced a new value since. Overwriting it would throw away
+    # their work to restore something that was archived for being wrong.
+    if a["current"] is not None and str(a["current"]).strip():
+        raise HttpError(409,
+                        f"{a['label']} has a value again ({a['current']}). Archive "
+                        "that one first if the old one should come back.")
+    ctx.conn.execute(
+        "UPDATE specs SET value=?, confidence=?, entered_by=?, value_source=?,"
+        " updated_at=datetime('now') WHERE id=?",
+        (a["value"], a["confidence"], a["entered_by"], a["value_source"], a["spec_id"]))
+    ctx.conn.execute("DELETE FROM archived_values WHERE id=?", (aid,))
+    ctx.conn.commit()
+    return {"ok": True, "label": a["label"], "value": a["value"],
+            "count": _archive_count(ctx.conn, a["bike_id"])}
+
+
+def _archive_count(conn, bike_id):
+    """Everything this bike has put away: whole specs, single alternatives,
+    and values lifted off a spec that stayed."""
+    return conn.execute(
         "SELECT (SELECT COUNT(*) FROM specs WHERE bike_id=? AND archived=1)"
         "     + (SELECT COUNT(*) FROM spec_alternates a JOIN specs s ON s.id=a.spec_id"
-        "         WHERE s.bike_id=? AND a.archived=1)",
-        (a["bike_id"], a["bike_id"])).fetchone()[0]
-    return {"ok": True, "archived": bool(new), "text": a["text"],
-            "label": a["label"], "count": n}
+        "         WHERE s.bike_id=? AND a.archived=1)"
+        "     + (SELECT COUNT(*) FROM archived_values v JOIN specs s ON s.id=v.spec_id"
+        "         WHERE s.bike_id=?)", (bike_id, bike_id, bike_id)).fetchone()[0]
 
 
 @route("GET", r"/api/bikes/(\d+)/archive", role="manager")
@@ -3257,6 +3329,15 @@ def list_archived_specs(ctx):
             " LEFT JOIN users u ON u.id = s.archived_by"
             " WHERE s.bike_id = ? AND s.archived = 1"
             " ORDER BY f.category, f.sort_order", (bike_id,))),
+        "values": rows(ctx.conn.execute(
+            "SELECT v.id, v.value, v.archived_at, f.label, f.category,"
+            "       eu.username AS entered_by, u.username AS archived_by,"
+            "       s.value IS NOT NULL AND s.value <> '' AS spec_refilled"
+            " FROM archived_values v JOIN specs s ON s.id = v.spec_id"
+            " JOIN spec_fields f ON f.field_key = s.field_key"
+            " LEFT JOIN users u ON u.id = v.archived_by"
+            " LEFT JOIN users eu ON eu.id = v.entered_by"
+            " WHERE s.bike_id = ? ORDER BY f.category, f.sort_order", (bike_id,))),
         "alternates": rows(ctx.conn.execute(
             "SELECT a.id, a.text, a.archived_at, f.label, f.category,"
             "       su.username AS suggested_by, u.username AS archived_by,"

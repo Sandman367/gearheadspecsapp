@@ -6553,5 +6553,72 @@ class ApiTest(unittest.TestCase):
         self.assertEqual((ten["color"], ten["text"]), ("red", "10A"))
 
 
+    def test_99q_a_value_can_be_archived_without_the_spec(self):
+        """Archiving a spec is right when the bike has not got that part. It
+        is wrong when the spec belongs and the NUMBER is wrong: taking the row
+        away to get rid of a bad answer hides the question too, and the gap
+        stops reading as a gap."""
+        adm = self.as_("admin")
+        bike = self._new_bike(adm, "VALUE ARCHIVE TEST", 1997, 1999)
+        adm.post(f"/api/admin/bikes/{bike}/manager", {"user_id": self._uid("gp_hayes")})
+        mgr, rider = self.as_("gp_hayes"), self.as_("sohc_sam")
+
+        s, d = mgr.get(f"/api/bikes/{bike}/specs")
+        spec = next(x for c in d["categories"] for x in c["specs"] if x["value_type"] == "text")
+        rider.post(f"/api/specs/{spec['id']}/value", {"value": "a wrong part number"})
+
+        def sheet(who):
+            _, d = who.get(f"/api/bikes/{bike}/specs")
+            row = next((x for c in d["categories"] for x in c["specs"]
+                        if x["id"] == spec["id"]), None)
+            return row, d["archived_count"]
+
+        row, n = sheet(self.anon())
+        self.assertEqual((row["value"], n), ("a wrong part number", 0))
+
+        # a rider cannot archive somebody's value
+        self.assertEqual(rider.post(f"/api/specs/{spec['id']}/value/archive", {})[0], 403)
+
+        s, r = mgr.post(f"/api/specs/{spec['id']}/value/archive", {})
+        self.assertEqual((s, r["value"], r["count"]), (200, "a wrong part number", 1))
+
+        # THE SPEC IS STILL THERE. That is the whole point -- it reads as a
+        # gap anybody can fill, rather than vanishing with its bad answer.
+        row, n = sheet(self.anon())
+        self.assertIsNotNone(row, "the spec stays on the sheet")
+        self.assertIsNone(row["value"])
+        self.assertEqual(row["confidence"], "pending")
+        self.assertEqual(n, 1)
+
+        # and the archive knows whose it was
+        s, arch = mgr.get(f"/api/bikes/{bike}/archive")
+        keep = next(x for x in arch["values"] if x["value"] == "a wrong part number")
+        self.assertEqual(keep["entered_by"], "sohc_sam")
+        self.assertFalse(keep["spec_refilled"])
+        self.assertEqual(arch["specs"], [])
+
+        # archiving a gap is refused rather than filing an empty row
+        self.assertEqual(mgr.post(f"/api/specs/{spec['id']}/value/archive", {})[0], 409)
+
+        # it comes back whole
+        s, r = mgr.post(f"/api/archived-values/{keep['id']}/restore", {})
+        self.assertEqual(s, 200, r)
+        row, n = sheet(self.anon())
+        self.assertEqual((row["value"], n), ("a wrong part number", 0))
+
+        # and a restore never overwrites somebody's newer work
+        mgr.post(f"/api/specs/{spec['id']}/value/archive", {})
+        s, arch = mgr.get(f"/api/bikes/{bike}/archive")
+        again = next(x for x in arch["values"])
+        mgr.post(f"/api/specs/{spec['id']}/value", {"value": "the right one"})
+        s, r = mgr.post(f"/api/archived-values/{again['id']}/restore", {})
+        self.assertEqual(s, 409)
+        self.assertIn("the right one", r["error"])
+        self.assertEqual(sheet(self.anon())[0]["value"], "the right one")
+        # the archive says so rather than offering a button that would fail
+        s, arch = mgr.get(f"/api/bikes/{bike}/archive")
+        self.assertTrue(next(x for x in arch["values"])["spec_refilled"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

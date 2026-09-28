@@ -1552,7 +1552,11 @@ function valueLine(opts){
         : esc(text)}</span>
       ${confirmedFit ? `<span class="fit-check" title="Confirmed fit">✓</span>` : ""}
       ${opts.altId && MANAGES_THIS_BIKE ? `<button class="action-btn alt-hide" data-alt-pause="${opts.altId}" data-to="1"
-          title="Take this alternative off the page. It is hidden, not deleted — you can put it back.">Hide</button>` : ""}
+          title="Take this alternative off the page. It is hidden, not deleted — you can put it back.">Hide</button>
+        <button class="action-btn alt-hide" data-alt-archive="${opts.altId}"
+          title="Put this one alternative away — off your sheet as well as the riders'. The text, who suggested it and its votes all stay.">\u2913</button>` : ""}
+      ${opts.stockId && MANAGES_THIS_BIKE && !missing ? `<button class="action-btn alt-hide" data-value-archive="${opts.stockId}"
+          title="Archive this value and leave the spec. It goes back to reading as a gap anybody can fill; the old value and who entered it are kept, and you can put it back.">\u2913 Archive value</button>` : ""}
     </div>`;
 }
 
@@ -1588,7 +1592,7 @@ function renderSpec(s, opts = {}){
   let lines = valueLine({
     label: "Stock", text: s.value, votes: s.votes, flags: s.open_flags,
     myVote: s.my_vote, myFlag: s.my_flag, missing: !hasValue,
-    voteAction: `spec:${s.id}`, flagAction: `spec:${s.id}`,
+    voteAction: `spec:${s.id}`, flagAction: `spec:${s.id}`, stockId: s.id,
     wire: isWire, wireId: `s${s.id}`, vtype: s.value_type,
   });
   if(top) lines += valueLine({
@@ -2206,8 +2210,19 @@ document.addEventListener("click", guard(async (e) => {
         <div class="sub">Off the sheet for everyone, including you. Values,
           alternatives, votes and flags are all still here — putting one back
           restores it exactly as it was.</div>
-        ${!r.specs.length && !r.alternates.length
+        ${!r.specs.length && !r.alternates.length && !(r.values || []).length
           ? `<div class="cell-dim">Nothing archived.</div>` : ""}
+        ${(r.values || []).map(x => `<div class="archive-row">
+            <span class="cat">${esc(x.category)}</span>
+            <strong>${esc(x.label)}</strong>
+            <span class="val">${esc(String(x.value).slice(0, 50))}</span>
+            <span class="keeps">value only, spec still on the sheet${
+              x.entered_by ? ` · was ${esc(x.entered_by)}'s` : ""}${
+              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+            ${x.spec_refilled
+              ? `<span class="keeps">a new value is there now</span>`
+              : `<button class="action-btn" data-value-restore="${x.id}">Put the value back</button>`}
+          </div>`).join("")}
         ${r.specs.map(x => `<div class="archive-row">
             <span class="cat">${esc(x.category)}</span>
             <strong>${esc(x.label)}</strong>
@@ -2229,6 +2244,23 @@ document.addEventListener("click", guard(async (e) => {
             <button class="action-btn" data-alt-unarchive="${x.id}">Put back</button>
           </div>`).join("")}
       </div>`;
+    return;
+  }
+
+  const valArch = e.target.closest("[data-value-archive]");
+  if(valArch){
+    const r = await API.post(`/api/specs/${valArch.dataset.valueArchive}/value/archive`, {});
+    toast(`${r.label}: "${r.value}" archived. The spec stays — it reads as a gap `
+        + `again, and Archive (${r.count}) has the old value.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const valRestore = e.target.closest("[data-value-restore]");
+  if(valRestore){
+    const r = await API.post(`/api/archived-values/${valRestore.dataset.valueRestore}/restore`, {});
+    toast(`${r.label}: "${r.value}" is back on the sheet.`, "ok");
+    await refreshSpecs();
     return;
   }
 
