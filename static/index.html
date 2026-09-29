@@ -1250,11 +1250,11 @@ function renderHero(){
           ${bike.managers.filter(m => !m.lead).length
             ? `<span class="lbl">${bike.lead_manager ? "Also" : "Maintained by"}</span>` +
               bike.managers.filter(m => !m.lead).map(m => `<span class="person">${memberName(m.id, m.username, m.tier, null, m.founder)}</span>`).join("")
-            : bike.lead_manager ? "" : `<span class="cell-dim">nobody yet — <a href="/request-spec.html?bike=${bike.bike_id}">ask for a spec</a> and admin will find one</span>`}
+            : ""}
           ${/* Nobody looking after it now (a lead who handed on counts as
                nobody): anyone but admin can put their hand up. */
             !bike.managers.length && !(ME.user && ME.user.role === "admin")
-            ? `<a class="cell-dim" href="/manager-apply.html?bike=${bike.bike_id}"
+            ? `<a class="primary-btn" style="text-decoration:none" href="/manager-apply.html?bike=${bike.bike_id}"
                   title="Nobody's looking after this bike yet">Know this bike well? Offer to look after it →</a>` : ""}
           <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
