@@ -40,7 +40,14 @@ pool a mis-marked two-stroke is hiding in.
 
 ## To correct
 
-### 1. Suzuki JR80 — bike 2276 — WRONG
+### 1. Suzuki JR80 — bike 2276 — STROKE FIXED 2026-09-29, years still open
+
+Fixed by `fix_jr80_two_stroke.py` (runs once at startup): q5 is now A,
+2-stroke auto-lube. Added Auto-lube Oil Type, Auto-lube Oil Tank Capacity,
+Premix Fuel:Oil Ratio and Transmission Oil Volume/Weight; removed the empty
+Intake/Exhaust Valve Clearance and Engine Oil Volume/Weight. The two filled
+values (79cc, cylinder configuration) were kept. The years below are not
+yet corrected.
 
 | | |
 |---|---|
