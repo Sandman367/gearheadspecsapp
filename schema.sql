@@ -1064,6 +1064,28 @@ CREATE TABLE bike_request_supporters (
   PRIMARY KEY (request_id, user_id)
 );
 
+-- "Let me look after this bike." A rider offering to manage a bike nobody
+-- manages. Admin approves (which assigns them, as Admin -> Assignments does)
+-- or declines with a note the rider reads. One open application per rider
+-- per bike; the rider can withdraw it while it is open.
+CREATE TABLE manager_applications (
+  id           INTEGER PRIMARY KEY,
+  bike_id      INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- what they know about this bike, and how
+  experience   TEXT    NOT NULL,
+  owns_one     INTEGER NOT NULL DEFAULT 0 CHECK (owns_one IN (0,1)),
+  status       TEXT    NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending','approved','declined','withdrawn')),
+  decided_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  admin_note   TEXT,
+  resolved_at  TEXT,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_manager_applications_status ON manager_applications (status, created_at);
+CREATE UNIQUE INDEX idx_manager_applications_open
+  ON manager_applications (bike_id, user_id) WHERE status = 'pending';
+
 -- The managers' board and their direct messages. Managers are the people
 -- closest to the bikes, and they work alone on their own machines; the board
 -- is where they compare notes -- a wiring quirk shared across a family, a

@@ -585,7 +585,8 @@ const reloadActivity = guard(async () => {
 const load = guard(async () => {
   const scroll = window.scrollY;
   const [summary, proposals, treeFlags, notSure, userFlags, divergence, dropped,
-         unverified, assign, unplaced, activity, notices, members, fieldReqs, bikeReqs] = await Promise.all([
+         unverified, assign, unplaced, activity, notices, members, fieldReqs, bikeReqs,
+         managerApps] = await Promise.all([
       API.get("/api/admin/summary"),
       API.get("/api/admin/proposals"),
       API.get("/api/admin/tree-flags"),
@@ -601,6 +602,7 @@ const load = guard(async () => {
       API.get("/api/users"),
       API.get("/api/admin/field-requests"),
       API.get("/api/admin/bike-requests"),
+      API.get("/api/admin/manager-applications"),
     ]);
   S = { summary, proposals: proposals.items, treeFlags: treeFlags.items,
         notSure: notSure.items, userFlags: userFlags.items,
@@ -608,7 +610,8 @@ const load = guard(async () => {
         assign, unplaced: unplaced.fields, waiting: unplaced.waiting_count,
         activity, notices: notices.items, members: members.users,
         fieldRequests: fieldReqs.items,
-        bikeRequests: bikeReqs.items, bikeTypes: bikeReqs.bike_types };
+        bikeRequests: bikeReqs.items, bikeTypes: bikeReqs.bike_types,
+        managerApps: managerApps.items };
   render();
   await restoreFieldSearch();
   collapseLong();
@@ -618,6 +621,27 @@ const load = guard(async () => {
 // A dashboard figure you can act on. `dest` is either a panel id on this page
 // (scrolls to it) or a path (navigates). `alert` reddens the number the way the
 // cards always have — passing 0 keeps a plain total plain.
+
+// Riders offering to manage a bike nobody manages. Approving assigns them
+// exactly as the Bike Managers panel does.
+function managerAppRows(items){
+  return items.map(a => `
+    <tr>
+      <td data-label="Bike">${bikeLink(a.bike_name, a.year_range, a.bike_id)}${
+        a.has_manager ? ` <span class="badge amber" title="Someone else got this bike after the request came in. Approving adds a second manager.">has a manager now</span>` : ""}</td>
+      <td data-label="Rider"><div>${userLink(a.username, a.user_id)}
+        <div class="cell-dim">joined ${new Date(a.member_since + "Z").toLocaleDateString()} · ${a.values_entered} value${a.values_entered !== 1 ? "s" : ""} entered${
+          a.bikes_managed ? ` · manages ${a.bikes_managed} bike${a.bikes_managed !== 1 ? "s" : ""}` : ""}</div></div></td>
+      <td data-label="What they know" class="cell-dim"><div>“${esc(a.experience)}”
+        <div style="margin-top:4px">${a.owns_one ? `<span class="badge">owns one</span> · ` : ""}sent ${new Date(a.created_at + "Z").toLocaleDateString()}</div></div></td>
+      <td data-label="Action">
+        <div class="btn-row">
+          <button class="action-btn approve" data-mgr-app="${a.id}" data-status="approved">Approve &amp; assign</button>
+          <button class="action-btn" data-mgr-app="${a.id}" data-status="declined">Decline</button>
+        </div>
+      </td>
+    </tr>`).join("");
+}
 
 function bikeRequestRows(items){
   const years = r => !r.year_from ? "years not given"
@@ -894,6 +918,7 @@ function render(){
       ${statCard(s.manager_changes, "Manager Changes", "p-notices", s.manager_changes)}
       ${statCard(s.field_requests, "Specs Riders Want Added", "p-field-requests", s.field_requests)}
       ${statCard(s.bike_requests, "Bikes Riders Want Added", "p-bike-requests", s.bike_requests)}
+      ${statCard(s.manager_applications, "Requests to Manage a Bike", "p-manager-apps", s.manager_applications)}
       ${statCard(s.users, "Members", "p-members", 0)}
     </div>
 
@@ -956,6 +981,22 @@ function render(){
                placeholder="Search fields — e.g. chain, Suspension, oil">
       </div>
       <div id="fm-results"><div class="empty">Type to search the tree.</div></div>
+    </div>
+
+    <div class="panel" id="p-manager-apps">
+      <div class="panel-head">
+        <div><h3>Requests to Manage a Bike</h3>
+          <p>Riders who'd like to look after a bike that doesn't have a manager
+             yet. <em>Approve</em> makes them its manager straight away. If you
+             <em>decline</em>, add a short, kind note. They'll see it on their
+             request page.</p></div>
+        <span class="count-tag">${S.managerApps.length} waiting</span>
+      </div>
+      <table class="responsive">
+        <thead><tr><th>Bike</th><th>Rider</th><th>What they know</th><th>Action</th></tr></thead>
+        <tbody>${S.managerApps.length ? managerAppRows(S.managerApps)
+          : `<tr class="empty-row"><td colspan="4">Nobody's asking right now.</td></tr>`}</tbody>
+      </table>
     </div>
 
     <div class="panel" id="p-managers">
@@ -1963,6 +2004,21 @@ document.addEventListener("click", guard(async (e) => {
 
 
   const fieldReq = e.target.closest("[data-field-req]");
+  const mgrApp = e.target.closest("[data-mgr-app]");
+  if(mgrApp){
+    const a = S.managerApps.find(x => x.id === Number(mgrApp.dataset.mgrApp));
+    const approve = mgrApp.dataset.status === "approved";
+    const note = prompt(approve
+      ? `Make ${a.username} the manager of the ${a.bike_name}? Add a welcome note if you like:`
+      : `Say no to ${a.username} for the ${a.bike_name}? A short note on why helps (they'll see it):`);
+    if(note === null) return;
+    const r = await API.post(`/api/admin/manager-applications/${a.id}/decide`,
+                             { status: mgrApp.dataset.status, note });
+    toast(approve ? `Done. ${a.username} now looks after the ${a.bike_name}.`
+                  : "Declined.", "ok");
+    await load();
+    return;
+  }
   const brAdd = e.target.closest("[data-bike-req-add]");
   if(brAdd){
     const r = S.bikeRequests.find(x => x.id === Number(brAdd.dataset.bikeReqAdd));

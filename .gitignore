@@ -21,3 +21,6 @@ gearheadspecs-*.zip
 *.bak
 data-ephemeral/
 ~$*
+
+# local-only test credentials for the dev server
+.local-*

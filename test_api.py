@@ -6619,6 +6619,82 @@ class ApiTest(unittest.TestCase):
         s, arch = mgr.get(f"/api/bikes/{bike}/archive")
         self.assertTrue(next(x for x in arch["values"])["spec_refilled"])
 
+    def test_99r_a_rider_can_ask_to_manage_a_bike_nobody_manages(self):
+        """A bike with no manager takes requests; admin approving one assigns
+        the rider and promotes them, and the rider reads the answer on the
+        page they asked from. A managed bike takes none."""
+        con = sqlite3.connect(self.db)
+        free, other = [r[0] for r in con.execute(
+            "SELECT id FROM bikes b WHERE NOT EXISTS (SELECT 1 FROM bike_managers m WHERE m.bike_id=b.id)"
+            " ORDER BY id DESC LIMIT 2")]
+        managed = con.execute("SELECT bike_id FROM bike_managers LIMIT 1").fetchone()[0]
+        con.close()
+        rider, tina, adm = self.as_("gp_hayes"), self.as_("two_stroke_tina"), self.as_("admin")
+        path = f"/api/bikes/{free}/manager-application"
+        why = "Owned one for ten years and have the factory service manual."
+
+        s, b = self.anon().get(path)
+        self.assertEqual(s, 200, b)
+        self.assertEqual((b["has_manager"], b["mine"]), (False, None))
+        self.assertEqual(self.anon().get("/api/bikes/999999/manager-application")[0], 404)
+        self.assertEqual(self.anon().post(path, {"experience": why})[0], 401)
+        self.assertEqual(rider.post(path, {"experience": "I like it"})[0], 400)
+        self.assertEqual(adm.post(path, {"experience": why})[0], 400)
+        s, r = rider.post(f"/api/bikes/{managed}/manager-application", {"experience": why})
+        self.assertEqual(s, 409, r)
+
+        s, r = rider.post(path, {"experience": why, "owns_one": True})
+        self.assertEqual(s, 200, r)
+        self.assertEqual(rider.post(path, {"experience": why})[0], 409)   # one waiting at a time
+        s, b = rider.get(path)
+        self.assertEqual((b["mine"]["status"], b["mine"]["owns_one"]), ("pending", True))
+
+        # withdraw is yours alone, and only while waiting
+        s, t = tina.post(path, {"experience": why})
+        self.assertEqual(rider.delete(f"/api/manager-applications/{t['id']}")[0], 404)
+        self.assertEqual(tina.delete(f"/api/manager-applications/{t['id']}")[0], 200)
+        self.assertEqual(tina.delete(f"/api/manager-applications/{t['id']}")[0], 409)
+
+        # admin sees it with the rider's record, and approving assigns them
+        self.assertEqual(rider.get("/api/admin/manager-applications")[0], 403)
+        s, q = adm.get("/api/admin/manager-applications")
+        item = next(x for x in q["items"] if x["id"] == r["id"])
+        self.assertEqual((item["username"], item["has_manager"]), ("gp_hayes", False))
+        self.assertIn("values_entered", item)
+        self.assertFalse(any(x["id"] == t["id"] for x in q["items"]))
+        self.assertGreaterEqual(adm.get("/api/admin/summary")[1]["manager_applications"], 1)
+        self.assertEqual(adm.post(f"/api/admin/manager-applications/{r['id']}/decide",
+                                  {"status": "maybe"})[0], 400)
+        # an earlier test may already have made gp_hayes a manager elsewhere
+        was = sqlite3.connect(self.db).execute(
+            "SELECT role FROM users WHERE username='gp_hayes'").fetchone()[0]
+        s, d = adm.post(f"/api/admin/manager-applications/{r['id']}/decide",
+                        {"status": "approved", "note": "Welcome aboard"})
+        self.assertEqual(s, 200, d)
+        self.assertEqual(d["promoted"], was == "user")
+        self.assertEqual(sqlite3.connect(self.db).execute(
+            "SELECT role FROM users WHERE username='gp_hayes'").fetchone()[0], "manager")
+        self.assertEqual(adm.post(f"/api/admin/manager-applications/{r['id']}/decide",
+                                  {"status": "declined"})[0], 409)
+        s, sheet = self.anon().get(f"/api/bikes/{free}")
+        self.assertEqual([m["username"] for m in sheet["managers"]], ["gp_hayes"])
+        self.assertEqual(sheet["lead_manager"]["username"], "gp_hayes")
+        s, b = self.as_("gp_hayes").get(path)     # a fresh session sees the new role
+        self.assertEqual((b["has_manager"], b["you_manage"], b["mine"]["status"], b["mine"]["admin_note"]),
+                         (True, True, "approved", "Welcome aboard"))
+        # the bike is managed now, so it takes no more requests
+        self.assertEqual(tina.post(path, {"experience": why})[0], 409)
+
+        # declining leaves the bike as it was, and says why
+        s, t2 = tina.post(f"/api/bikes/{other}/manager-application", {"experience": why})
+        s, d = adm.post(f"/api/admin/manager-applications/{t2['id']}/decide",
+                        {"status": "declined", "note": "Need a few values from you first"})
+        self.assertEqual(s, 200, d)
+        s, b = tina.get(f"/api/bikes/{other}/manager-application")
+        self.assertEqual((b["has_manager"], b["mine"]["status"]), (False, "declined"))
+        # and a declined rider may ask again later
+        self.assertEqual(tina.post(f"/api/bikes/{other}/manager-application", {"experience": why})[0], 200)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

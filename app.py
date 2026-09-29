@@ -2328,6 +2328,148 @@ def decide_bike_request(ctx):
 
 
 # ===========================================================================
+# MANAGER APPLICATIONS -- "let me look after this bike"
+#
+# A bike nobody manages carries a link on its sheet. A rider offers, saying
+# what they know; admin still decides, and approving goes through the same
+# _assign_manager as the Assignments console. So a manager is still handed a
+# bike, never takes one -- this only lets them put their hand up.
+# ===========================================================================
+APPLICATION_MAX = 1000
+
+
+def _bike_has_manager(conn, bike_id):
+    return conn.execute("SELECT 1 FROM bike_managers WHERE bike_id=?", (bike_id,)).fetchone() is not None
+
+
+def _application_rows(conn, where, args):
+    items = rows(conn.execute(
+        "SELECT a.id, a.bike_id, a.user_id, a.experience, a.owns_one, a.status, a.admin_note,"
+        "       a.created_at, a.resolved_at, d.display_name AS bike_name, d.year_range,"
+        "       u.username, u.created_at AS member_since,"
+        "       EXISTS (SELECT 1 FROM bike_managers m WHERE m.bike_id = a.bike_id) AS has_manager"
+        " FROM manager_applications a"
+        " JOIN users u ON u.id = a.user_id"
+        " JOIN bike_display d ON d.bike_id = a.bike_id" + where, list(args)))
+    for it in items:
+        it["owns_one"] = bool(it["owns_one"])
+        it["has_manager"] = bool(it["has_manager"])
+    return items
+
+
+@route("GET", r"/api/bikes/(\d+)/manager-application")
+def get_manager_application(ctx):
+    """What the application page needs: the bike, whether anyone manages it,
+    and -- signed in -- the rider's own latest application for it, so they see
+    it waiting or read admin's answer on the same page they applied from."""
+    bike_id = int(ctx.params[0])
+    bike = one(ctx.conn.execute(
+        "SELECT bike_id, display_name, year_range FROM bike_display WHERE bike_id=?", (bike_id,)))
+    if not bike:
+        raise HttpError(404, "bike not found")
+    mine, manages = None, False
+    if ctx.user:
+        got = _application_rows(ctx.conn, " WHERE a.bike_id=? AND a.user_id=?"
+                                " ORDER BY a.id DESC LIMIT 1", [bike_id, ctx.user["id"]])
+        mine = got[0] if got else None
+        manages = ctx.conn.execute("SELECT 1 FROM bike_managers WHERE bike_id=? AND user_id=?",
+                                   (bike_id, ctx.user["id"])).fetchone() is not None
+    return {"bike": bike, "has_manager": _bike_has_manager(ctx.conn, bike_id),
+            "mine": mine, "you_manage": manages}
+
+
+@route("POST", r"/api/bikes/(\d+)/manager-application", role="user")
+def create_manager_application(ctx):
+    """Offer to manage a bike that has no manager. Refused once somebody
+    manages it -- the link is for bikes nobody is looking after -- and to an
+    admin, who reaches every bike already."""
+    bike_id = int(ctx.params[0])
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    if ctx.user["role"] == "admin":
+        raise HttpError(400, "You're admin, so you can already edit every bike.")
+    if _bike_has_manager(ctx.conn, bike_id):
+        raise HttpError(409, "Someone's already looking after this bike.")
+    experience = (ctx.body.get("experience") or "").strip()
+    if len(experience) < 20:
+        raise HttpError(400, "Could you tell us a little more? A sentence or two is plenty.")
+    if len(experience) > APPLICATION_MAX:
+        raise HttpError(400, f"That's a bit long. Please keep it under {APPLICATION_MAX} characters.")
+    try:
+        cur = ctx.conn.execute(
+            "INSERT INTO manager_applications (bike_id, user_id, experience, owns_one) VALUES (?,?,?,?)",
+            (bike_id, ctx.user["id"], experience, 1 if ctx.body.get("owns_one") else 0))
+    except sqlite3.IntegrityError:
+        raise HttpError(409, "You've already asked about this bike. It's still waiting for a reply.")
+    ctx.conn.commit()
+    return {"ok": True, "id": cur.lastrowid}
+
+
+@route("DELETE", r"/api/manager-applications/(\d+)", role="user")
+def withdraw_manager_application(ctx):
+    """Take back your own application while it is still waiting."""
+    aid = int(ctx.params[0])
+    a = one(ctx.conn.execute("SELECT user_id, status FROM manager_applications WHERE id=?", (aid,)))
+    if not a or a["user_id"] != ctx.user["id"]:
+        raise HttpError(404, "no such application")
+    if a["status"] != "pending":
+        raise HttpError(409, "that application has been decided")
+    ctx.conn.execute("UPDATE manager_applications SET status='withdrawn', resolved_at=datetime('now')"
+                     " WHERE id=?", (aid,))
+    ctx.conn.commit()
+    return {"ok": True}
+
+
+@route("GET", r"/api/admin/manager-applications", role="admin")
+def admin_manager_applications(ctx):
+    """Every waiting application, oldest first, with enough of the rider's
+    record to judge by: when they joined, values they have entered, bikes
+    they already manage. has_manager marks one whose bike was assigned to
+    someone else meanwhile -- approving still works, as a second manager."""
+    items = _application_rows(ctx.conn, " WHERE a.status='pending' ORDER BY a.created_at", [])
+    for it in items:
+        uid = it["user_id"]
+        it["values_entered"] = ctx.conn.execute(
+            "SELECT COUNT(*) FROM specs WHERE entered_by=? AND value IS NOT NULL AND TRIM(value)<>''",
+            (uid,)).fetchone()[0]
+        it["bikes_managed"] = ctx.conn.execute(
+            "SELECT COUNT(*) FROM bike_managers WHERE user_id=?", (uid,)).fetchone()[0]
+    return {"items": items}
+
+
+@route("POST", r"/api/admin/manager-applications/(\d+)/decide", role="admin")
+def decide_manager_application(ctx):
+    """Approve -- which assigns the rider to the bike, promoting them to
+    manager if they were a user -- or decline. The note is what they read."""
+    aid = int(ctx.params[0])
+    a = one(ctx.conn.execute("SELECT * FROM manager_applications WHERE id=?", (aid,)))
+    if not a:
+        raise HttpError(404, "no such application")
+    if a["status"] != "pending":
+        raise HttpError(409, "that application has been decided")
+    status = ctx.field("status")
+    if status not in ("approved", "declined"):
+        raise HttpError(400, "status must be approved or declined")
+    note = (ctx.body.get("note") or "").strip()[:500] or None
+    promoted = False
+    if status == "approved":
+        promoted = _assign_manager(ctx, a["bike_id"], a["user_id"], via=aid)
+    else:
+        who = ctx.conn.execute("SELECT username FROM users WHERE id=?", (a["user_id"],)).fetchone()
+        bike = ctx.conn.execute("SELECT display_name FROM bike_display WHERE bike_id=?",
+                                (a["bike_id"],)).fetchone()
+        log_action(ctx, "manager.application.decline",
+                   f'Declined {who[0] if who else a["user_id"]} as manager of '
+                   f'{bike[0] if bike else a["bike_id"]}',
+                   target=str(a["bike_id"]), detail={"application_id": aid, "note": note})
+    ctx.conn.execute(
+        "UPDATE manager_applications SET status=?, decided_by=?, admin_note=?, resolved_at=datetime('now')"
+        " WHERE id=?", (status, ctx.user["id"], note, aid))
+    ctx.conn.commit()
+    return {"ok": True, "status": status, "promoted": promoted}
+
+
+# ===========================================================================
 # MANAGERS' BOARD and DIRECT MESSAGES
 # ===========================================================================
 BOARD_TITLE_MAX, BOARD_POST_MAX, DM_MAX = 120, 4000, 2000
@@ -3990,6 +4132,7 @@ def admin_summary(ctx):
         "field_requests":  q("SELECT COUNT(*) FROM (SELECT 1 FROM field_requests"
                              " WHERE status='pending' GROUP BY bike_id, field_key)"),
         "bike_requests":   q("SELECT COUNT(*) FROM bike_requests WHERE status='pending'"),
+        "manager_applications": q("SELECT COUNT(*) FROM manager_applications WHERE status='pending'"),
         "managers":        q("SELECT COUNT(DISTINCT user_id) FROM bike_managers"),
         "managed_bikes":   q("SELECT COUNT(DISTINCT bike_id) FROM bike_managers"),
         "catalog_dropped": q("SELECT COUNT(*) FROM catalog_v2_dropped"),
@@ -6061,8 +6204,16 @@ def admin_assignments(ctx):
 
 @route("POST", r"/api/admin/bikes/(\d+)/manager", role="admin")
 def assign_manager(ctx):
-    bike_id = int(ctx.params[0])
-    user_id = int(ctx.field("user_id"))
+    promoted = _assign_manager(ctx, int(ctx.params[0]), int(ctx.field("user_id")),
+                               ctx.body.get("specialty"))
+    ctx.conn.commit()
+    return {"ok": True, "promoted": promoted}
+
+
+def _assign_manager(ctx, bike_id, user_id, specialty=None, via=None):
+    """Hand a bike to someone; the caller commits. Shared by the Assignments
+    console and an approved manager application, so both make a manager the
+    same way. Returns whether the person was promoted from user."""
     if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
         raise HttpError(404, "bike not found")
     u = one(ctx.conn.execute("SELECT * FROM users WHERE id=?", (user_id,)))
@@ -6076,7 +6227,7 @@ def assign_manager(ctx):
     try:
         ctx.conn.execute(
             "INSERT INTO bike_managers (user_id, bike_id, specialty) VALUES (?,?,?)",
-            (user_id, bike_id, ctx.body.get("specialty")))
+            (user_id, bike_id, specialty))
     except sqlite3.IntegrityError:
         raise HttpError(409, "that person already manages this bike")
     # The first person assigned is the bike's lead manager, and stays named
@@ -6094,12 +6245,12 @@ def assign_manager(ctx):
                             (bike_id,)).fetchone()[0]
     log_action(ctx, "manager.assign",
                f'Assigned {u["username"]} to {bike}'
-               + (" (promoted to manager)" if promoted else ""),
+               + (" (promoted to manager)" if promoted else "")
+               + (f" from application #{via}" if via else ""),
                target=str(bike_id),
                detail={"user": u["username"], "bike_id": bike_id,
-                       "bike": bike, "promoted": promoted})
-    ctx.conn.commit()
-    return {"ok": True, "promoted": promoted}
+                       "bike": bike, "promoted": promoted, "application_id": via})
+    return promoted
 
 
 @route("DELETE", r"/api/admin/bikes/(\d+)/manager/(\d+)", role="admin")

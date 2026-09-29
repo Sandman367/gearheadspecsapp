@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage a Bike — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .page-crumb{ font-size: 11px; color: var(--text-faint); margin-bottom: 8px; }
+  .page-crumb a{ color: var(--text-dim); }
+  .bike-name{ font-family: var(--display); font-size: 22px; letter-spacing: 0.01em; }
+  .bike-years{ font-family: var(--mono); font-size: 12px; color: var(--text-dim); margin-left: 8px; }
+  .lede{ font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-top: 8px; }
+  .lede ul{ margin: 6px 0 0 18px; padding: 0; }
+  .form-row{ margin-bottom: 12px; }
+  .form-row label{ display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint); margin-bottom: 4px; }
+  .form-row textarea{ width: 100%; min-height: 120px; }
+  .form-row .check{ display: flex; gap: 8px; align-items: center; font-family: inherit; font-size: 12.5px; color: var(--text); letter-spacing: 0; justify-content: flex-start; cursor: pointer; }
+  .form-row .check input{ width: auto; flex: none; margin: 0; }
+  .form-note{ font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5; }
+  .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .state{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.03em; padding: 1px 6px; border: 1px solid var(--line); color: var(--text-faint); }
+  .state.pending{ border-color: var(--amber); color: var(--amber); }
+  .state.approved{ border-color: var(--good); color: var(--good); }
+  .state.declined{ border-color: var(--danger); color: var(--danger); }
+  .note{ font-size: 12px; color: var(--text-dim); border-left: 2px solid var(--line); padding-left: 8px; margin-top: 8px; }
+  .quote{ font-size: 12px; color: var(--text-faint); font-style: italic; margin-top: 6px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">Spec Tree Platform</div>
+    <h1>Manage a Bike</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main style="max-width:760px">
+  <div id="content"><div class="loading">Loading…</div></div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+const BIKE_ID = Number(new URLSearchParams(location.search).get("bike")) || 0;
+let DATA = null;
+const draft = { experience: "", owns: false };   // survives a re-render
+
+const load = guard(async () => {
+  if(!BIKE_ID){
+    document.getElementById("content").innerHTML =
+      `<div class="panel"><div class="panel-body">No bike chosen. <a href="/index.html">Pick one from Browse</a>.</div></div>`;
+    return;
+  }
+  DATA = await API.get(`/api/bikes/${BIKE_ID}/manager-application`);
+  render();
+});
+
+function when(ts){ return ts ? new Date(ts + "Z").toLocaleDateString() : ""; }
+
+// The rider's own latest application for this bike, whatever became of it.
+function mineBox(a){
+  const label = { pending: "waiting for a reply", approved: "approved", declined: "declined", withdrawn: "withdrawn" }[a.status];
+  return `
+    <div class="panel"><div class="panel-body">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-family:var(--display);font-size:16px">Your request</div>
+        <span class="state ${esc(a.status)}">${esc(label)}</span>
+      </div>
+      <div class="form-note">You sent this on ${esc(when(a.created_at))}${a.resolved_at ? ` · ${esc(label)} ${esc(when(a.resolved_at))}` : ""}${
+        a.owns_one ? " · you said you own one" : ""}</div>
+      <div class="quote">“${esc(a.experience)}”</div>
+      ${a.admin_note ? `<div class="note">Admin wrote back: ${esc(a.admin_note)}</div>` : ""}
+      ${a.status === "pending" ? `
+        <div class="form-actions">
+          <button class="ghost-btn" id="ma-withdraw" data-id="${a.id}">Take my request back</button>
+        </div>` : ""}
+    </div></div>`;
+}
+
+function render(){
+  const signedIn = !!ME.user;
+  const b = DATA.bike;
+  const mine = DATA.mine;
+  const waiting = mine && mine.status === "pending";
+  const isAdmin = signedIn && ME.user.role === "admin";
+  // A form only while there is something to ask for: nobody manages the bike,
+  // this rider has nothing waiting, and they are not admin (who reaches every
+  // bike already).
+  const canApply = !DATA.has_manager && !waiting && !isAdmin && !DATA.you_manage;
+
+  document.getElementById("content").innerHTML = `
+    <div class="page-crumb"><a href="/index.html?bike=${b.bike_id}">← Back to the ${esc(b.display_name)}</a></div>
+    <div class="panel"><div class="panel-body">
+      <div><span class="bike-name">${esc(b.display_name)}</span>${b.year_range ? `<span class="bike-years">${esc(b.year_range)}</span>` : ""}</div>
+      <div class="lede">
+        ${DATA.you_manage ? `<strong>You already look after this bike.</strong> Thanks for keeping it right.`
+          : DATA.has_manager ? `Someone's already looking after this bike, so it isn't looking for a manager right now.
+               If a spec is missing, you can <a href="/request-spec.html?bike=${b.bike_id}">ask for it</a>, and if a
+               number looks wrong, flag it on the bike's page. The manager will see it.`
+          : `Nobody's looking after this bike yet. If you know it well, it could be you.
+             <br><br>A bike manager keeps one bike's specs right. When riders add a number, you check it.
+             When something's wrong, you fix it. When someone flags a problem, you're the one who answers.
+             <br><br>Tell us a bit about you and the bike. Admin reads every request personally,
+             and you can change your mind any time.`}
+      </div>
+      ${signedIn || DATA.has_manager ? "" : `
+        <div class="auth-prompt" style="margin-top:12px">
+          <span>Sign in first, then you can send your request.</span>
+          <div class="auth-prompt-actions">
+            <a class="primary-btn" href="/login.html?next=${encodeURIComponent(location.pathname + location.search)}">Sign in</a>
+            <a class="ghost-btn" style="text-decoration:none" href="/register.html">Create account</a>
+          </div>
+        </div>`}
+      ${isAdmin && !DATA.has_manager ? `<div class="form-note" style="margin-top:10px">You're admin, so you can already edit every bike.
+          To hand this one to someone, use <a href="/admin.html#p-managers">Admin → Assignments</a>.</div>` : ""}
+    </div></div>
+
+    ${mine ? mineBox(mine) : ""}
+
+    ${canApply && signedIn ? `
+      <div class="panel"><div class="panel-body">
+        <div style="font-family:var(--display);font-size:16px;margin-bottom:10px">${
+          mine ? "Want to ask again?" : "Tell us about you and this bike"}</div>
+        <div class="form-row"><label for="ma-exp">How do you know this bike?</label>
+          <textarea id="ma-exp" maxlength="1000" placeholder="e.g. I've had one since 2012, rebuilt the top end twice, and I've got the factory service manual.">${esc(draft.experience)}</textarea>
+          <div class="form-note"><span id="ma-count">${draft.experience.length}</span> / 1000 · a sentence or two is plenty.</div></div>
+        <div class="form-row"><label class="check"><input type="checkbox" id="ma-owns"${draft.owns ? " checked" : ""}> I own one, or I used to</label></div>
+        <div class="form-actions">
+          <button class="primary-btn" id="ma-send">Send request</button>
+          <a class="ghost-btn" style="text-decoration:none" href="/index.html?bike=${b.bike_id}">Cancel</a>
+        </div>
+      </div></div>` : ""}`;
+
+  const exp = document.getElementById("ma-exp");
+  if(exp){
+    exp.addEventListener("input", e => {
+      draft.experience = e.target.value;
+      document.getElementById("ma-count").textContent = e.target.value.length;
+    });
+    document.getElementById("ma-owns").addEventListener("change", e => { draft.owns = e.target.checked; });
+  }
+}
+
+document.addEventListener("click", guard(async (e) => {
+  if(e.target.id === "ma-send"){
+    const experience = draft.experience.trim();
+    if(experience.length < 20){ toast("Could you tell us a little more? A sentence or two is plenty.", "error"); return; }
+    await API.post(`/api/bikes/${BIKE_ID}/manager-application`, { experience, owns_one: draft.owns });
+    draft.experience = ""; draft.owns = false;
+    toast("Thanks, your request is in. Check back here for the reply.", "ok");
+    await load();
+    return;
+  }
+  if(e.target.id === "ma-withdraw"){
+    if(!confirm("Take your request back? You can always ask again later.")) return;
+    await API.del(`/api/manager-applications/${e.target.dataset.id}`);
+    toast("Done. Your request has been taken back.", "ok");
+    await load();
+  }
+}));
+
+(async () => {
+  await initChrome(null);
+  await load();
+})();
+</script>
+</body>
+</html>
