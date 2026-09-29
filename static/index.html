@@ -97,7 +97,12 @@
   /* Wide screens have it in the sidebar; the section below the specs is for
      narrow screens, where the sidebar is hidden. */
   @media (min-width: 1001px){ #mix-calc{ display: none !important; } }
-  .side-calc-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 6px; }
+  .side-calc-head{ display: flex; justify-content: space-between; align-items: center; padding: 0 4px 6px; }
+  /* The calculator's name in amber with a gas can, so it reads as a tool and
+     not as one more section in the list above it. */
+  .calc-name{ display: inline-flex; align-items: center; gap: 7px; color: var(--amber);
+              font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+  .gas-can{ flex: none; }
   .side-calc-head a{ font-size: 10px; color: var(--text-faint); text-decoration: none; }
   .side-calc-head a:hover{ color: var(--amber); }
   .side-calc iframe{ display: block; width: 100%; height: 560px; border: 0; background: transparent; }
@@ -814,14 +819,14 @@
       <!-- Not a 2-stroke: just the link, as it was. -->
       <div class="cat-nav-tools" id="side-calc-link" hidden>
         <a class="cat-nav-item cat-nav-tool" href="/calculator.html" target="_blank" rel="noopener">
-          <span>Mix Ratio Calculator</span>
+          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</span>
           <span class="cat-nav-count">opens ↗</span>
         </a>
       </div>
       <!-- A 2-stroke: the calculator itself, open. -->
       <div class="cat-nav-tools side-calc" id="side-calc" hidden>
         <div class="side-calc-head">
-          <span class="cat-sidebar-title" style="padding:0">Mix Ratio Calculator</span>
+          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</span>
           <a href="/calculator.html" target="_blank" rel="noopener" title="Open the calculator in a new tab">open ↗</a>
         </div>
         <iframe id="mix-calc-side" title="Mix Ratio Calculator" loading="lazy"></iframe>
@@ -860,7 +865,7 @@
            and a redraw must not reload the calculator and wipe what was typed. -->
       <section class="panel mix-calc" id="mix-calc" hidden>
         <div class="panel-head">
-          <div><h3>Mix Ratio Calculator</h3>
+          <div><h3 class="calc-name" style="font-size:inherit"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</h3>
             <p>How much 2-stroke oil to add to your gas.</p></div>
           <a class="ghost-btn" style="text-decoration:none" href="/calculator.html" target="_blank" rel="noopener">Open in a new tab ↗</a>
         </div>
@@ -973,7 +978,9 @@ const loadFilters = guard(async () => {
   if(els.year.value) p.set("year", els.year.value);
   const f = await API.get("/api/catalog/filters?" + p.toString());
   fill(els.make, f.makes.map(m => ({ value: m, label: m })), "All makes");
-  fill(els.year, f.years.map(y => ({ value: y, label: y })), "All Years");
+  // Newest first: most riders are after something recent, and 1901 at the
+  // top meant scrolling past a century to reach it.
+  fill(els.year, [...f.years].sort((a, b) => b - a).map(y => ({ value: y, label: y })), "All Years");
   // Ordered by engine size, not alphabetically — the server sorts it. The
   // option shows what the bike is called, with the factory code beside it
   // where the two differ (a Harley's FLFBS is a "Fat Boy 114").
