@@ -40,14 +40,14 @@ pool a mis-marked two-stroke is hiding in.
 
 ## To correct
 
-### 1. Suzuki JR80 — bike 2276 — STROKE FIXED 2026-09-29, years still open
+### 1. Suzuki JR80 — bike 2276 — FIXED 2026-09-29
 
 Fixed by `fix_jr80_two_stroke.py` (runs once at startup): q5 is now A,
 2-stroke auto-lube. Added Auto-lube Oil Type, Auto-lube Oil Tank Capacity,
 Premix Fuel:Oil Ratio and Transmission Oil Volume/Weight; removed the empty
 Intake/Exhaust Valve Clearance and Engine Oil Volume/Weight. The two filled
-values (79cc, cylinder configuration) were kept. The years below are not
-yet corrected.
+values (79cc, cylinder configuration) were kept. Years corrected to **2001–present** by
+`fix_vanvan_jr80_years.py` (K1 = 2001 on suzukicycles.org; still sold in NZ).
 
 | | |
 |---|---|
@@ -65,7 +65,14 @@ That came from the missing workbook and no source can be produced for it.
 autoevolution lists the JR80 as 2002–2003; Suzuki New Zealand still publishes
 a JR80 page, which is how a model runs later in some markets.
 
-### 2. Suzuki RV125 VanVan — bike 2244 — WRONG
+### 2. Suzuki RV125 VanVan — bike 2244 — FIXED 2026-09-29
+
+Not split: bike 2245 ("RV125", 1976–1981) already held the original
+two-stroke, so splitting would have duplicated it. Instead 2244 became the
+four-stroke revival only, **RV125 VanVan 2003–2016**, and 2245 became the
+original **RV125 1972–1982**, marked two-stroke auto-lube (q5 = A — the
+lubrication is an assumption from Suzuki fitting CCI to its 1970s
+two-strokes; confirm from a manual). Done by `fix_vanvan_jr80_years.py`.
 
 Recorded as one bike spanning **1972–2019**, a 47-year run. The model code
 itself says `RV125 VanVan (1972-82)`. The VanVan was built 1972–82, dropped,
@@ -74,9 +81,10 @@ they do not share a frame, an engine or a part number.
 
 Should be **split at the gap**, which the site already supports.
 
-### 3. Suzuki RV200 VanVan — bike 2246 — WRONG
+### 3. Suzuki RV200 VanVan — bike 2246 — FIXED 2026-09-29
 
-Same fault, same span, same fix.
+There was never a 1970s RV200: it ran **2002–2020** (K2 to M0 on
+suzukicycles.org), so its years were corrected, not split.
 
 ---
 
