@@ -6785,6 +6785,21 @@ class ApiTest(unittest.TestCase):
         self.assertEqual((s, b["offline"]), (200, False))
         self.assertEqual(anon.get("/api/stats")[1]["bikes"], before["bikes"])
 
+    def test_99v_the_bike_says_whether_it_is_a_two_stroke(self):
+        """q5 A (auto-lube) and B (premix) are 2-strokes: the page opens the
+        mix calculator for those and only links to it for the rest."""
+        con = sqlite3.connect(self.db)
+        two = con.execute("SELECT bike_id FROM bike_answers WHERE question_id='q5'"
+                          " AND option_label IN ('A','B') LIMIT 1").fetchone()
+        four = con.execute("SELECT bike_id FROM bike_answers WHERE question_id='q5'"
+                           " AND option_label NOT IN ('A','B') LIMIT 1").fetchone()
+        con.close()
+        if two:
+            self.assertTrue(self.anon().get(f"/api/bikes/{two[0]}")[1]["two_stroke"])
+        if four:
+            self.assertFalse(self.anon().get(f"/api/bikes/{four[0]}")[1]["two_stroke"])
+        self.assertTrue(two or four, "the seed should answer q5 for some bike")
+
     def test_99u_electric_bikes_go_offline_once_and_only_once(self):
         """The migration takes the electric bikes offline when it adds the
         column, and never again -- a bike admin puts back online stays up."""

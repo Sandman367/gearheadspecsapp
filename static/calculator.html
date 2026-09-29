@@ -47,8 +47,10 @@
   }
 
   .wrap{
-    width:100%;
-    max-width:920px;
+    /* Shrinks to the calculator, so the title, the plate and the footer line
+       up as one block (centred on its own page, left in a bike page). */
+    width:fit-content;
+    max-width:min(920px, 100%);
   }
 
   .eyebrow{
@@ -98,6 +100,9 @@
     padding:0;
     overflow:hidden;
     position:relative;
+    /* As wide as its two halves need, and no wider. */
+    width:fit-content;
+    max-width:100%;
   }
   .plate::before{
     content:'';
@@ -117,7 +122,9 @@
 
   .grid{
     display:grid;
-    grid-template-columns: 1.1fr 1fr;
+    /* Two equal halves, each as wide as the row of gallon buttons (see
+       .field and the output column below). */
+    grid-template-columns: 1fr 1fr;
     gap:0;
   }
   @media (max-width: 720px){
@@ -136,6 +143,9 @@
 
   .field{
     margin-bottom:26px;
+    /* No wider than the row of gallon buttons (1 gal ... 10 gal): a ratio and
+       a number don't need the full column. */
+    max-width:300px;
   }
   .label{
     display:flex;
@@ -214,6 +224,7 @@
     font-family:'IBM Plex Mono', monospace;
     font-size:12px;
     font-weight:600;
+    line-height:1.15;             /* US / GAL stacked in two short lines */
     cursor:pointer;
     transition:background .15s ease, color .15s ease;
     white-space:nowrap;
@@ -227,9 +238,10 @@
   }
 
   .presets{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
+    /* Six sizes, three to a row. */
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:6px;
     margin-top:10px;
   }
   .chip{
@@ -238,7 +250,7 @@
     color:var(--text-muted);
     font-family:'IBM Plex Mono', monospace;
     font-size:11px;
-    padding:6px 10px;
+    padding:6px 8px;
     border-radius:100px;
     cursor:pointer;
     transition:all .15s ease;
@@ -260,6 +272,7 @@
 
   .readout{
     width:100%;
+    max-width:300px;
     background:#0f1214;
     border:1px solid var(--border);
     border-radius:4px;
@@ -318,6 +331,7 @@
     gap:10px;
     margin-top:20px;
     width:100%;
+    max-width:300px;
   }
   .oil-link{
     display:inline-flex;
@@ -374,7 +388,41 @@
   }
   .ratio-note.show{display:block;}
   .ratio-note b{color:var(--amber);}
+
+  /* Embedded in a bike page (?embed=1): the bike page gives it a heading and
+     a frame, so the page's own title, background and padding step aside. */
+  html.embed, html.embed body{ padding:0; min-height:0; background:transparent; display:block; }
+  html.embed .eyebrow, html.embed h1{ display:none; }
+  html.embed .sub{ margin-bottom:16px; }
+
+  /* In the bike page's left sidebar (?embed=side): one narrow column -- the
+     ratio and the gas amount on top, the oil to add underneath. */
+  html.side .sub, html.side .rivets, html.side .contact{ display:none; }
+  html.side .wrap, html.side .plate{ width:100%; max-width:none; }
+  html.side .grid{ grid-template-columns:minmax(0, 1fr); }
+  html.side input[type=number]{ min-width:0; }
+  html.side .col{ padding:12px 10px; }
+  html.side .col.inputs{ border-right:none; border-bottom:1px solid var(--border-soft); }
+  html.side .field{ max-width:none; margin-bottom:14px; }
+  html.side .field:last-child{ margin-bottom:0; }
+  html.side select, html.side input[type=number]{ font-size:14px; padding:8px 9px; }
+  html.side .unit-toggle button{ padding:0 7px; font-size:10.5px; }
+  html.side .presets{ gap:4px; }
+  html.side .chip{ font-size:10px; padding:5px 2px; }
+  html.side .readout{ max-width:none; padding:6px 10px; margin-top:0; }
+  html.side .readout-row{ flex-direction:column; align-items:flex-start; gap:2px; padding:7px 0; }
+  html.side .readout-val{ font-size:17px; }
+  html.side .drum{ max-width:none; margin-top:10px; }
+  html.side .oil-link{ font-size:10px; padding:6px 8px; }
+  html.side footer{ margin-top:8px; font-size:9.5px; line-height:1.5; text-align:left; }
 </style>
+<script>
+  (function(){
+    const mode = new URLSearchParams(location.search).get("embed");
+    if(mode) document.documentElement.classList.add("embed");
+    if(mode === "side") document.documentElement.classList.add("side");
+  })();
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -413,14 +461,15 @@
           <div class="amount-row">
             <input type="number" id="fuelAmount" min="0" step="0.01" value="1" inputmode="decimal" enterkeyhint="done">
             <div class="unit-toggle" id="unitToggle">
-              <button data-unit="gal" class="active">US GAL</button>
-              <button data-unit="ukgal">UK GAL</button>
+              <button data-unit="gal" class="active" aria-label="US gallons">US<br>GAL</button>
+              <button data-unit="ukgal" aria-label="UK gallons">UK<br>GAL</button>
               <button data-unit="l">L</button>
             </div>
           </div>
           <div class="error-msg" id="errorMsg">Enter a gasoline amount greater than zero.</div>
           <div class="ratio-note" id="ukGalNote">You've selected <b>UK (imperial) gallons</b> — these are larger than US gallons (1 UK gal ≈ 1.2 US gal). Double-check this is the unit your fuel container actually uses.</div>
           <div class="presets" id="presets">
+            <button class="chip" data-val="0.5">0.5 gal</button>
             <button class="chip" data-val="1">1 gal</button>
             <button class="chip" data-val="2">2 gal</button>
             <button class="chip" data-val="2.5">2.5 gal</button>
@@ -444,21 +493,32 @@
         </div>
 
         <div class="drum">
-          <a class="oil-link" href="https://www.amazon.com/dp/B0G3475G8B/ref=sspa_dk_detail_2?pd_rd_i=B0F1KG3N5Q&pd_rd_w=JtDs9&content-id=amzn1.sym.17345c9b-ef8c-4a79-bcd9-8894b1e1e0ea&pf_rd_p=17345c9b-ef8c-4a79-bcd9-8894b1e1e0ea&pf_rd_r=R65EP6HWENZKHV4CMYBK&pd_rd_wg=BWZov&pd_rd_r=e3a63213-2bb4-4322-8d1a-d64f2d5a55bf&s=automotive&sp_csd=d2lkZ2V0TmFtZT1zcF9kZXRhaWw&th=1" target="_blank" rel="noopener noreferrer">Measuring Cup Set, 16 oz/500ml &amp; 8 oz/250ml &rarr;</a>
-          <a class="oil-link" href="https://www.amazon.com/dp/B008SBHIQW?ref=clp_cat_p_5" target="_blank" rel="noopener noreferrer">AMSOIL FULL SYNTHETIC Interceptor 2-Cycle Oil, 1 Quart &rarr;</a>
-          <a class="oil-link" href="https://www.amazon.com/AMSOIL-SYNTHETIC-Dominator-2-Cycle-Quart/dp/B008SBHMKY/ref=sr_1_1?crid=2EQCNTUUTNYXL&dib=eyJ2IjoiMSJ9.ImB6ijxR63scUurA-YWKCcR3EjpZPFPUmd69N5G3tO-ioGA8VW543U3lX_JThzLlA4S9Uw1H40YE41iCBJCr8FoCZKMHXu3rSYUe215TrTB2fTSO6kUnF94C-x3mXYKRl3Do2-9Tj8NQQWJYTQnao3VqpFqCsZy75VQIL5IcdLIvFdjD3rsdtlK_QuNTjPDOygYM1yaxk-jtWFhoVqj1dcBmfJlZTMmlAzPPJDGnJnuxo5V8fA8rrTO4yDJxNnfe9BQzkV34lHIAOGHlhCzqRLMKH20mvbfyKRHTu0-eMBg.LNUOk-y_c5UJsJvNPB80S1FPPEJJDNN7UUMb6BgK3Qs&dib_tag=se&keywords=AMSOIL+FULL+SYNTHETIC+Dominator+2-Cycle+Oil+1+Quart&nsdOptOutParam=true&qid=1785814081&s=automotive&sprefix=amsoil+full+synthetic+dominator+2-cycle+oil+1+quart%2Cautomotive%2C106&sr=1-1" target="_blank" rel="noopener noreferrer">AMSOIL FULL SYNTHETIC Dominator 2-Cycle Oil, 1 Quart &rarr;</a>
+          <a class="oil-link" href="https://www.amazon.com/dp/B0G3475G8B/ref=sspa_dk_detail_2?pd_rd_i=B0F1KG3N5Q&pd_rd_w=JtDs9&content-id=amzn1.sym.17345c9b-ef8c-4a79-bcd9-8894b1e1e0ea&pf_rd_p=17345c9b-ef8c-4a79-bcd9-8894b1e1e0ea&pf_rd_r=R65EP6HWENZKHV4CMYBK&pd_rd_wg=BWZov&pd_rd_r=e3a63213-2bb4-4322-8d1a-d64f2d5a55bf&s=automotive&sp_csd=d2lkZ2V0TmFtZT1zcF9kZXRhaWw&th=1" target="_blank" rel="noopener noreferrer">Measuring Cup Set<br>16 oz/500ml &amp; 8 oz/250ml &rarr;</a>
         </div>
       </div>
     </div>
   </div>
 
-  <footer>Always confirm the ratio specified by your engine or equipment manufacturer.<br>Questions or feedback? <a href="mailto:developer@gearheadspecs.com" class="contact-link">developer@gearheadspecs.com</a></footer>
+  <footer>Always confirm the ratio specified by your engine or equipment manufacturer.<span class="contact"><br>Questions or feedback? <a href="mailto:developer@gearheadspecs.com" class="contact-link">developer@gearheadspecs.com</a></span></footer>
 </div>
 
+<script>
+// Inside a bike page, tell it how tall this is, so the frame fits without a
+// scrollbar of its own -- and again whenever a note opens or closes.
+(function(){
+  if(!document.documentElement.classList.contains("embed") || window.parent === window) return;
+  // The body's own height: the page's scrollHeight never drops below the
+  // frame it sits in, so it could grow but never shrink back.
+  const send = () => window.parent.postMessage({ ghsCalcHeight: document.body.getBoundingClientRect().height }, location.origin);
+  new ResizeObserver(send).observe(document.body);
+  window.addEventListener("load", send);
+})();
+</script>
 <script>
 // Counted in Admin -> Visitors like every other page (see countVisit in api.js,
 // which this standalone page does not load).
 (function(){
+  if(document.documentElement.classList.contains("embed")) return;
   try {
     let ref = "";
     try { const r = new URL(document.referrer); if(r.host !== location.host) ref = r.host; } catch(e){}
@@ -574,6 +634,7 @@
     // adjust presets for the unit
     if(unit === 'gal'){
       presets.innerHTML = `
+        <button class="chip" data-val="0.5">0.5 gal</button>
         <button class="chip" data-val="1">1 gal</button>
         <button class="chip" data-val="2">2 gal</button>
         <button class="chip" data-val="2.5">2.5 gal</button>
@@ -581,6 +642,7 @@
         <button class="chip" data-val="10">10 gal</button>`;
     } else if(unit === 'ukgal'){
       presets.innerHTML = `
+        <button class="chip" data-val="0.5">0.5 gal</button>
         <button class="chip" data-val="1">1 gal</button>
         <button class="chip" data-val="2">2 gal</button>
         <button class="chip" data-val="4.5">4.5 gal</button>

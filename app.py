@@ -601,6 +601,12 @@ def get_bike(ctx):
     if bike["offline"] and not mine:
         raise HttpError(404, "This bike is offline for now.")
     bike["offline"] = bool(bike["offline"])
+    # Questionnaire q5 is the engine: A = 2-stroke auto-lube, B = 2-stroke
+    # premix. The bike page opens the mix calculator for these, and only
+    # links to it for everything else.
+    bike["two_stroke"] = ctx.conn.execute(
+        "SELECT 1 FROM bike_answers WHERE bike_id=? AND question_id='q5'"
+        " AND option_label IN ('A','B')", (bike_id,)).fetchone() is not None
     if not mine:
         bike["specs_offline"] = 0
     bike["names"] = rows(ctx.conn.execute(

@@ -63,7 +63,10 @@
     width: 100%; max-width: 1900px; margin: 0 auto; padding: 0 24px;
   }
   .layout .search-col{ flex: 1; min-width: 0; }
-  .cat-sidebar{ width: 210px; flex-shrink: 0; position: sticky; top: 18px; display: none; }
+  .cat-sidebar{ width: 210px; flex-shrink: 0; position: sticky; top: 18px; display: none;
+                 /* the calculator makes it tall: it scrolls on its own rather than
+                    running off the bottom of the screen */
+                 max-height: calc(100vh - 36px); overflow-y: auto; scrollbar-width: thin; }
   .cat-sidebar.visible{ display: block; }
   .cat-sidebar-title{
     font-size: 10px; letter-spacing: 0.02em;
@@ -86,6 +89,18 @@
   .cat-nav-tools{ margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
   .cat-nav-tool{ text-decoration: none; }
   .cat-nav-tool:hover{ color: var(--amber); }
+
+  /* The mix calculator, in the bike page below the specs. */
+  .mix-calc{ margin-top: 22px; }
+  .mix-calc .panel-head{ display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .mix-calc iframe{ display: block; width: calc(100% - 36px); height: 620px; margin: 0 18px 12px; border: 0; background: transparent; }
+  /* Wide screens have it in the sidebar; the section below the specs is for
+     narrow screens, where the sidebar is hidden. */
+  @media (min-width: 1001px){ #mix-calc{ display: none !important; } }
+  .side-calc-head{ display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 6px; }
+  .side-calc-head a{ font-size: 10px; color: var(--text-faint); text-decoration: none; }
+  .side-calc-head a:hover{ color: var(--amber); }
+  .side-calc iframe{ display: block; width: 100%; height: 560px; border: 0; background: transparent; }
   .cat-nav-item.active .cat-nav-count{ color: var(--amber-dim); }
 
   /* ---- search ---- */
@@ -794,15 +809,22 @@
     <nav class="cat-sidebar" id="cat-sidebar" aria-label="Jump to section">
       <div class="cat-sidebar-title">Jump to section</div>
       <div id="cat-nav-list"></div>
-      <!-- A tool rather than a section, so it is separated from the jump list
-           and opens in its own tab: the bike you are reading is held in memory,
-           not in the URL, so navigating away would lose it. -->
-      <div class="cat-nav-tools">
-        <a class="cat-nav-item cat-nav-tool" href="/calculator.html"
-           target="_blank" rel="noopener">
+      <!-- A tool rather than a section, so it is set apart from the jump
+           list, and always open while you read the bike. -->
+      <!-- Not a 2-stroke: just the link, as it was. -->
+      <div class="cat-nav-tools" id="side-calc-link" hidden>
+        <a class="cat-nav-item cat-nav-tool" href="/calculator.html" target="_blank" rel="noopener">
           <span>Mix Ratio Calculator</span>
           <span class="cat-nav-count">opens ↗</span>
         </a>
+      </div>
+      <!-- A 2-stroke: the calculator itself, open. -->
+      <div class="cat-nav-tools side-calc" id="side-calc" hidden>
+        <div class="side-calc-head">
+          <span class="cat-sidebar-title" style="padding:0">Mix Ratio Calculator</span>
+          <a href="/calculator.html" target="_blank" rel="noopener" title="Open the calculator in a new tab">open ↗</a>
+        </div>
+        <iframe id="mix-calc-side" title="Mix Ratio Calculator" loading="lazy"></iframe>
       </div>
     </nav>
 
@@ -833,6 +855,17 @@
       <div class="result-count" id="result-count">Loading…</div>
       <div id="results"></div>
       <div id="detail-container"></div>
+
+      <!-- Outside detail-container on purpose: the spec sheet redraws often,
+           and a redraw must not reload the calculator and wipe what was typed. -->
+      <section class="panel mix-calc" id="mix-calc" hidden>
+        <div class="panel-head">
+          <div><h3>Mix Ratio Calculator</h3>
+            <p>How much 2-stroke oil to add to your gas.</p></div>
+          <a class="ghost-btn" style="text-decoration:none" href="/calculator.html" target="_blank" rel="noopener">Open in a new tab ↗</a>
+        </div>
+        <iframe id="mix-calc-frame" title="Mix Ratio Calculator" loading="lazy"></iframe>
+      </section>
 
       <!-- Verbatim the copy the site is explained in; the markup only gives it
            shape. Hidden until the boot decides whether a bike is open. -->
@@ -1085,6 +1118,7 @@ const openBike = guard(async (bikeId, opts = {}) => {
   }
   MANAGES_THIS_BIKE = !!(ME.user && (ME.user.role === 'admin' ||
     (ME.manages || []).includes(bike.bike_id)));
+  showMixCalc(true);
   if(OPEN_CATS_BIKE !== bike.bike_id){ OPEN_CATS = new Set(); OPEN_CATS_BIKE = bike.bike_id; }
   renderDetail();
   renderCatNav();
@@ -1130,8 +1164,33 @@ window.addEventListener("popstate", (e) => {
   if(id) openBike(id, {silent: true});
   else {
     BIKE = null; SPECS = null;
+    showMixCalc(false);
     byId("detail-container").innerHTML = "";
     byId("cat-sidebar").classList.remove("visible");
+  }
+});
+
+/* The calculator below the specs. The frame is only given its address the
+   first time it is shown, so the catalogue never loads it. */
+function showMixCalc(on){
+  // Open on a 2-stroke; everywhere else, a link to it. On a narrow screen
+  // (no sidebar) a 4-stroke simply doesn't get the section below the specs.
+  const two = !!(on && BIKE && BIKE.two_stroke);
+  byId("mix-calc").hidden = !two;
+  byId("side-calc").hidden = !two;
+  byId("side-calc-link").hidden = !on || two;
+  if(!two) return;
+  // Both frames get their address; only the one on screen actually loads
+  // (the other is hidden, and lazy frames wait until they are shown).
+  const frame = byId("mix-calc-frame"), side = byId("mix-calc-side");
+  if(!frame.getAttribute("src")) frame.src = "/calculator.html?embed=1";
+  if(!side.getAttribute("src")) side.src = "/calculator.html?embed=side";
+}
+window.addEventListener("message", (e) => {
+  if(e.origin !== location.origin || !e.data || !e.data.ghsCalcHeight) return;
+  for(const id of ["mix-calc-frame", "mix-calc-side"]){
+    const f = byId(id);
+    if(f && f.contentWindow === e.source) f.style.height = Math.ceil(e.data.ghsCalcHeight) + "px";
   }
 });
 
