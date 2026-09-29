@@ -42,11 +42,13 @@ class Client:
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(CookieJar()))
 
-    def call(self, method, path, body=None):
+    def call(self, method, path, body=None, headers=None):
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.base + path, data=data, method=method)
         if data:
             req.add_header("Content-Type", "application/json")
+        for k, v in (headers or {}).items():
+            req.add_header(k, v)
         try:
             with self.opener.open(req) as r:
                 return r.status, json.loads(r.read() or b"{}")
@@ -6643,11 +6645,12 @@ class ApiTest(unittest.TestCase):
         s, r = rider.post(f"/api/bikes/{managed}/manager-application", {"experience": why})
         self.assertEqual(s, 409, r)
 
-        s, r = rider.post(path, {"experience": why, "owns_one": True})
+        s, r = rider.post(path, {"experience": why, "owns_one": True, "used_to_own": True})
         self.assertEqual(s, 200, r)
         self.assertEqual(rider.post(path, {"experience": why})[0], 409)   # one waiting at a time
         s, b = rider.get(path)
-        self.assertEqual((b["mine"]["status"], b["mine"]["owns_one"]), ("pending", True))
+        self.assertEqual((b["mine"]["status"], b["mine"]["owns_one"], b["mine"]["used_to_own"]),
+                         ("pending", True, True))
 
         # withdraw is yours alone, and only while waiting
         s, t = tina.post(path, {"experience": why})
@@ -6694,6 +6697,113 @@ class ApiTest(unittest.TestCase):
         self.assertEqual((b["has_manager"], b["mine"]["status"]), (False, "declined"))
         # and a declined rider may ask again later
         self.assertEqual(tina.post(f"/api/bikes/{other}/manager-application", {"experience": why})[0], 200)
+
+    def test_99s_visitors_are_counted_once_a_day_and_say_where_they_came_from(self):
+        """Each person is one visitor a day however many pages they open; the
+        first page records the site that sent them and their country. Bots
+        and admins are not counted, and nothing about the person is stored."""
+        browser = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/131.0"
+        def hdr(ip, ua=browser, country="CA"):
+            return {"User-Agent": ua, "X-Forwarded-For": f"{ip}, 10.0.0.1", "CF-IPCountry": country}
+        anon, adm = self.anon(), self.as_("admin")
+        s, before = adm.get("/api/admin/visitors")
+        self.assertEqual(s, 200, before)
+
+        # one person, three pages: one visitor, three pages, Google from the first
+        anon.call("POST", "/api/visit", {"path": "/index.html", "referrer": "www.google.ca"}, hdr("203.0.113.5"))
+        anon.call("POST", "/api/visit", {"path": "/calculator.html", "referrer": "forum.example"}, hdr("203.0.113.5"))
+        anon.call("GET", f"/api/bikes/{self.cb919}", None, hdr("203.0.113.5"))
+        anon.call("GET", f"/api/bikes/{self.cb919}", None, hdr("203.0.113.5"))   # a refresh is not a second view
+        # a second person, from a tagged forum link, country unknown
+        anon.call("POST", "/api/visit", {"path": "/", "referrer": "", "source": "xr650l-forum"},
+                  hdr("198.51.100.7", country="XX"))
+        # not counted: a crawler, and admin
+        anon.call("POST", "/api/visit", {"path": "/"}, hdr("192.0.2.1", ua="Googlebot/2.1"))
+        adm.call("POST", "/api/visit", {"path": "/admin.html"}, hdr("192.0.2.2"))
+
+        s, v = adm.get("/api/admin/visitors")
+        self.assertEqual(v["today"] - before["today"], 2)
+        self.assertEqual(v["week"] - before["week"], 2)
+        self.assertEqual(v["pages_month"] - before["pages_month"], 3)
+        refs = {r["name"]: r["visitors"] for r in v["referrers"]}
+        self.assertEqual(refs.get("Google"), 1)
+        self.assertEqual(refs.get("xr650l-forum"), 1)
+        self.assertNotIn("forum.example", refs)             # a later page never rewrites it
+        countries = {r["name"]: r["visitors"] for r in v["countries"]}
+        self.assertGreaterEqual(countries.get("CA", 0), 1)
+        self.assertIn("", countries)                        # XX is unknown, not a country
+        cb = next(b for b in v["bikes"] if b["bike_id"] == self.cb919)
+        self.assertEqual(cb["visitors"], 1)
+        self.assertEqual(len(v["daily"]), 30)
+        self.assertEqual(adm.get("/api/admin/summary")[1]["visitors_today"], v["today"])
+        self.assertEqual(anon.get("/api/admin/visitors")[0], 401)
+
+        # nothing that identifies anyone: no address in the table, one salt only
+        con = sqlite3.connect(self.db)
+        dump = "\n".join(con.iterdump())
+        self.assertNotIn("203.0.113.5", dump)
+        self.assertNotIn("Firefox", dump)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM visit_salts").fetchone()[0], 1)
+        con.close()
+
+    def test_99t_a_whole_bike_can_go_offline_and_come_back(self):
+        """Offline, a bike is gone for riders -- not in the list, the model
+        dropdown, the counts, or at its address -- while admin still opens it.
+        Back online, it is all there again, nothing lost."""
+        con = sqlite3.connect(self.db)
+        bike, make, code = con.execute(
+            "SELECT id, make, model_code FROM bikes b WHERE NOT EXISTS"
+            " (SELECT 1 FROM bike_managers m WHERE m.bike_id=b.id) ORDER BY id LIMIT 1").fetchone()
+        con.close()
+        anon, rider, adm = self.anon(), self.as_("sohc_sam"), self.as_("admin")
+        s, before = anon.get("/api/stats")
+
+        self.assertEqual(rider.post(f"/api/admin/bikes/{bike}/offline", {"offline": True})[0], 403)
+        s, r = adm.post(f"/api/admin/bikes/{bike}/offline", {"offline": True})
+        self.assertEqual((s, r["offline"]), (200, True))
+
+        s, b = anon.get(f"/api/bikes/{bike}")
+        self.assertEqual(s, 404)
+        self.assertIn("offline", b["error"])
+        self.assertFalse(any(x["bike_id"] == bike for x in anon.get(f"/api/bikes?make={make}&limit=1000")[1]["bikes"]))
+        # its model leaves the dropdown, unless another bike (other years) shares the code
+        if sqlite3.connect(self.db).execute("SELECT COUNT(*) FROM bikes WHERE make=? AND model_code=?",
+                                            (make, code)).fetchone()[0] == 1:
+            models = anon.get(f"/api/catalog/filters?make={make}")[1]["models"]
+            self.assertNotIn(code, [m["model_code"] for m in models])
+        self.assertEqual(anon.get("/api/stats")[1]["bikes"], before["bikes"] - 1)
+        self.assertEqual(rider.post(f"/api/bikes/{bike}/manager-application",
+                                    {"experience": "I know this bike inside and out."})[0], 404)
+        # admin still sees it, marked
+        s, b = adm.get(f"/api/bikes/{bike}")
+        self.assertEqual((s, b["offline"]), (200, True))
+        self.assertTrue(any(x["bike_id"] == bike for x in adm.get(f"/api/bikes?make={make}&limit=1000")[1]["bikes"]))
+
+        s, r = adm.post(f"/api/admin/bikes/{bike}/offline", {"offline": False})
+        self.assertEqual(s, 200, r)
+        s, b = anon.get(f"/api/bikes/{bike}")
+        self.assertEqual((s, b["offline"]), (200, False))
+        self.assertEqual(anon.get("/api/stats")[1]["bikes"], before["bikes"])
+
+    def test_99u_electric_bikes_go_offline_once_and_only_once(self):
+        """The migration takes the electric bikes offline when it adds the
+        column, and never again -- a bike admin puts back online stays up."""
+        import migrate_bike_offline
+        path = os.path.join(self.tmp, "offline.db")
+        con = sqlite3.connect(path)
+        con.execute("CREATE TABLE bikes (id INTEGER PRIMARY KEY, make TEXT, model_code TEXT)")
+        con.executemany("INSERT INTO bikes (make, model_code) VALUES (?,?)",
+                        [("KTM", "SX-E"), ("Vespa", "Elettrica"), ("Kawasaki", "Ninja 7 Hybrid"), ("Honda", "XR650L")])
+        con.commit(); con.close()
+        migrate_bike_offline.migrate(path)
+        con = sqlite3.connect(path)
+        self.assertEqual(dict(con.execute("SELECT model_code, offline FROM bikes")),
+                         {"SX-E": 1, "Elettrica": 1, "Ninja 7 Hybrid": 0, "XR650L": 0})
+        con.execute("UPDATE bikes SET offline=0 WHERE model_code='SX-E'"); con.commit(); con.close()
+        migrate_bike_offline.migrate(path)              # a restart
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute("SELECT offline FROM bikes WHERE model_code='SX-E'").fetchone()[0], 0)
+        con.close()
 
 
 if __name__ == "__main__":

@@ -47,7 +47,7 @@
 <script>
 const BIKE_ID = Number(new URLSearchParams(location.search).get("bike")) || 0;
 let DATA = null;
-const draft = { experience: "", owns: false };   // survives a re-render
+const draft = { experience: "", owns: false, owned: false };   // survives a re-render
 
 const load = guard(async () => {
   if(!BIKE_ID){
@@ -71,7 +71,7 @@ function mineBox(a){
         <span class="state ${esc(a.status)}">${esc(label)}</span>
       </div>
       <div class="form-note">You sent this on ${esc(when(a.created_at))}${a.resolved_at ? ` · ${esc(label)} ${esc(when(a.resolved_at))}` : ""}${
-        a.owns_one ? " · you said you own one" : ""}</div>
+        a.owns_one ? " · you own one" : ""}${a.used_to_own ? " · you used to own one" : ""}</div>
       <div class="quote">“${esc(a.experience)}”</div>
       ${a.admin_note ? `<div class="note">Admin wrote back: ${esc(a.admin_note)}</div>` : ""}
       ${a.status === "pending" ? `
@@ -128,7 +128,8 @@ function render(){
         <div class="form-row"><label for="ma-exp">How do you know this bike?</label>
           <textarea id="ma-exp" maxlength="1000" placeholder="e.g. I've had one since 2012, rebuilt the top end twice, and I've got the factory service manual.">${esc(draft.experience)}</textarea>
           <div class="form-note"><span id="ma-count">${draft.experience.length}</span> / 1000 · a sentence or two is plenty.</div></div>
-        <div class="form-row"><label class="check"><input type="checkbox" id="ma-owns"${draft.owns ? " checked" : ""}> I own one, or I used to</label></div>
+        <div class="form-row"><label class="check"><input type="checkbox" id="ma-owns"${draft.owns ? " checked" : ""}> I own one</label></div>
+        <div class="form-row"><label class="check"><input type="checkbox" id="ma-owned"${draft.owned ? " checked" : ""}> I used to own one</label></div>
         <div class="form-actions">
           <button class="primary-btn" id="ma-send">Send request</button>
           <a class="ghost-btn" style="text-decoration:none" href="/index.html?bike=${b.bike_id}">Cancel</a>
@@ -142,6 +143,7 @@ function render(){
       document.getElementById("ma-count").textContent = e.target.value.length;
     });
     document.getElementById("ma-owns").addEventListener("change", e => { draft.owns = e.target.checked; });
+    document.getElementById("ma-owned").addEventListener("change", e => { draft.owned = e.target.checked; });
   }
 }
 
@@ -149,8 +151,8 @@ document.addEventListener("click", guard(async (e) => {
   if(e.target.id === "ma-send"){
     const experience = draft.experience.trim();
     if(experience.length < 20){ toast("Could you tell us a little more? A sentence or two is plenty.", "error"); return; }
-    await API.post(`/api/bikes/${BIKE_ID}/manager-application`, { experience, owns_one: draft.owns });
-    draft.experience = ""; draft.owns = false;
+    await API.post(`/api/bikes/${BIKE_ID}/manager-application`, { experience, owns_one: draft.owns, used_to_own: draft.owned });
+    draft.experience = ""; draft.owns = false; draft.owned = false;
     toast("Thanks, your request is in. Check back here for the reply.", "ok");
     await load();
     return;

@@ -93,6 +93,20 @@
     color: var(--text-faint);
   }
   .branch-opts li.on .l{ color: var(--amber); }
+
+  /* Visitors panel */
+  .vis-totals{ display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .vis-totals div{ border: 1px solid var(--line); padding: 10px 12px; }
+  .vis-totals b{ display: block; font-family: var(--display); font-size: 26px; font-weight: 500; }
+  .vis-totals span{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .vis-chart{ display: flex; align-items: flex-end; gap: 3px; height: 110px; border-bottom: 1px solid var(--line); }
+  .vis-bar{ flex: 1; height: 100%; display: flex; align-items: flex-end; }
+  .vis-bar i{ display: block; width: 100%; min-height: 1px; background: var(--amber); border-radius: 2px 2px 0 0; }
+  .vis-bar:hover i{ background: var(--good); }
+  .vis-axis{ display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--text-faint); margin: 4px 0 18px; }
+  .vis-lists{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+  .vis-row{ display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .vis-row b{ font-family: var(--mono); font-weight: 500; }
 </style>
 </head>
 <body>
@@ -586,7 +600,7 @@ const load = guard(async () => {
   const scroll = window.scrollY;
   const [summary, proposals, treeFlags, notSure, userFlags, divergence, dropped,
          unverified, assign, unplaced, activity, notices, members, fieldReqs, bikeReqs,
-         managerApps] = await Promise.all([
+         managerApps, visitors] = await Promise.all([
       API.get("/api/admin/summary"),
       API.get("/api/admin/proposals"),
       API.get("/api/admin/tree-flags"),
@@ -603,6 +617,7 @@ const load = guard(async () => {
       API.get("/api/admin/field-requests"),
       API.get("/api/admin/bike-requests"),
       API.get("/api/admin/manager-applications"),
+      API.get("/api/admin/visitors"),
     ]);
   S = { summary, proposals: proposals.items, treeFlags: treeFlags.items,
         notSure: notSure.items, userFlags: userFlags.items,
@@ -611,7 +626,7 @@ const load = guard(async () => {
         activity, notices: notices.items, members: members.users,
         fieldRequests: fieldReqs.items,
         bikeRequests: bikeReqs.items, bikeTypes: bikeReqs.bike_types,
-        managerApps: managerApps.items };
+        managerApps: managerApps.items, visitors };
   render();
   await restoreFieldSearch();
   collapseLong();
@@ -624,6 +639,51 @@ const load = guard(async () => {
 
 // Riders offering to manage a bike nobody manages. Approving assigns them
 // exactly as the Bike Managers panel does.
+// How many people use the site and where they came from. Counted once per
+// visitor per day, without cookies; admins and bots are left out.
+const COUNTRY_NAMES = (() => { try { return new Intl.DisplayNames(undefined, { type: "region" }); } catch(e){ return null; } })();
+function countryName(code){
+  if(!code) return "Unknown";
+  try { return (COUNTRY_NAMES && COUNTRY_NAMES.of(code)) || code; } catch(e){ return code; }
+}
+function visitorsPanel(v){
+  const most = Math.max(1, ...v.daily.map(d => d.visitors));
+  const short = d => new Date(d + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  const list = (items, label, empty) => items.length ? items.map(x => `
+      <div class="vis-row"><span>${label(x)}</span><b>${x.visitors}</b></div>`).join("")
+    : `<div class="cell-dim">${empty}</div>`;
+  return `
+    <div class="panel" id="p-visitors">
+      <div class="panel-head">
+        <div><h3>Visitors</h3>
+          <p>People who opened the site, each counted once a day. No cookies, and
+             nothing that identifies anyone is kept. Your own visits and search
+             engine bots aren't counted.${v.counting_since ? ` Counting since ${esc(short(v.counting_since))}.` : ""}</p></div>
+        <span class="count-tag">last 30 days</span>
+      </div>
+      <div class="panel-body">
+        <div class="vis-totals">
+          <div><b>${v.today}</b><span>today</span></div>
+          <div><b>${v.week}</b><span>last 7 days</span></div>
+          <div><b>${v.month}</b><span>last 30 days</span></div>
+          <div><b>${v.pages_month}</b><span>pages opened</span></div>
+        </div>
+        <div class="vis-chart" role="img" aria-label="Visitors per day, last 30 days">${v.daily.map(d => `
+          <div class="vis-bar" title="${esc(short(d.day))}: ${d.visitors} visitor${d.visitors !== 1 ? "s" : ""}">
+            <i style="height:${Math.round(100 * d.visitors / most)}%"></i></div>`).join("")}</div>
+        <div class="vis-axis"><span>${esc(short(v.daily[0].day))}</span><span>today</span></div>
+        <div class="vis-lists">
+          <div><div class="field-label">Where they came from</div>
+            ${list(v.referrers, x => esc(x.name || "Typed the address or a bookmark"), "Nobody yet.")}</div>
+          <div><div class="field-label">Countries</div>
+            ${list(v.countries, x => esc(countryName(x.name)), "Nobody yet.")}</div>
+          <div><div class="field-label">Bikes people opened</div>
+            ${list(v.bikes, x => bikeLink(x.display_name, x.year_range, x.bike_id), "No bikes opened yet.")}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function managerAppRows(items){
   return items.map(a => `
     <tr>
@@ -633,7 +693,8 @@ function managerAppRows(items){
         <div class="cell-dim">joined ${new Date(a.member_since + "Z").toLocaleDateString()} · ${a.values_entered} value${a.values_entered !== 1 ? "s" : ""} entered${
           a.bikes_managed ? ` · manages ${a.bikes_managed} bike${a.bikes_managed !== 1 ? "s" : ""}` : ""}</div></div></td>
       <td data-label="What they know" class="cell-dim"><div>“${esc(a.experience)}”
-        <div style="margin-top:4px">${a.owns_one ? `<span class="badge">owns one</span> · ` : ""}sent ${new Date(a.created_at + "Z").toLocaleDateString()}</div></div></td>
+        <div style="margin-top:4px">${a.owns_one ? `<span class="badge">owns one</span> · ` : ""}${
+          a.used_to_own ? `<span class="badge">used to own one</span> · ` : ""}sent ${new Date(a.created_at + "Z").toLocaleDateString()}</div></div></td>
       <td data-label="Action">
         <div class="btn-row">
           <button class="action-btn approve" data-mgr-app="${a.id}" data-status="approved">Approve &amp; assign</button>
@@ -920,6 +981,7 @@ function render(){
       ${statCard(s.bike_requests, "Bikes Riders Want Added", "p-bike-requests", s.bike_requests)}
       ${statCard(s.manager_applications, "Requests to Manage a Bike", "p-manager-apps", s.manager_applications)}
       ${statCard(s.users, "Members", "p-members", 0)}
+      ${statCard(s.visitors_today, "Visitors Today", "p-visitors", 0)}
     </div>
 
     ${S.unplaced.length ? `
@@ -967,6 +1029,8 @@ function render(){
         </tbody>
       </table>
     </div>` : ""}
+
+    ${visitorsPanel(S.visitors)}
 
     <div class="panel" id="p-tree">
       <div class="panel-head">

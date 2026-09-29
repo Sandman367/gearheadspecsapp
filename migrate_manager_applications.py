@@ -47,6 +47,10 @@ def migrate(db_path):
         raise SystemExit(f"no database at {db_path}")
     conn = sqlite3.connect(db_path, timeout=30)
     conn.executescript(DDL)
+    # "I own one" and "I used to own one" are two separate ticks.
+    if "used_to_own" not in [r[1] for r in conn.execute("PRAGMA table_info(manager_applications)")]:
+        conn.execute("ALTER TABLE manager_applications ADD COLUMN used_to_own INTEGER NOT NULL DEFAULT 0"
+                     " CHECK (used_to_own IN (0,1))")
     conn.commit()
     conn.close()
     print("manager_applications in place")

@@ -456,6 +456,20 @@
 </div>
 
 <script>
+// Counted in Admin -> Visitors like every other page (see countVisit in api.js,
+// which this standalone page does not load).
+(function(){
+  try {
+    let ref = "";
+    try { const r = new URL(document.referrer); if(r.host !== location.host) ref = r.host; } catch(e){}
+    fetch("/api/visit", { method: "POST", credentials: "same-origin", keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: location.pathname, referrer: ref,
+                             source: new URLSearchParams(location.search).get("utm_source") || "" }) }).catch(() => {});
+  } catch(e){}
+})();
+</script>
+<script>
 (function(){
   const ratioSelect = document.getElementById('ratioSelect');
   const customRow = document.getElementById('customRow');

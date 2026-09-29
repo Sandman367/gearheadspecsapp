@@ -69,6 +69,23 @@ const API = {
   del:    (p, b) => api("DELETE", p, b),
 };
 
+/* Count this visit for Admin -> Visitors: once per visitor per day, worked
+   out on the server with no cookie. The referrer goes along only when it is
+   another site (just its host), plus ?utm_source= if a shared link carries
+   one. Fire and forget -- a failure here must never touch the page. */
+(function countVisit(){
+  try {
+    let ref = "";
+    try { const r = new URL(document.referrer); if(r.host !== location.host) ref = r.host; } catch(e){}
+    fetch("/api/visit", {
+      method: "POST", credentials: "same-origin", keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: location.pathname, referrer: ref,
+                             source: new URLSearchParams(location.search).get("utm_source") || "" }),
+    }).catch(() => {});
+  } catch(e){}
+})();
+
 let toastTimer = null;
 
 /* Notes stay for 30 seconds, or until dismissed.

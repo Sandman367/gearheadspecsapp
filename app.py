@@ -277,6 +277,8 @@ class Ctx:
         self.params = params
         self.query = query
         self.body = body
+        self.headers = {}
+        self.peer = ""
 
     def arg(self, name, default=None):
         v = self.query.get(name)
@@ -433,6 +435,10 @@ def catalog_filters(ctx):
     model = ctx.arg("model")
 
     where, args = [], []
+    # An offline bike is not an option for riders. (One argument per clause:
+    # distinct() below pairs them up by position.)
+    if not (ctx.user and ctx.user["role"] == "admin"):
+        where.append("b.offline = ?"); args.append(0)
     if make:
         where.append("b.make = ?"); args.append(make)
     if year:
@@ -523,6 +529,8 @@ def list_bikes(ctx):
     limit = min(int(ctx.arg("limit", "200")), 1000)
 
     where, args = [], []
+    if not (ctx.user and ctx.user["role"] == "admin"):
+        where.append("b.offline = 0")
     if make:
         where.append("d.make = ?"); args.append(make)
     if model:
@@ -541,14 +549,16 @@ def list_bikes(ctx):
     # public numbers even to a manager: this is the browse page, not their
     # dashboard, and the counts should match what the spec sheet will show.
     result = rows(ctx.conn.execute(
-        "SELECT d.*, p.fields_triggered_public AS fields_triggered,"
+        "SELECT d.*, b.offline, p.fields_triggered_public AS fields_triggered,"
         "       p.specs_filled_public AS specs_filled,"
         "       p.specs_needed_public AS specs_needed"
         " FROM bike_display d"
+        " JOIN bikes b ON b.id = d.bike_id"
         " JOIN bike_spec_progress p ON p.bike_id = d.bike_id"
         f"{clause} ORDER BY d.model_code, d.year_start LIMIT ?", args + [limit]))
     total = ctx.conn.execute(
-        f"SELECT COUNT(*) FROM bike_display d{clause}", args).fetchone()[0]
+        f"SELECT COUNT(*) FROM bike_display d JOIN bikes b ON b.id = d.bike_id{clause}",
+        args).fetchone()[0]
     return {"bikes": result, "total": total}
 
 
@@ -558,9 +568,11 @@ def site_stats(ctx):
     public can see: offline specs are off the sheet and off the count."""
     c = ctx.conn
     return {
-        "bikes": c.execute("SELECT COUNT(*) FROM bikes").fetchone()[0],
-        "specs": c.execute("SELECT COUNT(*) FROM specs WHERE paused = 0").fetchone()[0],
+        "bikes": c.execute("SELECT COUNT(*) FROM bikes WHERE offline = 0").fetchone()[0],
+        "specs": c.execute("SELECT COUNT(*) FROM specs WHERE paused = 0"
+                           " AND bike_id IN (SELECT id FROM bikes WHERE offline = 0)").fetchone()[0],
         "values": c.execute("SELECT COUNT(*) FROM specs WHERE paused = 0"
+                            " AND bike_id IN (SELECT id FROM bikes WHERE offline = 0)"
                             " AND value IS NOT NULL AND TRIM(value) <> ''").fetchone()[0],
     }
 
@@ -568,6 +580,7 @@ def site_stats(ctx):
 @route("GET", r"/api/bikes/(\d+)")
 def get_bike(ctx):
     bike_id = int(ctx.params[0])
+    record_bike_view(ctx, bike_id)
     # The header counts have to agree with the rows underneath them. Whoever
     # looks after the bike sees its offline specs, so they are counted for them
     # and not for anybody else.
@@ -577,12 +590,17 @@ def get_bike(ctx):
             " p.specs_filled_public AS specs_filled,"
             " p.specs_needed_public AS specs_needed")
     bike = one(ctx.conn.execute(
-        f"SELECT d.*, {cols}, p.specs_offline, b.split_from_bike_id, b.split_at_year"
+        f"SELECT d.*, {cols}, p.specs_offline, b.split_from_bike_id, b.split_at_year, b.offline"
         " FROM bike_display d JOIN bike_spec_progress p ON p.bike_id=d.bike_id"
         " JOIN bikes b ON b.id=d.bike_id"
         " WHERE d.bike_id = ?", (bike_id,)))
     if not bike:
         raise HttpError(404, "bike not found")
+    # A bike taken offline is gone for riders; admin (and its manager) still
+    # open it, to put it back.
+    if bike["offline"] and not mine:
+        raise HttpError(404, "This bike is offline for now.")
+    bike["offline"] = bool(bike["offline"])
     if not mine:
         bike["specs_offline"] = 0
     bike["names"] = rows(ctx.conn.execute(
@@ -2344,7 +2362,7 @@ def _bike_has_manager(conn, bike_id):
 
 def _application_rows(conn, where, args):
     items = rows(conn.execute(
-        "SELECT a.id, a.bike_id, a.user_id, a.experience, a.owns_one, a.status, a.admin_note,"
+        "SELECT a.id, a.bike_id, a.user_id, a.experience, a.owns_one, a.used_to_own, a.status, a.admin_note,"
         "       a.created_at, a.resolved_at, d.display_name AS bike_name, d.year_range,"
         "       u.username, u.created_at AS member_since,"
         "       EXISTS (SELECT 1 FROM bike_managers m WHERE m.bike_id = a.bike_id) AS has_manager"
@@ -2353,6 +2371,7 @@ def _application_rows(conn, where, args):
         " JOIN bike_display d ON d.bike_id = a.bike_id" + where, list(args)))
     for it in items:
         it["owns_one"] = bool(it["owns_one"])
+        it["used_to_own"] = bool(it["used_to_own"])
         it["has_manager"] = bool(it["has_manager"])
     return items
 
@@ -2384,7 +2403,7 @@ def create_manager_application(ctx):
     manages it -- the link is for bikes nobody is looking after -- and to an
     admin, who reaches every bike already."""
     bike_id = int(ctx.params[0])
-    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=? AND offline=0", (bike_id,)).fetchone():
         raise HttpError(404, "bike not found")
     if ctx.user["role"] == "admin":
         raise HttpError(400, "You're admin, so you can already edit every bike.")
@@ -2397,8 +2416,10 @@ def create_manager_application(ctx):
         raise HttpError(400, f"That's a bit long. Please keep it under {APPLICATION_MAX} characters.")
     try:
         cur = ctx.conn.execute(
-            "INSERT INTO manager_applications (bike_id, user_id, experience, owns_one) VALUES (?,?,?,?)",
-            (bike_id, ctx.user["id"], experience, 1 if ctx.body.get("owns_one") else 0))
+            "INSERT INTO manager_applications (bike_id, user_id, experience, owns_one, used_to_own)"
+            " VALUES (?,?,?,?,?)",
+            (bike_id, ctx.user["id"], experience, 1 if ctx.body.get("owns_one") else 0,
+             1 if ctx.body.get("used_to_own") else 0))
     except sqlite3.IntegrityError:
         raise HttpError(409, "You've already asked about this bike. It's still waiting for a reply.")
     ctx.conn.commit()
@@ -4114,6 +4135,138 @@ def answer_question(ctx):
 
 
 # ===========================================================================
+# VISITORS -- how many people use the site, and where they came from
+#
+# Each page posts to /api/visit as it loads. A visitor is a hash of their
+# address and browser, salted with a random salt that exists for one day
+# only: the salt is deleted when the day turns, so a person is counted once
+# a day and cannot be followed from one day to the next. No address, no
+# cookie. Bots (which mostly never run the page's script anyway) and admins
+# are left out, so the numbers are riders, not crawlers or you.
+# ===========================================================================
+_BOT_UA = re.compile(r"bot|crawl|spider|slurp|preview|fetch|curl|wget|python|headless|monitor|scan",
+                     re.IGNORECASE)
+
+# Hosts that are one place to a person reading the report: every Google
+# country domain is "Google", m./l./lm.facebook.com are "Facebook", ...
+_REFERRER_NAMES = [
+    (r"(^|\.)google\.", "Google"), (r"(^|\.)bing\.com$", "Bing"),
+    (r"(^|\.)duckduckgo\.com$", "DuckDuckGo"), (r"(^|\.)yahoo\.", "Yahoo"),
+    (r"(^|\.)(facebook\.com|fb\.me|fb\.com)$", "Facebook"),
+    (r"(^|\.)instagram\.com$", "Instagram"), (r"(^|\.)reddit\.com$", "Reddit"),
+    (r"(^|\.)(youtube\.com|youtu\.be)$", "YouTube"),
+    (r"(^|\.)(t\.co|twitter\.com|x\.com)$", "X (Twitter)"),
+    (r"(^|\.)pinterest\.", "Pinterest"), (r"(^|\.)chatgpt\.com$", "ChatGPT"),
+]
+
+
+def _referrer_name(host, source):
+    """What to call where someone came from. A ?utm_source= on the link wins
+    (you tagged it yourself); otherwise the referring site, tidied."""
+    source = " ".join((source or "").split())[:40]
+    if source:
+        return source
+    host = (host or "").strip().lower()[:100]
+    if not host:
+        return ""
+    for pattern, name in _REFERRER_NAMES:
+        if re.search(pattern, host):
+            return name
+    return host[4:] if host.startswith("www.") else host
+
+
+def _visitor_key(ctx):
+    """(day, visitor hash), or None for a bot, an admin, or no address."""
+    ua = ctx.headers.get("User-Agent") or ""
+    if not ua or _BOT_UA.search(ua):
+        return None
+    if ctx.user and ctx.user["role"] == "admin":
+        return None
+    ip = (ctx.headers.get("CF-Connecting-IP")
+          or (ctx.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+          or ctx.peer)
+    if not ip:
+        return None
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ctx.conn.execute("INSERT OR IGNORE INTO visit_salts (day, salt) VALUES (?,?)",
+                     (day, secrets.token_hex(16)))
+    ctx.conn.execute("DELETE FROM visit_salts WHERE day < ?", (day,))
+    salt = ctx.conn.execute("SELECT salt FROM visit_salts WHERE day=?", (day,)).fetchone()[0]
+    return day, hashlib.sha256(f"{salt}|{ip}|{ua}".encode()).hexdigest()[:20]
+
+
+@route("POST", r"/api/visit")
+def record_visit(ctx):
+    """One page opened. The first page of the day records where they came
+    from; later ones only add to the page count. Never an error to the page."""
+    try:
+        key = _visitor_key(ctx)
+        if not key:
+            return {"ok": True}
+        day, visitor = key
+        country = (ctx.headers.get("CF-IPCountry") or "").strip().upper()
+        if not re.fullmatch(r"[A-Z]{2}", country) or country in ("XX", "T1"):
+            country = ""
+        landing = str(ctx.body.get("path") or "")[:100]
+        cur = ctx.conn.execute(
+            "INSERT OR IGNORE INTO visits (day, visitor, referrer, country, landing) VALUES (?,?,?,?,?)",
+            (day, visitor, _referrer_name(ctx.body.get("referrer"), ctx.body.get("source")),
+             country, landing))
+        if not cur.rowcount:
+            ctx.conn.execute("UPDATE visits SET pages = pages + 1 WHERE day=? AND visitor=?",
+                             (day, visitor))
+        ctx.conn.commit()
+    except sqlite3.Error:
+        ctx.conn.rollback()
+    return {"ok": True}
+
+
+def record_bike_view(ctx, bike_id):
+    """Someone opened this bike's sheet; counted once per visitor per day.
+    Quietly does nothing if it cannot -- a bike page must never fail over it."""
+    try:
+        key = _visitor_key(ctx)
+        if key:
+            ctx.conn.execute("INSERT OR IGNORE INTO bike_views (day, bike_id, visitor) VALUES (?,?,?)",
+                             (key[0], bike_id, key[1]))
+        ctx.conn.commit()
+    except sqlite3.Error:
+        ctx.conn.rollback()
+
+
+@route("GET", r"/api/admin/visitors", role="admin")
+def admin_visitors(ctx):
+    """Visitors per day for the last 30 days, and over that month: where they
+    came from, which countries, which bikes they opened. A visitor is counted
+    once per day, so "this week" is the sum of seven days."""
+    today = datetime.now(timezone.utc).date()
+    since = (today - timedelta(days=29)).isoformat()
+    per_day = dict(ctx.conn.execute(
+        "SELECT day, COUNT(*) FROM visits WHERE day >= ? GROUP BY day", (since,)).fetchall())
+    days = [(today - timedelta(days=i)).isoformat() for i in range(29, -1, -1)]
+    daily = [{"day": d, "visitors": per_day.get(d, 0)} for d in days]
+    week = sum(x["visitors"] for x in daily[-7:])
+    top = lambda col: rows(ctx.conn.execute(
+        f"SELECT {col} AS name, COUNT(*) AS visitors FROM visits WHERE day >= ?"
+        f" GROUP BY {col} ORDER BY visitors DESC, name LIMIT 10", (since,)))
+    pages = ctx.conn.execute("SELECT COALESCE(SUM(pages),0) FROM visits WHERE day >= ?",
+                             (since,)).fetchone()[0]
+    return {
+        "today": daily[-1]["visitors"], "week": week,
+        "month": sum(x["visitors"] for x in daily), "pages_month": pages,
+        "daily": daily,
+        "referrers": top("referrer"),
+        "countries": top("country"),
+        "bikes": rows(ctx.conn.execute(
+            "SELECT v.bike_id, d.display_name, d.year_range, COUNT(*) AS visitors"
+            " FROM bike_views v JOIN bike_display d ON d.bike_id = v.bike_id"
+            " WHERE v.day >= ? GROUP BY v.bike_id ORDER BY visitors DESC, d.display_name LIMIT 10",
+            (since,))),
+        "counting_since": ctx.conn.execute("SELECT MIN(day) FROM visits").fetchone()[0],
+    }
+
+
+# ===========================================================================
 # ADMIN
 # ===========================================================================
 @route("GET", r"/api/admin/summary", role="admin")
@@ -4133,6 +4286,8 @@ def admin_summary(ctx):
                              " WHERE status='pending' GROUP BY bike_id, field_key)"),
         "bike_requests":   q("SELECT COUNT(*) FROM bike_requests WHERE status='pending'"),
         "manager_applications": q("SELECT COUNT(*) FROM manager_applications WHERE status='pending'"),
+        "visitors_today":  c.execute("SELECT COUNT(*) FROM visits WHERE day=?",
+                                     (datetime.now(timezone.utc).strftime("%Y-%m-%d"),)).fetchone()[0],
         "managers":        q("SELECT COUNT(DISTINCT user_id) FROM bike_managers"),
         "managed_bikes":   q("SELECT COUNT(DISTINCT bike_id) FROM bike_managers"),
         "catalog_dropped": q("SELECT COUNT(*) FROM catalog_v2_dropped"),
@@ -6253,6 +6408,25 @@ def _assign_manager(ctx, bike_id, user_id, specialty=None, via=None):
     return promoted
 
 
+@route("POST", r"/api/admin/bikes/(\d+)/offline", role="admin")
+def set_bike_offline(ctx):
+    """Take a whole bike off the site for riders, or put it back. Nothing on
+    it is deleted: its specs, photos and managers are all there when it
+    comes back."""
+    bike_id = int(ctx.params[0])
+    bike = one(ctx.conn.execute(
+        "SELECT d.display_name FROM bike_display d WHERE d.bike_id=?", (bike_id,)))
+    if not bike:
+        raise HttpError(404, "bike not found")
+    on = bool(ctx.body.get("offline"))
+    ctx.conn.execute("UPDATE bikes SET offline=? WHERE id=?", (1 if on else 0, bike_id))
+    log_action(ctx, "bike.offline" if on else "bike.online",
+               f'{"Took" if on else "Put"} {bike["display_name"]} {"offline" if on else "back online"}',
+               target=str(bike_id), detail={"bike_id": bike_id, "offline": on})
+    ctx.conn.commit()
+    return {"ok": True, "offline": on}
+
+
 @route("DELETE", r"/api/admin/bikes/(\d+)/manager/(\d+)", role="admin")
 def unassign_manager(ctx):
     bike_id, user_id = int(ctx.params[0]), int(ctx.params[1])
@@ -6665,6 +6839,8 @@ class Handler(BaseHTTPRequestHandler):
 
                 ctx = Ctx(conn, user, hit.groups(), parse_qs(parsed.query), body)
                 ctx.admin_token = self._cookie_token(ADMIN_COOKIE)
+                ctx.headers = self.headers                  # for visitor counts
+                ctx.peer = self.client_address[0]
                 result = fn(ctx)
                 if isinstance(result, dict) and "_file" in result:
                     return self._send_file(result["_file"], result["_filename"], result.get("_ctype"))

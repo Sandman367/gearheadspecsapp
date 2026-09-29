@@ -26,7 +26,8 @@ MIGRATIONS = ["migrate_manager_tiers", "migrate_year_photos", "migrate_spec_note
               "migrate_brakes_category", "migrate_wiring_diagrams",
               "migrate_spec_archive", "migrate_fuse_value_type",
               "migrate_fuse_box", "migrate_archived_values",
-              "migrate_manager_applications"]
+              "migrate_manager_applications", "migrate_visits",
+              "migrate_bike_offline"]
 
 
 def main():

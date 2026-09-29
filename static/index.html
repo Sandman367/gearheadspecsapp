@@ -1239,6 +1239,13 @@ function renderHero(){
                          aria-label="Hide ${esc(s.label)} from this bike's header">×</button>`)
                   : ""}</div>`).join("")}
           </div>` : ""}
+        ${bike.offline ? `
+          <div class="auth-prompt" style="margin:10px 0;border-color:var(--amber)">
+            <span><strong>This bike is offline.</strong> Riders can't find it or open it. Only you${
+              ME.user && ME.user.role === "admin" ? " and its managers" : " and admin"} can see it.</span>
+            ${ME.user && ME.user.role === "admin" ? `<div class="auth-prompt-actions">
+              <button class="primary-btn" data-bike-offline="0">Put it back online</button></div>` : ""}
+          </div>` : ""}
         <div class="credit">
           ${bike.lead_manager ? `
             <span class="lbl">Lead manager</span>
@@ -1258,6 +1265,8 @@ function renderHero(){
                   title="Nobody's looking after this bike yet">Know this bike well? Offer to look after it →</a>` : ""}
           <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
+          ${ME.user && ME.user.role === "admin" && !bike.offline
+            ? `<button class="ghost-btn" data-bike-offline="1" title="Hide this whole bike from riders. Nothing on it is deleted.">Take this bike offline</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -2159,6 +2168,17 @@ document.addEventListener("click", guard(async (e) => {
     toast(r.paused
       ? `“${r.label}” is offline — riders see the field, not the value.`
       : `“${r.label}” is back online.`, "ok");
+    await refreshSpecs();
+    return;
+  }
+
+  const bikeOffline = e.target.closest("[data-bike-offline]");
+  if(bikeOffline){
+    const off = bikeOffline.dataset.bikeOffline === "1";
+    if(off && !confirm(`Take the ${BIKE.display_name} offline? Riders won't be able to find it or open it. Nothing on it is deleted, and you can put it back any time.`)) return;
+    await API.post(`/api/admin/bikes/${BIKE.bike_id}/offline`, { offline: off });
+    toast(off ? "The bike is offline. Only you and its managers can see it now."
+              : "The bike is back online for everyone.", "ok");
     await refreshSpecs();
     return;
   }

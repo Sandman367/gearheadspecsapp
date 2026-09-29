@@ -48,6 +48,10 @@ CREATE TABLE bikes (
   lead_manager_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
   lead_since          TEXT,
 
+  -- 1 = offline: riders don't see it in Browse, search, counts or at its
+  -- address; admin still does and can put it back (migrate_bike_offline).
+  offline             INTEGER NOT NULL DEFAULT 0 CHECK (offline IN (0,1)),
+
   created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE (make, model_code, year_start)
 );
@@ -1075,6 +1079,7 @@ CREATE TABLE manager_applications (
   -- what they know about this bike, and how
   experience   TEXT    NOT NULL,
   owns_one     INTEGER NOT NULL DEFAULT 0 CHECK (owns_one IN (0,1)),
+  used_to_own  INTEGER NOT NULL DEFAULT 0 CHECK (used_to_own IN (0,1)),
   status       TEXT    NOT NULL DEFAULT 'pending'
                  CHECK (status IN ('pending','approved','declined','withdrawn')),
   decided_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -1085,6 +1090,35 @@ CREATE TABLE manager_applications (
 CREATE INDEX idx_manager_applications_status ON manager_applications (status, created_at);
 CREATE UNIQUE INDEX idx_manager_applications_open
   ON manager_applications (bike_id, user_id) WHERE status = 'pending';
+
+-- Visitor counts for Admin -> Visitors. One row per visitor per day; the
+-- visitor is a hash salted with that day's salt, and the salt is deleted
+-- when the day ends, so nobody can be followed from one day to the next.
+-- referrer/country/landing are from the first page they opened that day.
+CREATE TABLE visits (
+  day      TEXT    NOT NULL,              -- YYYY-MM-DD, UTC
+  visitor  TEXT    NOT NULL,
+  referrer TEXT    NOT NULL DEFAULT '',   -- '' = typed it or a bookmark
+  country  TEXT    NOT NULL DEFAULT '',   -- two-letter code, '' = unknown
+  landing  TEXT    NOT NULL DEFAULT '',
+  pages    INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (day, visitor)
+);
+
+-- Which bikes people open: one row per visitor per bike per day.
+CREATE TABLE bike_views (
+  day      TEXT    NOT NULL,
+  bike_id  INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  visitor  TEXT    NOT NULL,
+  PRIMARY KEY (day, bike_id, visitor)
+);
+CREATE INDEX idx_bike_views_bike ON bike_views (bike_id, day);
+
+-- Today's salt only; older ones are deleted as each new day starts.
+CREATE TABLE visit_salts (
+  day  TEXT PRIMARY KEY,
+  salt TEXT NOT NULL
+);
 
 -- The managers' board and their direct messages. Managers are the people
 -- closest to the bikes, and they work alone on their own machines; the board
