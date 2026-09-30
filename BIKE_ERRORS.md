@@ -49,6 +49,11 @@ Intake/Exhaust Valve Clearance and Engine Oil Volume/Weight. The two filled
 values (79cc, cylinder configuration) were kept. Years corrected to **2001–present** by
 `fix_vanvan_jr80_years.py` (K1 = 2001 on suzukicycles.org; still sold in NZ).
 
+**Correction to that:** the live site also has a separate "Suzuki JR80"
+record (bike 2719, 2001–2015, years confirmed, managed by mit) that the local
+copy of the database did not. Stretching 2276 to 2001 laid it over mit's bike.
+`fix_jr80_overlap.py` moves 2276 to **2016–present**, after it.
+
 | | |
 |---|---|
 | Record says | q5=C, four-stroke with valve clearance adjustment |
