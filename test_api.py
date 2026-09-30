@@ -6938,6 +6938,51 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(con.execute("SELECT published FROM service_tasks WHERE task_key='oil'").fetchone()[0], 0)
         con.close()
 
+    def test_99y_spec_order_is_tidied_once(self):
+        """Related specs sit together within their category -- the exhaust
+        shim beside the exhaust clearance -- nothing changes category, the
+        three overwritten labels come back, and a second run leaves an
+        admin's later moves alone."""
+        import reorder_spec_fields as mig
+        path = os.path.join(self.tmp, "order.db")
+        shutil.copy(self.db, path)
+        con = sqlite3.connect(path)
+        con.execute("UPDATE spec_fields SET label='1' WHERE field_key='fuse_type'")
+        con.execute("UPDATE spec_fields SET label='Fan' WHERE field_key='fan_fuse_type'")
+        con.execute("UPDATE spec_fields SET label='Fan Fuse' WHERE field_key='fan_fuse_amp_rating'")
+        before = dict(con.execute("SELECT field_key, category FROM spec_fields"))
+        bands = {c: (lo, hi) for c, lo, hi in con.execute(
+            "SELECT category, MIN(sort_order), MAX(sort_order) FROM spec_fields GROUP BY category")}
+        con.commit(); con.close()
+
+        mig.migrate(path)
+        con = sqlite3.connect(path)
+        self.assertEqual(dict(con.execute("SELECT field_key, category FROM spec_fields")), before)
+        for c, lo, hi in con.execute(
+                "SELECT category, MIN(sort_order), MAX(sort_order) FROM spec_fields GROUP BY category"):
+            self.assertEqual((lo, hi), bands[c], c)
+        engine = [k for (k,) in con.execute(
+            "SELECT field_key FROM spec_fields WHERE category='Engine' ORDER BY sort_order")]
+        i = engine.index("valve_clearance_exhaust")
+        self.assertEqual(engine[i + 1], "exhaust_shim_size")
+        self.assertEqual(engine[engine.index("valve_clearance_intake") + 1], "intake_shim_size")
+        self.assertEqual(dict(con.execute(
+            "SELECT field_key, label FROM spec_fields WHERE field_key IN"
+            " ('fuse_type','fan_fuse_type','fan_fuse_amp_rating')")),
+            {"fuse_type": "Fuse Type", "fan_fuse_type": "Fan Fuse Type",
+             "fan_fuse_amp_rating": "Fan Fuse Amp Rating"})
+
+        # an admin moves a field afterwards; a restart must not undo it
+        con.execute("UPDATE spec_fields SET sort_order=sort_order+500 WHERE field_key='idle_speed'")
+        con.commit()
+        moved = con.execute("SELECT sort_order FROM spec_fields WHERE field_key='idle_speed'").fetchone()[0]
+        con.close()
+        mig.migrate(path)
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute(
+            "SELECT sort_order FROM spec_fields WHERE field_key='idle_speed'").fetchone()[0], moved)
+        con.close()
+
     def test_99u_electric_bikes_go_offline_once_and_only_once(self):
         """The migration takes the electric bikes offline when it adds the
         column, and never again -- a bike admin puts back online stays up."""
