@@ -3746,6 +3746,198 @@ def toggle_pause(ctx):
 
 
 # ===========================================================================
+# JOBS -- an oil change, a chain, brake pads: one card per job on the bike
+# page, with every spec it needs, the tools and the helpful links.
+#
+# A job is a service task (the service log's list), so the card and "log an
+# oil change" in My Garage are the same thing with the same specs. Its specs
+# keep their one home in Engine, Drive, ...; the job only points at them.
+# Tools and links belong to the job on one bike: the drain pan is for the oil
+# change, not for "Engine Oil Volume".
+# ===========================================================================
+JOB_TOOL_MAX, JOB_TITLE_MAX = 80, 140
+
+
+def _job(conn, task_key, published_only=True):
+    j = one(conn.execute("SELECT * FROM service_tasks WHERE task_key=?", (task_key,)))
+    if not j or (published_only and not j["published"]):
+        raise HttpError(404, "no such job")
+    return j
+
+
+@route("GET", r"/api/bikes/(\d+)/jobs")
+def bike_jobs(ctx):
+    """The published jobs this bike has specs for, in order: which of its
+    specs each uses (the page already holds their values), the tools, and
+    the links, most useful first. A job with none of its specs on this bike
+    is not a job for it -- a two-stroke has no engine oil to change."""
+    bike_id = int(ctx.params[0])
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    uid = ctx.user["id"] if ctx.user else -1
+    is_manager = bool(ctx.user) and manages_bike(ctx.conn, ctx.user, bike_id)
+    hide = "" if is_manager else " AND paused = 0"
+    out = []
+    for j in rows(ctx.conn.execute(
+            "SELECT task_key, name, icon, description FROM service_tasks"
+            " WHERE published=1 ORDER BY sort_order, name")):
+        keys = [r[0] for r in ctx.conn.execute(
+            "SELECT ts.field_key FROM service_task_specs ts"
+            " WHERE ts.task_key=? AND EXISTS (SELECT 1 FROM specs s"
+            "   WHERE s.bike_id=? AND s.field_key=ts.field_key)"
+            " ORDER BY ts.sort_order", (j["task_key"], bike_id))]
+        if not keys:
+            continue
+        j["field_keys"] = keys
+        j["tools"] = rows(ctx.conn.execute(
+            f"SELECT t.id, t.text, t.paused, u.username AS added_by FROM job_tools t"
+            f" LEFT JOIN users u ON u.id=t.added_by"
+            f" WHERE t.bike_id=? AND t.task_key=?{hide} ORDER BY t.id", (bike_id, j["task_key"])))
+        j["links"] = rows(ctx.conn.execute(
+            f"SELECT l.id, l.link_type, l.title, l.url, l.paused, u.username AS added_by,"
+            f"  (SELECT COUNT(*) FROM job_link_votes v WHERE v.link_id=l.id) AS votes,"
+            f"  EXISTS (SELECT 1 FROM job_link_votes v WHERE v.link_id=l.id AND v.user_id=?) AS my_vote"
+            f" FROM job_links l LEFT JOIN users u ON u.id=l.added_by"
+            f" WHERE l.bike_id=? AND l.task_key=?{hide} ORDER BY votes DESC, l.id",
+            (uid, bike_id, j["task_key"])))
+        for x in j["tools"] + j["links"]:
+            x["paused"] = bool(x["paused"])
+        for l in j["links"]:
+            l["my_vote"] = bool(l["my_vote"])
+        out.append(j)
+    return {"jobs": out, "is_manager": is_manager}
+
+
+@route("POST", r"/api/bikes/(\d+)/jobs/([a-z0-9_]+)/tools", role="user")
+def add_job_tool(ctx):
+    bike_id, task_key = int(ctx.params[0]), ctx.params[1]
+    _job(ctx.conn, task_key)
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    text = " ".join((ctx.body.get("text") or "").split())
+    if not text:
+        raise HttpError(400, "name the tool")
+    if len(text) > JOB_TOOL_MAX:
+        raise HttpError(400, f"keep it under {JOB_TOOL_MAX} characters")
+    try:
+        cur = ctx.conn.execute(
+            "INSERT INTO job_tools (bike_id, task_key, text, added_by) VALUES (?,?,?,?)",
+            (bike_id, task_key, text, ctx.user["id"]))
+    except sqlite3.IntegrityError:
+        raise HttpError(409, "That tool is already on the list.")
+    ctx.conn.commit()
+    return {"id": cur.lastrowid}
+
+
+@route("POST", r"/api/bikes/(\d+)/jobs/([a-z0-9_]+)/links", role="user")
+def add_job_link(ctx):
+    bike_id, task_key = int(ctx.params[0]), ctx.params[1]
+    _job(ctx.conn, task_key)
+    if not ctx.conn.execute("SELECT 1 FROM bikes WHERE id=?", (bike_id,)).fetchone():
+        raise HttpError(404, "bike not found")
+    link_type = ctx.body.get("link_type") or "other"
+    if link_type not in ("yt", "forum", "doc", "other"):
+        raise HttpError(400, "unknown link type")
+    url = (ctx.body.get("url") or "").strip()
+    if not re.match(r"^https?://", url) or len(url) > 500:
+        raise HttpError(400, "Paste a full web address, starting with http:// or https://")
+    title = " ".join((ctx.body.get("title") or "").split())
+    if not title:
+        raise HttpError(400, "Give the link a short title, so riders know what it is.")
+    if len(title) > JOB_TITLE_MAX:
+        raise HttpError(400, f"keep the title under {JOB_TITLE_MAX} characters")
+    try:
+        cur = ctx.conn.execute(
+            "INSERT INTO job_links (bike_id, task_key, link_type, title, url, added_by)"
+            " VALUES (?,?,?,?,?,?)", (bike_id, task_key, link_type, title, url, ctx.user["id"]))
+    except sqlite3.IntegrityError:
+        raise HttpError(409, "That link is already here.")
+    ctx.conn.commit()
+    return {"id": cur.lastrowid}
+
+
+@route("POST", r"/api/job-links/(\d+)/vote", role="user")
+def vote_job_link(ctx):
+    link_id = int(ctx.params[0])
+    if not ctx.conn.execute("SELECT 1 FROM job_links WHERE id=?", (link_id,)).fetchone():
+        raise HttpError(404, "link not found")
+    had = ctx.conn.execute("DELETE FROM job_link_votes WHERE link_id=? AND user_id=?",
+                           (link_id, ctx.user["id"])).rowcount
+    if not had:
+        ctx.conn.execute("INSERT INTO job_link_votes (link_id, user_id) VALUES (?,?)",
+                         (link_id, ctx.user["id"]))
+    ctx.conn.commit()
+    votes = ctx.conn.execute("SELECT COUNT(*) FROM job_link_votes WHERE link_id=?", (link_id,)).fetchone()[0]
+    return {"voted": not had, "votes": votes}
+
+
+@route("POST", r"/api/job-(tools|links)/(\d+)/pause", role="manager")
+def pause_job_item(ctx):
+    """The bike's manager hides a tool or link without deleting it (a dead
+    video, a wrong tool), or puts it back."""
+    table = "job_tools" if ctx.params[0] == "tools" else "job_links"
+    row = one(ctx.conn.execute(f"SELECT bike_id, paused FROM {table} WHERE id=?", (int(ctx.params[1]),)))
+    if not row:
+        raise HttpError(404, "not found")
+    require_manages(ctx.conn, ctx.user, row["bike_id"])
+    new = 0 if row["paused"] else 1
+    ctx.conn.execute(f"UPDATE {table} SET paused=? WHERE id=?", (new, int(ctx.params[1])))
+    ctx.conn.commit()
+    return {"paused": bool(new)}
+
+
+@route("GET", r"/api/admin/jobs", role="admin")
+def admin_jobs(ctx):
+    """Every job (service task) with its specs in order, and every field on
+    the tree to choose from."""
+    jobs = rows(ctx.conn.execute(
+        "SELECT task_key, name, icon, description, published, default_interval_miles"
+        " FROM service_tasks ORDER BY sort_order, name"))
+    for j in jobs:
+        j["published"] = bool(j["published"])
+        j["fields"] = rows(ctx.conn.execute(
+            "SELECT f.field_key, f.label, f.category,"
+            " (SELECT COUNT(*) FROM specs s WHERE s.field_key=f.field_key) AS bikes"
+            " FROM service_task_specs ts JOIN spec_fields f ON f.field_key=ts.field_key"
+            " WHERE ts.task_key=? ORDER BY ts.sort_order", (j["task_key"],)))
+    return {"jobs": jobs, "all_fields": rows(ctx.conn.execute(
+        "SELECT field_key, label, category FROM spec_fields ORDER BY category, label"))}
+
+
+@route("PATCH", r"/api/admin/jobs/([a-z0-9_]+)", role="admin")
+def admin_edit_job(ctx):
+    """Rename a job, describe it, publish or unpublish it, and set its specs
+    (in the order given). The same list is what the service log shows."""
+    task_key = ctx.params[0]
+    job = _job(ctx.conn, task_key, published_only=False)
+    body = ctx.body
+    name = " ".join((body.get("name") or job["name"]).split())
+    if not name or len(name) > 60:
+        raise HttpError(400, "a job needs a name of up to 60 characters")
+    desc = body.get("description", job["description"])
+    desc = " ".join(desc.split())[:200] if desc else None
+    published = job["published"] if "published" not in body else (1 if body["published"] else 0)
+    ctx.conn.execute("UPDATE service_tasks SET name=?, description=?, published=? WHERE task_key=?",
+                     (name, desc, published, task_key))
+    if "field_keys" in body:
+        keys = body["field_keys"]
+        if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+            raise HttpError(400, "field_keys must be a list")
+        known = {r[0] for r in ctx.conn.execute("SELECT field_key FROM spec_fields")}
+        unknown = [k for k in keys if k not in known]
+        if unknown:
+            raise HttpError(400, f"not on the Spec Tree: {', '.join(unknown)}")
+        ctx.conn.execute("DELETE FROM service_task_specs WHERE task_key=?", (task_key,))
+        ctx.conn.executemany(
+            "INSERT OR IGNORE INTO service_task_specs (task_key, field_key, sort_order) VALUES (?,?,?)",
+            [(task_key, k, i) for i, k in enumerate(keys)])
+    log_action(ctx, "job.edit", f'Edited the job "{name}"' + (" (published)" if published else ""),
+               target=task_key, detail={"published": bool(published), "field_keys": body.get("field_keys")})
+    ctx.conn.commit()
+    return {"ok": True}
+
+
+# ===========================================================================
 # GARAGE + SERVICE LOG
 # ===========================================================================
 def _interval_miles(conn, bike_id, task):

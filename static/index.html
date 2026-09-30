@@ -13,6 +13,9 @@
   .header-inner{ display: flex; align-items: center; gap: 32px; max-width: 1900px; margin: 0 auto; }
   .header-copy{ flex: 1; min-width: 0; }
   .brand-logo{ max-width: 260px; width: 100%; height: auto; display: block; margin-bottom: 14px; }
+  /* The logo takes you home, from anywhere on the page. */
+  .brand-link{ display: block; max-width: 260px; }
+  .brand-link:focus-visible{ outline: 2px solid var(--amber); outline-offset: 4px; }
   /* The h1 is only a wrapper for the logo — it should not impose the uppercase
      display type the other pages' headings use. */
   .brand-h1{ font-size: 0; line-height: 0; margin: 0; letter-spacing: normal; }
@@ -106,6 +109,51 @@
   .side-calc-head a{ font-size: 10px; color: var(--text-faint); text-decoration: none; }
   .side-calc-head a:hover{ color: var(--amber); }
   .side-calc iframe{ display: block; width: 100%; height: 560px; border: 0; background: transparent; }
+  /* ---- jobs: an oil change, a chain... one card per job ---- */
+  .jobs-panel .panel-head p{ margin-bottom: 0; }
+  .job-card{ border-top: 1px solid var(--line); }
+  .job-head{ display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 18px;
+             background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .job-head:hover{ background: var(--panel-2); }
+  .job-icon{ color: var(--amber); flex: none; }
+  .job-title{ font-family: var(--display); font-size: 17px; color: var(--amber); letter-spacing: 0.01em; }
+  .job-sum{ flex: 1; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .job-chev{ color: var(--amber); transition: transform .15s ease; }
+  .job-card.open .job-chev{ transform: rotate(90deg); }
+  .job-body{ display: none; padding: 0 18px 18px 50px; }
+  .job-card.open .job-body{ display: block; }
+  .job-desc{ font-size: 12px; color: var(--text-dim); margin: 0 0 12px; }
+  .job-spec{ display: grid; grid-template-columns: minmax(140px, 1fr) 2fr auto; gap: 10px; align-items: baseline;
+             padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .job-spec .lbl{ color: var(--text-dim); }
+  .job-spec .val{ font-weight: 500; }
+  .job-spec .gap{ color: var(--text-faint); font-style: italic; font-weight: 400; }
+  .job-spec a{ font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+  .job-sub{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint);
+            margin: 16px 0 6px; text-transform: uppercase; }
+  .job-tools{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .job-tool{ display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2);
+             padding: 4px 9px; font-size: 12px; }
+  .job-tool.hidden-item, .job-link.hidden-item{ opacity: 0.5; }
+  .job-x{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 11px; padding: 0; }
+  .job-x:hover{ color: var(--amber); }
+  .job-link{ display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .job-link .kind{ flex: none; width: 26px; height: 26px; display: grid; place-items: center; font-size: 11px; border-radius: 3px;
+                   background: rgba(217,154,43,0.1); color: var(--amber); }
+  .job-link .kind.yt{ background: #3a1414; color: #e0524a; }
+  .job-link .kind.forum{ background: #1a2e3a; color: #5aa3c9; }
+  .job-link .txt{ flex: 1; min-width: 0; }
+  .job-link .txt a{ color: var(--text); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .job-link .txt a:hover{ color: var(--amber); }
+  .job-link .txt small{ color: var(--text-faint); font-size: 10px; }
+  .job-vote{ display: inline-flex; align-items: center; gap: 4px; background: none; border: 1px solid var(--line);
+             color: var(--text-dim); cursor: pointer; padding: 3px 7px; font-family: var(--mono); font-size: 11px; }
+  .job-vote svg{ width: 14px; height: 14px; }
+  .job-vote.on{ color: var(--blue, #4a8fd9); border-color: currentColor; }
+  .job-add{ display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .job-add input, .job-add select{ width: auto; flex: 1; min-width: 120px; font-size: 12px; padding: 6px 8px; }
+  .job-add select{ flex: none; min-width: 0; }
+  @media (max-width: 620px){ .job-body{ padding-left: 18px; } .job-spec{ grid-template-columns: 1fr; gap: 2px; } }
   .cat-nav-item.active .cat-nav-count{ color: var(--amber-dim); }
 
   /* ---- search ---- */
@@ -791,8 +839,8 @@
       <!-- The logo carries the site name, so it is the h1 rather than sitting
            beside one: dropping the heading entirely would leave the page with
            no top-level landmark for anyone navigating by heading. -->
-      <h1 class="brand-h1"><img class="brand-logo" src="/img/brand-logo.png"
-          alt="GearHeadSpecs"></h1>
+      <h1 class="brand-h1"><a class="brand-link" href="/" title="GearHeadSpecs home"><img class="brand-logo"
+          src="/img/brand-logo.png" alt="GearHeadSpecs"></a></h1>
       <div class="eyebrow">Motorcycles — Specs. Exactly what you need.</div>
       <div class="subhead" id="total-count">Loading…</div>
     </div>
@@ -816,6 +864,11 @@
       <div id="cat-nav-list"></div>
       <!-- A tool rather than a section, so it is set apart from the jump
            list, and always open while you read the bike. -->
+      <!-- Jobs this bike has: each jumps to its card and opens it. -->
+      <div class="cat-nav-tools" id="side-jobs" hidden>
+        <div class="cat-sidebar-title" style="padding:0 4px 6px">Jobs</div>
+        <div id="side-jobs-list"></div>
+      </div>
       <!-- Not a 2-stroke: just the link, as it was. -->
       <div class="cat-nav-tools" id="side-calc-link" hidden>
         <a class="cat-nav-item cat-nav-tool" href="/calculator.html" target="_blank" rel="noopener">
@@ -936,6 +989,8 @@
 <script src="/fuse.js"></script>
 <script>
 let SPECS = null;
+let JOBS = null;                 // the job cards for the open bike
+const OPEN_JOBS = new Set();     // which ones are unfolded, across redraws
 // Whether the signed-in user manages the bike currently open. Drives the
 // Fixed-spec toggle, which is theirs alone.
 let MANAGES_THIS_BIKE = false;
@@ -1106,11 +1161,12 @@ function resetFilters(){
 const openBike = guard(async (bikeId, opts = {}) => {
   const box = byId("detail-container");
   box.innerHTML = `<div class="panel"><div class="loading">Loading spec sheet…</div></div>`;
-  const [bike, specs] = await Promise.all([
+  const [bike, specs, jobs] = await Promise.all([
     API.get(`/api/bikes/${bikeId}`),
     API.get(`/api/bikes/${bikeId}/specs`),
+    API.get(`/api/bikes/${bikeId}/jobs`),
   ]);
-  BIKE = bike; SPECS = specs;
+  BIKE = bike; SPECS = specs; JOBS = jobs.jobs;
   // Abbreviations are per manufacturer, so the vocabulary is fetched for THIS
   // bike's make before anything draws a wire.
   const every = [...specs.categories.flatMap(c => c.specs), ...(specs.unplaced || [])];
@@ -1170,12 +1226,162 @@ window.addEventListener("popstate", (e) => {
   const id = e.state && e.state.bikeId;
   if(id) openBike(id, {silent: true});
   else {
-    BIKE = null; SPECS = null;
+    BIKE = null; SPECS = null; JOBS = null;
     showMixCalc(false);
     byId("detail-container").innerHTML = "";
     byId("cat-sidebar").classList.remove("visible");
   }
 });
+
+const JOB_ICONS = {
+  oil: `<svg class="job-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h9l3-3 6-2-5 7H5a2 2 0 0 1-2-2z"/><path d="M5 13v4a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M8 10V8h3v2"/><path d="M20 12.5c0 .8.6 1.5.6 2.2a.6.6 0 0 1-1.2 0c0-.7.6-1.4.6-2.2z"/></svg>`,
+  default: `<svg class="job-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>`,
+};
+function jobIcon(k){ return JOB_ICONS[k] || JOB_ICONS.default; }
+
+/* The spec rows a job points at, from the sheet already on the page -- a
+   year-split field brings each of its ranges. */
+function jobSpecs(job){
+  const all = allSpecs();
+  return job.field_keys.flatMap(k => all.filter(s => s.field_key === k && (!s.paused || MANAGES_THIS_BIKE)));
+}
+
+function renderJobs(){
+  if(!JOBS || !JOBS.length) return `<div id="jobs-panel"></div>`;
+  return `
+    <div class="panel jobs-panel" id="jobs-panel">
+      <div class="panel-head"><div><h3>Jobs</h3>
+        <p>Everything for one job in one place: the specs you need, the tools, and the
+           videos and threads other riders found useful. Anyone can add to them.</p></div></div>
+      ${JOBS.map(jobCard).join("")}
+    </div>`;
+}
+
+function jobCard(j){
+  const specs = jobSpecs(j);
+  const gaps = specs.filter(s => s.value === null || s.value === "").length;
+  const open = OPEN_JOBS.has(j.task_key);
+  const tools = j.tools.filter(t => !t.paused), links = j.links.filter(l => !l.paused);
+  const sum = [`${specs.length} spec${specs.length !== 1 ? "s" : ""}`, gaps ? `${gaps} not yet sourced` : "",
+               tools.length ? `${tools.length} tool${tools.length !== 1 ? "s" : ""}` : "",
+               links.length ? `${links.length} link${links.length !== 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch(e){ return ""; } };
+  return `
+    <div class="job-card${open ? " open" : ""}" id="job-${esc(j.task_key)}">
+      <button class="job-head" data-job-toggle="${esc(j.task_key)}" aria-expanded="${open}">
+        ${jobIcon(j.icon)}<span class="job-title">${esc(j.name)}</span>
+        <span class="job-sum">${esc(sum)}</span><span class="job-chev">▸</span>
+      </button>
+      <div class="job-body">
+        ${j.description ? `<p class="job-desc">${esc(j.description)}</p>` : ""}
+        ${specs.map(s => `
+          <div class="job-spec">
+            <span class="lbl">${esc(s.label)}</span>
+            <span class="val">${s.value ? esc(s.value) : `<span class="gap">not yet sourced</span>`} ${s.value ? confidenceBadge(s.confidence) : ""}</span>
+            <a href="#spec-${s.id}" data-jump-spec="spec-${s.id}" title="See it on the spec sheet, to add, vote or flag">${s.value ? "details ↓" : "add it ↓"}</a>
+          </div>`).join("")}
+
+        <div class="job-sub">Tools</div>
+        <div class="job-tools">${j.tools.length ? j.tools.map(t => `
+          <span class="job-tool${t.paused ? " hidden-item" : ""}" title="${t.added_by ? "Added by " + esc(t.added_by) : ""}">${esc(t.text)}${
+            MANAGES_THIS_BIKE ? ` <button class="job-x" data-job-pause="tools|${t.id}" title="${t.paused ? "Show it again" : "Hide it from riders (kept, not deleted)"}">${t.paused ? "show" : "✕"}</button>` : ""}</span>`).join("")
+          : `<span class="cell-dim">No tools listed yet.</span>`}</div>
+        <div class="job-add">
+          <input type="text" maxlength="80" placeholder="Add a tool, e.g. 17mm socket" id="job-tool-${esc(j.task_key)}">
+          <button class="action-btn" data-job-add-tool="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
+        </div>
+
+        <div class="job-sub">Helpful links</div>
+        ${j.links.length ? j.links.map(l => `
+          <div class="job-link${l.paused ? " hidden-item" : ""}">
+            <button class="job-vote${l.my_vote ? " on" : ""}" data-job-vote="${l.id}" data-auth-kind="vote"${authAttr()}
+                    title="${l.my_vote ? "You found this useful" : "This helped me"}">${THUMB_SVG}<span>${l.votes}</span></button>
+            <span class="kind ${esc(l.link_type)}">${l.link_type === "yt" ? "▶" : l.link_type === "forum" ? "💬" : "↗"}</span>
+            <span class="txt"><a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener nofollow ugc">${esc(l.title)}</a>
+              <small>${esc(host(l.url))}${l.added_by ? " · added by " + esc(l.added_by) : ""}${l.paused ? " · hidden from riders" : ""}</small></span>
+            ${MANAGES_THIS_BIKE ? `<button class="job-x" data-job-pause="links|${l.id}" title="${l.paused ? "Show it again" : "Hide it from riders (kept, not deleted)"}">${l.paused ? "show" : "✕"}</button>` : ""}
+          </div>`).join("")
+          : `<div class="cell-dim">No links yet. Found a good video or thread for this job? Add it.</div>`}
+        <div class="job-add">
+          <select id="job-link-type-${esc(j.task_key)}"><option value="yt">YouTube</option><option value="forum">Forum</option><option value="doc">Manual / PDF</option><option value="other">Other</option></select>
+          <input type="url" maxlength="500" placeholder="Paste the link" id="job-link-url-${esc(j.task_key)}">
+          <input type="text" maxlength="140" placeholder="What is it? e.g. Full oil change walkthrough" id="job-link-title-${esc(j.task_key)}">
+          <button class="action-btn" data-job-add-link="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderJobNav(){
+  const box = byId("side-jobs");
+  if(!box) return;
+  box.hidden = !(JOBS && JOBS.length);
+  byId("side-jobs-list").innerHTML = (JOBS || []).map(j => `
+    <button class="cat-nav-item" data-jump-job="${esc(j.task_key)}">
+      <span class="calc-name" style="font-weight:500">${jobIcon(j.icon).replace('width="22" height="22"', 'width="16" height="16"')}${esc(j.name)}</span>
+    </button>`).join("");
+}
+
+async function refreshJobs(){
+  JOBS = (await API.get(`/api/bikes/${BIKE.bike_id}/jobs`)).jobs;
+  const panel = byId("jobs-panel");
+  if(panel) panel.outerHTML = renderJobs();
+  renderJobNav();
+}
+
+document.addEventListener("click", guard(async (e) => {
+  const tog = e.target.closest("[data-job-toggle]");
+  if(tog){
+    const card = tog.closest(".job-card"), key = tog.dataset.jobToggle;
+    const open = !card.classList.contains("open");
+    card.classList.toggle("open", open);
+    tog.setAttribute("aria-expanded", open ? "true" : "false");
+    if(open) OPEN_JOBS.add(key); else OPEN_JOBS.delete(key);
+    return;
+  }
+  const jump = e.target.closest("[data-jump-job]");
+  if(jump){
+    const card = byId("job-" + jump.dataset.jumpJob);
+    if(!card) return;
+    card.classList.add("open"); OPEN_JOBS.add(jump.dataset.jumpJob);
+    card.querySelector(".job-head").setAttribute("aria-expanded", "true");
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  const addTool = e.target.closest("[data-job-add-tool]");
+  if(addTool && signedIn()){
+    const key = addTool.dataset.jobAddTool, input = byId("job-tool-" + key);
+    if(!input.value.trim()){ toast("Type the tool first.", "error"); return; }
+    await API.post(`/api/bikes/${BIKE.bike_id}/jobs/${key}/tools`, { text: input.value });
+    toast("Added to the tools list.", "ok");
+    await refreshJobs();
+    return;
+  }
+  const addLink = e.target.closest("[data-job-add-link]");
+  if(addLink && signedIn()){
+    const key = addLink.dataset.jobAddLink;
+    const url = byId("job-link-url-" + key).value.trim(), title = byId("job-link-title-" + key).value.trim();
+    if(!url || !title){ toast("Paste the link and say what it is.", "error"); return; }
+    await API.post(`/api/bikes/${BIKE.bike_id}/jobs/${key}/links`,
+                   { url, title, link_type: byId("job-link-type-" + key).value });
+    toast("Thanks, the link is up. Votes will move the most useful ones to the top.", "ok");
+    await refreshJobs();
+    return;
+  }
+  const vote = e.target.closest("[data-job-vote]");
+  if(vote && signedIn()){
+    await API.post(`/api/job-links/${vote.dataset.jobVote}/vote`);
+    await refreshJobs();
+    return;
+  }
+  const pause = e.target.closest("[data-job-pause]");
+  if(pause){
+    const [kind, id] = pause.dataset.jobPause.split("|");
+    const r = await API.post(`/api/job-${kind}/${id}/pause`);
+    toast(r.paused ? "Hidden from riders. It's kept, and you can show it again." : "Showing again.", "ok");
+    await refreshJobs();
+  }
+}));
 
 /* The calculator below the specs. The frame is only given its address the
    first time it is shown, so the catalogue never loads it. */
@@ -1455,6 +1661,7 @@ function renderDetail(){
   PHOTO_VIEW = null;
   byId("detail-container").innerHTML = `
     ${renderHero()}
+    ${renderJobs()}
     <div class="panel">
       <div class="panel-head">
         <div><h3>Full spec sheet</h3>
@@ -1887,6 +2094,7 @@ function renderCatNav(){
   }).join("");
   side.classList.add("visible");
   updateActiveCat();
+  renderJobNav();
 }
 
 document.addEventListener("click", (e) => {
@@ -3009,6 +3217,7 @@ document.addEventListener("change", guard(async (e) => {
 async function refreshSpecs(){
   SPECS = await API.get(`/api/bikes/${BIKE.bike_id}/specs`);
   BIKE = await API.get(`/api/bikes/${BIKE.bike_id}`);
+  JOBS = (await API.get(`/api/bikes/${BIKE.bike_id}/jobs`)).jobs;
   if(allSpecs().some(x => x.value_type === "wire_color")){
     await loadWireVocabulary(BIKE.make);
   }

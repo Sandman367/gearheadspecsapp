@@ -600,7 +600,7 @@ const load = guard(async () => {
   const scroll = window.scrollY;
   const [summary, proposals, treeFlags, notSure, userFlags, divergence, dropped,
          unverified, assign, unplaced, activity, notices, members, fieldReqs, bikeReqs,
-         managerApps, visitors] = await Promise.all([
+         managerApps, visitors, jobs] = await Promise.all([
       API.get("/api/admin/summary"),
       API.get("/api/admin/proposals"),
       API.get("/api/admin/tree-flags"),
@@ -618,6 +618,7 @@ const load = guard(async () => {
       API.get("/api/admin/bike-requests"),
       API.get("/api/admin/manager-applications"),
       API.get("/api/admin/visitors"),
+      API.get("/api/admin/jobs"),
     ]);
   S = { summary, proposals: proposals.items, treeFlags: treeFlags.items,
         notSure: notSure.items, userFlags: userFlags.items,
@@ -626,7 +627,7 @@ const load = guard(async () => {
         activity, notices: notices.items, members: members.users,
         fieldRequests: fieldReqs.items,
         bikeRequests: bikeReqs.items, bikeTypes: bikeReqs.bike_types,
-        managerApps: managerApps.items, visitors };
+        managerApps: managerApps.items, visitors, jobs };
   render();
   await restoreFieldSearch();
   collapseLong();
@@ -683,6 +684,94 @@ function visitorsPanel(v){
       </div>
     </div>`;
 }
+
+// Jobs: an oil change, a chain... Each is a service task; admin names it,
+// picks its specs in order, and decides when it shows on bike pages.
+let JOB_DRAFTS = {};      // task_key -> { name, description, published, fields:[{field_key,label,category}] }
+function jobDraft(j){
+  if(!JOB_DRAFTS[j.task_key]) JOB_DRAFTS[j.task_key] = { name: j.name, description: j.description || "",
+    published: j.published, fields: j.fields.map(f => ({ ...f })), dirty: false };
+  return JOB_DRAFTS[j.task_key];
+}
+function jobsPanel(){
+  const data = S.jobs;
+  const cats = [...new Set(data.all_fields.map(f => f.category))];
+  return `
+    <div class="panel" id="p-jobs">
+      <div class="panel-head">
+        <div><h3>Jobs</h3>
+          <p>The work riders do on a bike, each one a card on the bike page with the
+             specs it needs, a tools list and helpful links. A job is also the task
+             of that name in riders' service logs, with the same specs. A bike shows a
+             job only if it has at least one of its specs. Tick <em>Show on bike
+             pages</em> when a job is ready.</p></div>
+        <span class="count-tag">${data.jobs.filter(j => j.published).length} of ${data.jobs.length} shown</span>
+      </div>
+      <div class="panel-body">${data.jobs.map(j => {
+        const d = jobDraft(j), taken = new Set(d.fields.map(f => f.field_key));
+        return `
+        <div class="job-edit" style="border:1px solid var(--line);padding:12px 14px;margin-bottom:12px${d.published ? ";border-color:var(--amber-dim)" : ""}">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input type="text" data-job-name="${esc(j.task_key)}" value="${esc(d.name)}" maxlength="60" style="flex:1;min-width:160px;font-weight:600">
+            <label style="display:flex;gap:6px;align-items:center;font-size:12px;cursor:pointer">
+              <input type="checkbox" data-job-pub="${esc(j.task_key)}"${d.published ? " checked" : ""} style="width:auto"> Show on bike pages</label>
+          </div>
+          <input type="text" data-job-desc="${esc(j.task_key)}" value="${esc(d.description)}" maxlength="200"
+                 placeholder="One line riders see on the card, e.g. Drain the old oil, change the filter, refill." style="margin-top:8px">
+          <div class="field-label" style="margin-top:10px">Specs, in the order riders see them</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${d.fields.map((f, i) => `
+            <span class="badge" style="display:inline-flex;gap:6px;align-items:center;padding:4px 8px">
+              ${i ? `<button class="job-x" data-job-up="${esc(j.task_key)}|${i}" title="Move earlier" style="background:none;border:none;color:var(--text-faint);cursor:pointer">←</button>` : ""}
+              ${esc(f.label)} <span class="cell-dim">· ${esc(f.category)}</span>
+              <button data-job-drop="${esc(j.task_key)}|${i}" title="Take it off this job" style="background:none;border:none;color:var(--text-faint);cursor:pointer">✕</button></span>`).join("")
+            || `<span class="cell-dim">No specs yet: this job would show on no bike.</span>`}</div>
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <select data-job-pick="${esc(j.task_key)}" style="flex:1;min-width:200px">
+              <option value="">+ Add a spec…</option>
+              ${cats.map(c => `<optgroup label="${esc(c)}">${data.all_fields.filter(f => f.category === c && !taken.has(f.field_key))
+                .map(f => `<option value="${esc(f.field_key)}">${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
+            </select>
+            <button class="primary-btn" data-job-save="${esc(j.task_key)}"${d.dirty ? "" : " disabled"}>Save</button>
+          </div>
+        </div>`; }).join("")}
+      </div>
+    </div>`;
+}
+function redrawJobs(){ const p = document.getElementById("p-jobs"); if(p) p.outerHTML = jobsPanel(); }
+document.addEventListener("input", (e) => {
+  const n = e.target.closest("[data-job-name],[data-job-desc]");
+  if(!n) return;
+  const key = n.dataset.jobName || n.dataset.jobDesc, d = JOB_DRAFTS[key];
+  if(n.dataset.jobName) d.name = n.value; else d.description = n.value;
+  d.dirty = true;
+  const save = document.querySelector(`[data-job-save="${key}"]`); if(save) save.disabled = false;
+});
+document.addEventListener("change", (e) => {
+  const pub = e.target.closest("[data-job-pub]");
+  if(pub){ const d = JOB_DRAFTS[pub.dataset.jobPub]; d.published = pub.checked; d.dirty = true; redrawJobs(); return; }
+  const pick = e.target.closest("[data-job-pick]");
+  if(pick && pick.value){
+    const key = pick.dataset.jobPick, f = S.jobs.all_fields.find(x => x.field_key === pick.value);
+    JOB_DRAFTS[key].fields.push({ ...f }); JOB_DRAFTS[key].dirty = true; redrawJobs();
+  }
+});
+document.addEventListener("click", guard(async (e) => {
+  const drop = e.target.closest("[data-job-drop]");
+  if(drop){ const [k, i] = drop.dataset.jobDrop.split("|"); JOB_DRAFTS[k].fields.splice(Number(i), 1); JOB_DRAFTS[k].dirty = true; redrawJobs(); return; }
+  const up = e.target.closest("[data-job-up]");
+  if(up){ const [k, i] = up.dataset.jobUp.split("|"), f = JOB_DRAFTS[k].fields, n = Number(i);
+          [f[n - 1], f[n]] = [f[n], f[n - 1]]; JOB_DRAFTS[k].dirty = true; redrawJobs(); return; }
+  const save = e.target.closest("[data-job-save]");
+  if(save){
+    const k = save.dataset.jobSave, d = JOB_DRAFTS[k];
+    await API.patch(`/api/admin/jobs/${k}`, { name: d.name, description: d.description, published: d.published,
+                                               field_keys: d.fields.map(f => f.field_key) });
+    toast(d.published ? `"${d.name}" saved, and showing on bike pages.` : `"${d.name}" saved. It's not on bike pages yet.`, "ok");
+    delete JOB_DRAFTS[k];
+    S.jobs = await API.get("/api/admin/jobs");
+    redrawJobs();
+  }
+}));
 
 function managerAppRows(items){
   return items.map(a => `
@@ -1031,6 +1120,8 @@ function render(){
     </div>` : ""}
 
     ${visitorsPanel(S.visitors)}
+
+    ${jobsPanel()}
 
     <div class="panel" id="p-tree">
       <div class="panel-head">

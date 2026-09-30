@@ -6800,6 +6800,100 @@ class ApiTest(unittest.TestCase):
             self.assertFalse(self.anon().get(f"/api/bikes/{four[0]}")[1]["two_stroke"])
         self.assertTrue(two or four, "the seed should answer q5 for some bike")
 
+    def test_99w_the_oil_change_is_a_job_card(self):
+        """The oil change is a published job: on a bike with engine oil it
+        lists its specs, starts with the tools and links riders had put on
+        the oil specs, and takes new ones. A two-stroke has no oil-change
+        card. Only admin shapes a job; only the bike's manager hides items."""
+        anon, rider, tina, mgr, adm = (self.anon(), self.as_("sohc_sam"), self.as_("two_stroke_tina"),
+                                       self.as_("m.alvarez"), self.as_("admin"))
+        s, d = anon.get(f"/api/bikes/{self.cb919}/jobs")
+        self.assertEqual(s, 200, d)
+        oil = next(j for j in d["jobs"] if j["task_key"] == "oil")
+        self.assertEqual(oil["name"], "Oil change")
+        self.assertEqual(oil["field_keys"][:3], ["engine_oil_weight", "engine_oil_volume", "oil_filter_part_number"])
+        self.assertIn("Oil drain pan", [t["text"] for t in oil["tools"]])      # carried up from the spec
+        self.assertEqual(oil["links"][0]["title"], "Honda CB919 Oil & Filter Change — Full Walkthrough")
+        self.assertGreater(oil["links"][0]["votes"], oil["links"][-1]["votes"])
+        self.assertFalse(any(j["task_key"] == "chain" for j in d["jobs"]))     # not published yet
+
+        con = sqlite3.connect(self.db)
+        two = con.execute("SELECT b.id FROM bikes b WHERE NOT EXISTS (SELECT 1 FROM specs s WHERE s.bike_id=b.id"
+                          " AND s.field_key IN ('engine_oil_weight','engine_oil_volume','oil_filter_part_number',"
+                          " 'oil_change_interval','oil_screen_location','oil_filter_1_part_number',"
+                          " 'oil_filter_2_part_number')) LIMIT 1").fetchone()[0]
+        con.close()
+        self.assertEqual(anon.get(f"/api/bikes/{two}/jobs")[1]["jobs"], [])
+
+        base = f"/api/bikes/{self.cb919}/jobs/oil"
+        self.assertEqual(anon.post(base + "/tools", {"text": "Rags"})[0], 401)
+        self.assertEqual(rider.post(base + "/tools", {"text": "  "})[0], 400)
+        s, t = rider.post(base + "/tools", {"text": "Nitrile gloves"})
+        self.assertEqual(s, 200, t)
+        self.assertEqual(rider.post(base + "/tools", {"text": "Nitrile gloves"})[0], 409)
+        self.assertEqual(rider.post(base + "/links", {"url": "not a link", "title": "x"})[0], 400)
+        self.assertEqual(rider.post(base + "/links", {"url": "https://example.com/a"})[0], 400)
+        s, l = rider.post(base + "/links", {"url": "https://example.com/oil", "title": "Oil change in 10 minutes",
+                                            "link_type": "yt"})
+        self.assertEqual(s, 200, l)
+        self.assertEqual(rider.post(f"/api/bikes/{self.cb919}/jobs/nope/tools", {"text": "x"})[0], 404)
+        self.assertEqual(rider.post(f"/api/bikes/{self.cb919}/jobs/chain/tools", {"text": "x"})[0], 404)
+
+        s, v = tina.post(f"/api/job-links/{l['id']}/vote")
+        self.assertEqual((s, v["voted"], v["votes"]), (200, True, 1))
+        s, v = tina.post(f"/api/job-links/{l['id']}/vote")
+        self.assertEqual((v["voted"], v["votes"]), (False, 0))
+
+        # hiding is the manager's; hidden is hidden from riders, kept for them
+        self.assertEqual(rider.post(f"/api/job-tools/{t['id']}/pause")[0], 403)
+        self.assertEqual(mgr.post(f"/api/job-tools/{t['id']}/pause")[1]["paused"], True)
+        self.assertNotIn("Nitrile gloves", [x["text"] for x in next(
+            j for j in anon.get(f"/api/bikes/{self.cb919}/jobs")[1]["jobs"] if j["task_key"] == "oil")["tools"]])
+        self.assertIn("Nitrile gloves", [x["text"] for x in next(
+            j for j in mgr.get(f"/api/bikes/{self.cb919}/jobs")[1]["jobs"] if j["task_key"] == "oil")["tools"]])
+
+        # admin shapes the job
+        self.assertEqual(mgr.get("/api/admin/jobs")[0], 403)
+        s, a = adm.get("/api/admin/jobs")
+        self.assertEqual(s, 200, a)
+        chain = next(j for j in a["jobs"] if j["task_key"] == "chain")
+        self.assertFalse(chain["published"])
+        self.assertTrue(a["all_fields"])
+        self.assertEqual(adm.patch("/api/admin/jobs/chain", {"field_keys": ["no_such_field"]})[0], 400)
+        s, r = adm.patch("/api/admin/jobs/chain", {"published": True, "name": "Chain and sprockets",
+                                                   "field_keys": ["drive_chain", "drive_chain_slack", "front_sprocket"]})
+        self.assertEqual(s, 200, r)
+        got = next(j for j in anon.get(f"/api/bikes/{self.cb919}/jobs")[1]["jobs"] if j["task_key"] == "chain")
+        self.assertEqual(got["name"], "Chain and sprockets")
+        self.assertEqual(got["field_keys"][0], "drive_chain")
+        adm.patch("/api/admin/jobs/chain", {"published": False})
+
+    def test_99x_the_jobs_migration_publishes_the_oil_change_once(self):
+        """On an older database it adds the columns and publishes the oil
+        change with its tools; run again, it changes nothing -- an oil change
+        admin unpublished stays unpublished."""
+        import migrate_jobs
+        path = os.path.join(self.tmp, "jobs.db")
+        shutil.copy(self.db, path)
+        con = sqlite3.connect(path)
+        con.executescript("""
+            DROP TABLE job_link_votes; DROP TABLE job_links; DROP TABLE job_tools;
+            CREATE TABLE st2 AS SELECT task_key, name, interval_field_key, default_interval_miles, sort_order FROM service_tasks;
+            PRAGMA foreign_keys=OFF;
+            DROP TABLE service_tasks; ALTER TABLE st2 RENAME TO service_tasks;
+            UPDATE service_tasks SET name='Engine oil & filter' WHERE task_key='oil';""")
+        con.commit(); con.close()
+        migrate_jobs.migrate(path)
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute("SELECT name, published FROM service_tasks WHERE task_key='oil'").fetchone(),
+                         ("Oil change", 1))
+        self.assertGreater(con.execute("SELECT COUNT(*) FROM job_tools").fetchone()[0], 0)
+        con.execute("UPDATE service_tasks SET published=0 WHERE task_key='oil'"); con.commit(); con.close()
+        migrate_jobs.migrate(path)
+        con = sqlite3.connect(path)
+        self.assertEqual(con.execute("SELECT published FROM service_tasks WHERE task_key='oil'").fetchone()[0], 0)
+        con.close()
+
     def test_99u_electric_bikes_go_offline_once_and_only_once(self):
         """The migration takes the electric bikes offline when it adds the
         column, and never again -- a bike admin puts back online stays up."""

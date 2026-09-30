@@ -832,7 +832,13 @@ CREATE TABLE service_tasks (
   name               TEXT    NOT NULL,
   interval_field_key TEXT    REFERENCES spec_fields(field_key) ON DELETE SET NULL,
   default_interval_miles INTEGER,
-  sort_order         INTEGER NOT NULL DEFAULT 0
+  sort_order         INTEGER NOT NULL DEFAULT 0,
+  -- A service task is also a JOB: a card on the bike page with the specs
+  -- below, the tools and the helpful links (migrate_jobs). Shown on bike
+  -- pages only once admin publishes it.
+  icon               TEXT,
+  description        TEXT,
+  published          INTEGER NOT NULL DEFAULT 0 CHECK (published IN (0,1))
 );
 
 -- Which specs a task shows alongside it (oil weight and volume for an oil
@@ -1119,6 +1125,39 @@ CREATE TABLE visit_salts (
   day  TEXT PRIMARY KEY,
   salt TEXT NOT NULL
 );
+
+-- Per-bike tools for a job: a checklist anyone can add to, no voting.
+CREATE TABLE job_tools (
+  id         INTEGER PRIMARY KEY,
+  bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  task_key   TEXT    NOT NULL REFERENCES service_tasks(task_key) ON DELETE CASCADE,
+  text       TEXT    NOT NULL,
+  added_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  paused     INTEGER NOT NULL DEFAULT 0 CHECK (paused IN (0,1)),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (bike_id, task_key, text)
+);
+-- Per-bike videos and threads for a job, voted so the useful ones rise.
+CREATE TABLE job_links (
+  id         INTEGER PRIMARY KEY,
+  bike_id    INTEGER NOT NULL REFERENCES bikes(id) ON DELETE CASCADE,
+  task_key   TEXT    NOT NULL REFERENCES service_tasks(task_key) ON DELETE CASCADE,
+  link_type  TEXT    NOT NULL CHECK (link_type IN ('yt','forum','doc','other')),
+  title      TEXT    NOT NULL,
+  url        TEXT    NOT NULL,
+  added_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  paused     INTEGER NOT NULL DEFAULT 0 CHECK (paused IN (0,1)),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (bike_id, task_key, url)
+);
+CREATE TABLE job_link_votes (
+  link_id    INTEGER NOT NULL REFERENCES job_links(id) ON DELETE CASCADE,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (link_id, user_id)
+);
+CREATE INDEX idx_job_tools_target ON job_tools (bike_id, task_key);
+CREATE INDEX idx_job_links_target ON job_links (bike_id, task_key);
 
 -- The managers' board and their direct messages. Managers are the people
 -- closest to the bikes, and they work alone on their own machines; the board

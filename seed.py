@@ -687,6 +687,8 @@ def main():
 
     seed_service_tasks(conn, registry, cb919_doc)
     seed_enrichment(conn, cb919_doc, bike_id, users)
+    import migrate_jobs                      # the oil change as a published job,
+    migrate_jobs.apply_defaults(conn)        # as the migration leaves a live site
     seed_queues(conn, users, bike_id, spec_ids)
     seed_garage(conn, users, bike_id)
     votes = seed_alternate_votes(conn, users)
