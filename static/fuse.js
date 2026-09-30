@@ -76,7 +76,11 @@ function fuseParts(value){
 function fuseArt(value, id){
   const { row } = fuseParts(value);
   if(row && row.img){
-    return `<span class="fuse-pic"><img src="${esc(row.img)}" alt="" loading="lazy"></span>`;
+    // The WebP sets are cut out with a transparent background and sit on
+    // the page as they are; the older PNG crops off the chart still carry
+    // the chart's pale paper, so they keep the chip that matches it.
+    const cut = /\.webp$/i.test(row.img) ? " cut" : "";
+    return `<span class="fuse-pic${cut}"><img src="${esc(row.img)}" alt="" loading="lazy"></span>`;
   }
   return fuseSVG(value, id);
 }
