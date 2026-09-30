@@ -495,6 +495,7 @@ async function runFieldSearch(){
                     <option value="wire_color"${f.value_type === "wire_color" ? " selected" : ""}>Wire colour value</option>
                     <option value="fuel_octane"${f.value_type === "fuel_octane" ? " selected" : ""}>Fuel octane value</option>
                     <option value="ethanol"${f.value_type === "ethanol" ? " selected" : ""}>Ethanol limit value</option>
+                    <option value="fuse"${f.value_type === "fuse" ? " selected" : ""}>Fuse value</option>
                   </select>
                   <div class="also-under" title="On these kinds of bike the field is created offline — on the sheet, hidden from riders — until the bike's manager puts it online. Bikes that already show it are not changed.">
                     <span class="cell-dim">Starts offline on</span>
@@ -1984,12 +1985,13 @@ document.addEventListener("click", guard(async (e) => {
           </select></div>
         <div class="form-row"><label>What the value is</label>
           <select id="ap-value-type">
-            ${["text", "wire_color", "fuel_octane", "ethanol"].map(v => `<option value="${v}"${
+            ${["text", "wire_color", "fuel_octane", "ethanol", "fuse"].map(v => `<option value="${v}"${
               (approve.dataset.valueType || "text") === v ? " selected" : ""}>${{
                 text: "Text — anything typed (default)",
                 wire_color: "Wire colour — picked from the colour list, shown in the maker's code",
                 fuel_octane: "Fuel octane — a pump grade, AKI or RON",
-                ethanol: "Ethanol limit — E0 to E15" }[v]}</option>`).join("")}
+                ethanol: "Ethanol limit — E0 to E15",
+                fuse: "Fuse — size and rating picked from the fuse chart, shown as the fuse" }[v]}</option>`).join("")}
           </select>
           ${approve.dataset.valueType && approve.dataset.valueType !== "text"
             ? `<div class="cell-dim" style="margin-top:4px">The proposer asked for <b>${esc(approve.dataset.valueType.replace("_", " "))}</b>.</div>` : ""}

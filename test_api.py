@@ -4944,6 +4944,33 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(mgr.patch("/api/admin/fields/horn_wire_color/value-type",
                                    {"value_type": "text"})[0], 403)
 
+    def test_k02b_changing_a_field_to_fuse_checks_every_value_first(self):
+        """The spec tree offers Fuse beside Wire colour; the switch reads every
+        value first the same way."""
+        adm = self.as_("admin")
+        mgr = self.as_("m.alvarez")
+        s, r = adm.post("/api/admin/fields", {"label": "Horn Fuse", "category": "Electrical",
+                                              "bike_ids": [self.cb919]})
+        self.assertEqual(s, 200, r)
+        con = sqlite3.connect(self.db)
+        spec = con.execute("SELECT id FROM specs WHERE bike_id=? AND field_key='horn_fuse'",
+                           (self.cb919,)).fetchone()[0]
+        con.close()
+        self.assertEqual(mgr.patch(f"/api/specs/{spec}", {"value": "horn, lights: ATO 15"})[0], 200)
+        s, r = adm.patch("/api/admin/fields/horn_fuse/value-type", {"value_type": "fuse"})
+        self.assertEqual(s, 200, r)
+        self.assertEqual((r["was"], r["value_type"], r["rewritten"]), ("text", "fuse", 1))
+        con = sqlite3.connect(self.db)
+        self.assertEqual(con.execute("SELECT value FROM specs WHERE id=?", (spec,)).fetchone()[0],
+                         "horn, lights: regular 15A")
+        con.close()
+        self.assertEqual(adm.patch("/api/admin/fields/horn_fuse/value-type",
+                                   {"value_type": "text"})[0], 200)
+        self.assertEqual(mgr.patch(f"/api/specs/{spec}", {"value": "under the seat"})[0], 200)
+        s, r = adm.patch("/api/admin/fields/horn_fuse/value-type", {"value_type": "fuse"})
+        self.assertEqual(s, 409)
+        self.assertIn("under the seat", r["error"])
+
     def test_k03_an_approved_proposal_takes_the_chosen_type(self):
         adm = self.as_("admin")
         mgr = self.as_("m.alvarez")
