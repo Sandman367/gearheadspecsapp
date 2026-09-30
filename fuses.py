@@ -272,15 +272,20 @@ _IMG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         "static", "img", "fuses")
 
 
-def _has_image(family, amp):
-    """Whether the reference chart pictures this exact fuse.
+def _image(family, amp):
+    """The URL of this exact fuse's photograph, or None.
 
-    It does not picture everything: the chart draws Maxi from 20A to 80A, and
+    Not everything is pictured: the chart draws Maxi from 20A to 80A, and
     only the classic five torpedoes. Those ratings are real and stay in the
     table -- the page falls back to the drawn fuse for them rather than
-    dropping them.
+    dropping them. Most photos are PNGs cut from the chart; the Mini set is
+    a sharper WebP set that replaced those.
     """
-    return os.path.exists(os.path.join(_IMG_DIR, f"{family}-{_amp_text(amp)}.png"))
+    for ext in ("webp", "png"):
+        name = f"{family}-{_amp_text(amp)}.{ext}"
+        if os.path.exists(os.path.join(_IMG_DIR, name)):
+            return f"/img/fuses/{name}"
+    return None
 
 
 def vocabulary():
@@ -294,7 +299,7 @@ def vocabulary():
                        "color": f["amps"][a],
                        "hex": COLORS[f["amps"][a]]["hex"] if f["amps"][a] else None,
                        "color_name": COLORS[f["amps"][a]]["name"] if f["amps"][a] else None,
-                       "img": f"/img/fuses/{k}-{_amp_text(a)}.png" if _has_image(k, a) else None}
+                       "img": _image(k, a)}
                       for a in sorted(f["amps"])]}
             for k, f in FAMILIES.items()
         ],

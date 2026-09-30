@@ -192,8 +192,10 @@ function fuseValueHTML(value, id){
 /* ---- the picker ----------------------------------------------------------
    Size first, then rating, because the ratings a size comes in depend on the
    size -- and offering 50A on a mini would be offering a part that does not
-   exist. The swatches show the colour that rating IS, which is the whole
-   reason to record them together. */
+   exist. No colours show until a size is chosen; then each rating appears
+   as the part itself, photo or drawing, so a rider picks the fuse that
+   looks like the one in their hand -- and that picture is what the spec
+   then shows. */
 function fusePickerHTML(id, current, cur){
   const set = Array.isArray(current) ? current.map(x => ({...x})) : fuseSet(current);
   if(!set.length) set.push({role: "", value: ""});
@@ -260,11 +262,11 @@ function fusePickerHTML(id, current, cur){
         <div class="wp-label">Rating <em>what a ${esc(fam.name)} comes in</em></div>
         <div class="wp-swatches">
           ${fam.amps.map(a => `
-            <button type="button" class="wp-sw${a.amp === amp ? " on" : ""}"
+            <button type="button" class="wp-sw fp-sw${a.amp === amp ? " on" : ""}"
                     data-fuse-amp="${id}" data-amp="${a.amp}"
                     title="${esc(a.text)}${a.color_name ? ` — ${esc(a.color_name)}` : " — not colour coded"}">
-              <span class="wp-chip" style="background:${a.hex || "rgba(220,220,214,0.45)"}"></span>
               <span class="wp-k">${esc(a.text)}</span>
+              ${fuseArt(`${fam.key} ${a.amp}A`, id + "_sw" + String(a.amp).replace(".", "_"))}
             </button>`).join("")}
         </div>
       </div>` : ""}
