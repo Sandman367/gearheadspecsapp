@@ -6510,6 +6510,23 @@ class ApiTest(unittest.TestCase):
                         ("AGC 0.5A", "glass 0.5A")]:
             self.assertEqual(fuses.normalise_set(v), want, v)
 
+    def test_99n2_what_a_fuse_protects_may_have_commas(self):
+        """Commas separate fuses, but a rider lists what one fuse protects with
+        commas too. "headlight, horn: mini 10A" is one fuse, not a fuse called
+        headlight -- refusing it named every fuse size at a rider who had
+        already picked one."""
+        import fuses
+        for v in ("headlight, horn: mini 10A",
+                  "main: mini 30A, lights, horn, indicators: mini 10A, mini 15A",
+                  "left: right: mini 5A"):
+            self.assertEqual(fuses.normalise_set(v), v, v)
+        self.assertEqual(fuses.parse_set("headlight, horn: mini 10A"),
+                         [("headlight, horn", "mini", 10.0)])
+        # A piece that no fuse claims is still refused.
+        for bad in ("headlight, mini 10A", "mini 10A, headlight", "headlight"):
+            with self.assertRaises(fuses.FuseError, msg=bad):
+                fuses.normalise_set(bad)
+
     def test_99o_a_fuse_value_survives_the_api(self):
         """The value type has to reach the database and come back whole,
         normalised the same way whatever the manual called the size."""

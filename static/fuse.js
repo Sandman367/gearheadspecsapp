@@ -15,18 +15,38 @@ async function loadFuseVocabulary(){
   return FUSE;
 }
 
+/* Read the same way the server reads it (fuses.parse_set): commas separate
+   fuses, but "headlight, horn: mini 10A" is one fuse protecting two things,
+   so a piece with no fuse in it joins the next fuse's role. */
 function fuseSet(value){
-  return String(value || "").split(",").map(c => c.trim()).filter(Boolean)
-    .map(chunk => {
-      const i = chunk.indexOf(":");
-      return i === -1
-        ? { role: "", value: chunk.trim() }
-        : { role: chunk.slice(0, i).trim(), value: chunk.slice(i + 1).trim() };
-    });
+  const out = [];
+  let pending = [];
+  const isFuse = piece => {
+    if(!FUSE) return true;               // vocabulary not loaded: old reading
+    const { f, amp } = fuseParts(piece);
+    return !!f && amp !== null;
+  };
+  for(const raw of String(value || "").split(",")){
+    const piece = raw.trim();
+    if(!piece) continue;
+    const i = piece.lastIndexOf(":");
+    if(i !== -1){
+      const role = [...pending, piece.slice(0, i).trim()].filter(Boolean).join(", ");
+      out.push({ role, value: piece.slice(i + 1).trim() });
+      pending = [];
+    } else if(isFuse(piece) && !pending.length){
+      out.push({ role: "", value: piece });
+    } else {
+      pending.push(piece);
+    }
+  }
+  // Anything never claimed by a fuse is shown as it was written.
+  for(const p of pending) out.push({ role: "", value: p });
+  return out;
 }
 const fuseSetValue = set => set
   .filter(f => f.value && f.value.trim())
-  .map(f => (f.role ? f.role + ": " : "") + f.value.trim()).join(", ");
+  .map(f => (f.role && f.role.trim() ? f.role.trim() + ": " : "") + f.value.trim()).join(", ");
 
 /* "mini 10A" -> {family, amp, spec}. The vocabulary is the authority on what
    colour that is, so nothing here guesses one. */

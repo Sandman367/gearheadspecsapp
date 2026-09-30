@@ -208,24 +208,42 @@ def parse_set(value):
     """
     if value is None or not str(value).strip():
         raise FuseError("a fuse needs a size and a rating")
-    chunks = [c.strip() for c in str(value).split(",") if c.strip()]
-    if not chunks:
-        raise FuseError("a fuse needs a size and a rating")
-    if len(chunks) > MAX_FUSES:
-        raise FuseError(f"at most {MAX_FUSES} fuses on one spec")
 
-    out = []
-    for chunk in chunks:
-        role = None
-        if ":" in chunk:
-            role, chunk = chunk.split(":", 1)
-            role, chunk = role.strip(), chunk.strip()
-            if not role:
-                role = None
-            elif len(role) > MAX_ROLE:
+    # Commas separate the fuses, but riders write lists with commas too:
+    # "headlight, horn: mini 10A" is ONE fuse that protects two things. So a
+    # piece with no fuse in it is not an error yet -- it is the start of the
+    # next fuse's role. It is only an error if no fuse ever claims it.
+    out, pending = [], []          # pending: [(text, the error it raised)]
+    for piece in str(value).split(","):
+        piece = piece.strip()
+        if not piece:
+            continue
+        if ":" in piece:
+            # The fuse half never has a colon in it, so split at the last one
+            # and let what it protects say whatever it likes.
+            role, _, chunk = piece.rpartition(":")
+            role = ", ".join([t for t, _ in pending] + [role.strip()]).strip(", ")
+            pending = []
+            if len(role) > MAX_ROLE:
                 raise FuseError(f"what a fuse protects is limited to {MAX_ROLE} characters")
-        family, amp = parse(chunk)
-        out.append((role, family, amp))
+            family, amp = parse(chunk.strip())
+            out.append((role or None, family, amp))
+            continue
+        try:
+            family, amp = parse(piece)
+        except FuseError as e:
+            pending.append((piece, e))
+            continue
+        if pending:
+            # "headlight, mini 10A": a role with no colon before its fuse.
+            raise pending[0][1]
+        out.append((None, family, amp))
+    if pending:
+        raise pending[0][1]
+    if not out:
+        raise FuseError("a fuse needs a size and a rating")
+    if len(out) > MAX_FUSES:
+        raise FuseError(f"at most {MAX_FUSES} fuses on one spec")
     # Two fuses CAN protect the same thing, and a fuse box has repeats. No
     # uniqueness rule here; the ratings and the order tell them apart.
     return out
