@@ -30,6 +30,7 @@ import os
 # 25A blade is natural translucent plastic, so it is drawn as glass.
 # ---------------------------------------------------------------------------
 COLORS = {
+    "black":     {"name": "Black",      "hex": "#1E1E1E"},
     "gray":      {"name": "Grey",       "hex": "#8E9096"},
     "violet":    {"name": "Violet",     "hex": "#8E6FD0"},
     "pink":      {"name": "Pink",       "hex": "#F09AB8"},
@@ -52,10 +53,11 @@ COLORS = {
 # Mini and low-profile mini STOP AT 30A. Only the standard blade goes on to
 # 35A and 40A -- a 40A mini does not exist, and offering one would be offering
 # a part nobody can buy.
-_STANDARD = {2: "gray", 3: "violet", 4: "pink", 5: "tan", 7.5: "brown",
+_STANDARD = {1: "black", 2: "gray", 3: "violet", 4: "pink", 5: "tan", 7.5: "brown",
              10: "red", 15: "blue", 20: "yellow", 25: "clear", 30: "green",
              35: "bluegreen", 40: "orange"}
-_MINI = {a: c for a, c in _STANDARD.items() if a <= 30}
+# The standard blade also comes in a black 1A; the mini sets here start at 2A.
+_MINI = {a: c for a, c in _STANDARD.items() if 2 <= a <= 30}
 _MICRO = {5: "tan", 7.5: "brown", 10: "red", 15: "blue", 20: "yellow",
           25: "clear", 30: "green"}
 
