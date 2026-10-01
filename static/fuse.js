@@ -220,6 +220,18 @@ function fuseValueHTML(value, id){
    as the part itself, photo or drawing, so a rider picks the fuse that
    looks like the one in their hand -- and that picture is what the spec
    then shows. */
+/* What a size looks like, for the size buttons: one of its fuses, shown in
+   grey so it says the shape and not a rating -- the colours only appear
+   once a size is picked and its ratings are laid out below. A pictured
+   rating near 10A is used, since every size has one there or close. */
+function fuseTypeArt(f, id){
+  const near = rows => rows.slice().sort((a, b) =>
+    Math.abs(Math.log(a.amp / 10)) - Math.abs(Math.log(b.amp / 10)))[0];
+  const row = near(f.amps.filter(a => a.img)) || near(f.amps);
+  if(!row) return "";
+  return `<span class="fp-fam-pic">${fuseArt(`${f.key} ${row.amp}A`, `${id}_t${f.key}`)}</span>`;
+}
+
 function fusePickerHTML(id, current, cur){
   const set = Array.isArray(current) ? current.map(x => ({...x})) : fuseSet(current);
   if(!set.length) set.push({role: "", value: ""});
@@ -228,19 +240,10 @@ function fusePickerHTML(id, current, cur){
   const fam = FUSE.byKey[family];
   const multi = set.length > 1;
 
-  // What it protects belongs with the fuse you have just picked, not only
-  // once a second one exists. It appears as soon as there is a fuse to
-  // attach it to, which is the moment a rider knows the answer.
-  const protects = (fam && amp) ? `
-    <div class="wp-row">
-      <div class="wp-label">What it protects</div>
-      <input type="text" class="fp-protect" maxlength="${FUSE.max_role || 80}"
-             placeholder="e.g. headlight, ignition, horn"
-             value="${esc(set[idx].role || "")}"
-             data-fuse-role="${id}" data-i="${idx}">
-    </div>` : "";
-
-  const list = multi ? `
+  // The fuses picked so far, each with what it protects, always at the top
+  // -- from the first fuse on, so the box does not jump from the bottom to
+  // the top when a second one is added.
+  const list = `
     <div class="fp-list">
       ${set.map((x, i) => `
         <div class="fp-item${i === idx ? " on" : ""}" data-fuse-go="${id}" data-i="${i}">
@@ -249,27 +252,29 @@ function fusePickerHTML(id, current, cur){
               `<span class="fuse-amp">${esc(fuseParts(x.value).row?.text || "")}</span>`
             : `<span class="fp-empty-item">not chosen yet</span>`}
           <input class="fp-role" type="text" maxlength="${FUSE.max_role || 80}"
-                 placeholder="what it protects (optional)" value="${esc(x.role)}"
+                 placeholder="What it protects, e.g. headlight, ignition, horn" value="${esc(x.role)}"
                  data-fuse-role="${id}" data-i="${i}" onclick="event.stopPropagation()">
-          <button type="button" class="wp-del" data-fuse-del="${id}" data-i="${i}"
-                  title="Remove this fuse">&times;</button>
+          ${multi ? `<button type="button" class="wp-del" data-fuse-del="${id}" data-i="${i}"
+                  title="Remove this fuse">&times;</button>` : ""}
         </div>`).join("")}
-    </div>` : "";
+      <button type="button" class="fp-add" data-fuse-add="${id}"
+              ${set.length >= (FUSE.max_fuses || 8) || !(fam && amp) ? "disabled" : ""}>
+        + Add another fuse</button>
+    </div>`;
 
   return `
     <div class="fuse-picker" id="fp-${id}"
          data-value="${esc(fuseSetValue(set))}"
          data-set="${esc(JSON.stringify(set))}" data-cur="${idx}">
       ${list}
-      <div class="fp-preview">${
-        fam && amp
-          ? `${fuseArt(set[idx].value, "fpv" + id)}
+      ${fam && amp
+        ? `<div class="fp-preview">${fuseArt(set[idx].value, "fpv" + id)}
              <div><div class="fp-big">${esc(fuseParts(set[idx].value).row?.text || "")}</div>
                <div class="fp-desc">${esc(fam.name)}${
                  fuseParts(set[idx].value).row?.color_name
                    ? " · " + esc(fuseParts(set[idx].value).row.color_name) : ""}</div>
-               <div class="fp-mm">${esc(fam.codes)}${fam.mm ? ` · ${esc(fam.mm)} mm` : ""}</div></div>`
-          : `<div class="wp-empty">Pick a size, then a rating</div>`}</div>
+               <div class="fp-mm">${esc(fam.codes)}${fam.mm ? ` · ${esc(fam.mm)} mm` : ""}</div></div></div>`
+        : `<div class="fp-hint">${fam ? "Now pick a rating" : "Pick a size, then a rating"}</div>`}
 
       <div class="wp-row">
         <div class="wp-label">Type</div>
@@ -278,7 +283,8 @@ function fusePickerHTML(id, current, cur){
             <button type="button" class="fp-fam${f.key === family ? " on" : ""}"
                     data-fuse-fam="${id}" data-key="${esc(f.key)}"
                     title="${esc(f.codes)}${f.mm ? ` — ${esc(f.mm)} mm` : ""}">
-              ${esc(f.name)}</button>`).join("")}
+              <span class="fp-fam-name">${esc(f.name)}</span>
+              ${fuseTypeArt(f, id)}</button>`).join("")}
         </div>
       </div>
 
@@ -295,13 +301,7 @@ function fusePickerHTML(id, current, cur){
         </div>
       </div>` : ""}
 
-      ${protects}
-
       <div class="wp-actions">
-        <button type="button" class="wp-add" data-fuse-add="${id}"
-                ${set.length >= (FUSE.max_fuses || 8) || !(fam && amp) ? "disabled" : ""}>
-          + Add another fuse
-        </button>
         <span class="wp-note">A row of fuses is one spec. Add them here rather
           than proposing each as a competing value.</span>
       </div>
@@ -328,6 +328,15 @@ function fuseRedraw(box, set, cur){
 document.addEventListener("click", (e) => {
   const box = id => byId("fp-" + id);
 
+  // The remove button sits inside the row that selects a fuse, so it has to
+  // be looked for first -- otherwise the row claims the click and the x
+  // only ever selects the fuse it was meant to remove.
+  const del = e.target.closest("[data-fuse-del]");
+  if(del){ const b = box(del.dataset.fuseDel); if(!b) return;
+    const set = fuseCurrentSet(b); if(set.length <= 1) return;
+    set.splice(Number(del.dataset.i), 1);
+    fuseRedraw(b, set, Math.min(Number(del.dataset.i), set.length - 1)); return; }
+
   const go = e.target.closest("[data-fuse-go]");
   if(go){ const b = box(go.dataset.fuseGo);
     if(b) fuseRedraw(b, fuseCurrentSet(b), Number(go.dataset.i)); return; }
@@ -336,12 +345,6 @@ document.addEventListener("click", (e) => {
   if(add){ const b = box(add.dataset.fuseAdd); if(!b) return;
     const set = fuseCurrentSet(b); set.push({role: "", value: ""});
     fuseRedraw(b, set, set.length - 1); return; }
-
-  const del = e.target.closest("[data-fuse-del]");
-  if(del){ const b = box(del.dataset.fuseDel); if(!b) return;
-    const set = fuseCurrentSet(b); if(set.length <= 1) return;
-    set.splice(Number(del.dataset.i), 1);
-    fuseRedraw(b, set, Math.min(Number(del.dataset.i), set.length - 1)); return; }
 
   const fam = e.target.closest("[data-fuse-fam]");
   if(fam){
