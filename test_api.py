@@ -6549,6 +6549,10 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(fuses.normalise_set(v), v, v)
         self.assertEqual(fuses.parse_set("headlight, horn: mini 10A"),
                          [("headlight, horn", "mini", 10.0)])
+        # What it protects can run to 80 characters, not 81.
+        self.assertEqual(fuses.normalise_set("x" * 80 + ": mini 10A"), "x" * 80 + ": mini 10A")
+        with self.assertRaises(fuses.FuseError):
+            fuses.normalise_set("x" * 81 + ": mini 10A")
         # A piece that no fuse claims is still refused.
         for bad in ("headlight, mini 10A", "mini 10A, headlight", "headlight"):
             with self.assertRaises(fuses.FuseError, msg=bad):

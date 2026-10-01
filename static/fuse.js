@@ -234,7 +234,7 @@ function fusePickerHTML(id, current, cur){
   const protects = (fam && amp) ? `
     <div class="wp-row">
       <div class="wp-label">What it protects</div>
-      <input type="text" class="fp-protect" maxlength="${FUSE.max_role || 40}"
+      <input type="text" class="fp-protect" maxlength="${FUSE.max_role || 80}"
              placeholder="e.g. headlight, ignition, horn"
              value="${esc(set[idx].role || "")}"
              data-fuse-role="${id}" data-i="${idx}">
@@ -248,7 +248,7 @@ function fusePickerHTML(id, current, cur){
           ${x.value ? fuseArt(x.value, id + "_l" + i) +
               `<span class="fuse-amp">${esc(fuseParts(x.value).row?.text || "")}</span>`
             : `<span class="fp-empty-item">not chosen yet</span>`}
-          <input class="fp-role" type="text" maxlength="${FUSE.max_role || 40}"
+          <input class="fp-role" type="text" maxlength="${FUSE.max_role || 80}"
                  placeholder="what it protects (optional)" value="${esc(x.role)}"
                  data-fuse-role="${id}" data-i="${i}" onclick="event.stopPropagation()">
           <button type="button" class="wp-del" data-fuse-del="${id}" data-i="${i}"

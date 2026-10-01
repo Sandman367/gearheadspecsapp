@@ -139,7 +139,7 @@ ALIASES.update({
 # fact about the bike. Twenty-four covers a big tourer with two boxes; past
 # that it is a car.
 MAX_FUSES = 24
-MAX_ROLE = 40
+MAX_ROLE = 80
 
 
 class FuseError(ValueError):
