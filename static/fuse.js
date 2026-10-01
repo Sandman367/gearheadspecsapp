@@ -76,9 +76,9 @@ function fuseParts(value){
 function fuseArt(value, id){
   const { row } = fuseParts(value);
   if(row && row.img){
-    // The WebP sets are cut out with a transparent background and sit on
-    // the page as they are; the older PNG crops off the chart still carry
-    // the chart's pale paper, so they keep the chip that matches it.
+    // Every photo is now a WebP cut out to a transparent background and
+    // sits on the page as it is. A PNG added later would still carry its
+    // paper, so it gets the pale chip that matches it.
     const cut = /\.webp$/i.test(row.img) ? " cut" : "";
     return `<span class="fuse-pic${cut}"><img src="${esc(row.img)}" alt="" loading="lazy"></span>`;
   }
@@ -220,14 +220,15 @@ function fuseValueHTML(value, id){
    as the part itself, photo or drawing, so a rider picks the fuse that
    looks like the one in their hand -- and that picture is what the spec
    then shows. */
-/* What a size looks like, for the size buttons: one of its fuses, shown in
-   grey so it says the shape and not a rating -- the colours only appear
-   once a size is picked and its ratings are laid out below. A pictured
-   rating near 10A is used, since every size has one there or close. */
+/* What a size looks like, for the size buttons: one of its fuses. The red
+   one where the size comes in red, so the row reads as one set; otherwise
+   the pictured rating nearest 10A (glass is not colour coded at all). */
 function fuseTypeArt(f, id){
   const near = rows => rows.slice().sort((a, b) =>
     Math.abs(Math.log(a.amp / 10)) - Math.abs(Math.log(b.amp / 10)))[0];
-  const row = near(f.amps.filter(a => a.img)) || near(f.amps);
+  const pictured = f.amps.filter(a => a.img);
+  const row = near(pictured.filter(a => a.color === "red"))
+           || near(pictured) || near(f.amps);
   if(!row) return "";
   return `<span class="fp-fam-pic">${fuseArt(`${f.key} ${row.amp}A`, `${id}_t${f.key}`)}</span>`;
 }
