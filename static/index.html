@@ -2025,6 +2025,12 @@ function renderSpec(s, opts = {}){
                   data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock colour, for riders to vote on.">+ Suggest a different wire colour</button>
           <div id="wire-alt-${s.id}"></div>
+        </div>` : s.value_type === "fuse" ? `
+        <div class="propose-row wire-propose">
+          <button class="action-btn" data-open-fuse="${s.id}"
+                  data-auth-kind="value"${authAttr()}
+                  title="Listed as an Alt under the stock fuses, for riders to vote on.">+ Suggest a different fuse</button>
+          <div id="fuse-alt-${s.id}"></div>
         </div>` : (s.value_type === "fuel_octane" || s.value_type === "ethanol") ? `
         <div class="propose-row wire-propose">
           <button class="action-btn" data-open-fuel="${s.id}" data-vtype="${esc(s.value_type)}"
@@ -3057,6 +3063,38 @@ document.addEventListener("click", guard(async (e) => {
   const closeFuel = e.target.closest("[data-close-fuel]");
   if(closeFuel){ byId(`fuel-alt-${closeFuel.dataset.closeFuel}`).innerHTML = ""; return; }
 
+  // Alternates on a fuse spec use the same picker as the stock value, so an
+  // Alt is a real fuse with its size, rating and what it protects -- not
+  // free text that a rider has to get into the exact written form.
+  const openFuse = e.target.closest("[data-open-fuse]");
+  if(openFuse){
+    const id = openFuse.dataset.openFuse;
+    const slot = byId(`fuse-alt-${id}`);
+    if(slot.innerHTML.trim()){          // already open — put it away again
+      slot.innerHTML = "";
+      openFuse.textContent = "+ Suggest a different fuse";
+      return;
+    }
+    slot.innerHTML = `
+      ${fusePickerHTML(`alt${id}`, "")}
+      <div class="form-actions">
+        <button class="ghost-btn" data-close-fuse="${id}">Cancel</button>
+        <button class="action-btn" data-save-alt="${id}"
+                data-fuse-alt="alt${id}">Submit this fuse</button>
+      </div>`;
+    openFuse.textContent = "− Cancel";
+    slot.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+  const closeFuse = e.target.closest("[data-close-fuse]");
+  if(closeFuse){
+    const id = closeFuse.dataset.closeFuse;
+    byId(`fuse-alt-${id}`).innerHTML = "";
+    const opener = scopeOne(`[data-open-fuse="${id}"]`);
+    if(opener) opener.textContent = "+ Suggest a different fuse";
+    return;
+  }
+
   const openWire = e.target.closest("[data-open-wire]");
   if(openWire){
     const id = openWire.dataset.openWire;
@@ -3094,6 +3132,9 @@ document.addEventListener("click", guard(async (e) => {
     if(saveAlt.dataset.wire){
       text = wirePickerValue(saveAlt.dataset.wire);
       if(!text){ toast("Choose a base colour first.", "error"); return; }
+    } else if(saveAlt.dataset.fuseAlt){
+      text = fusePickerValue(saveAlt.dataset.fuseAlt);
+      if(!text){ toast("Pick a size and a rating first.", "error"); return; }
     } else if(saveAlt.dataset.fuelAlt){
       text = saveAlt.dataset.vtype === "fuel_octane"
         ? fuelPickerValue(saveAlt.dataset.fuelAlt)
