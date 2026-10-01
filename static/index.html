@@ -1944,12 +1944,16 @@ function renderSpec(s, opts = {}){
             : !s.home_shown ? "✓ Shown in " + esc([s.lead, ...s.also_in].join(", "))
             : s.also_in.length ? "✓ Also in " + esc(s.also_in.join(", "))
             : "+ Also show under…"}</button>` : ""}
-        ${iManage && !inGroup && BIKE.year_start && BIKE.year_end
-          && BIKE.year_end > BIKE.year_start
-          ? `<button class="action-btn" data-split-year="${s.id}"
-               data-label="${esc(s.label)}"
-               title="This value changed partway through ${BIKE.year_start}–${BIKE.year_end}. Give the later years their own value without splitting the whole bike.">⋮ Changed in a later year</button>`
-          : ""}
+        ${(() => {
+          // A spec already split by year can be split again: each range is
+          // its own row, and the server cuts within that row's years.
+          const from = s.year_from ?? BIKE.year_start, to = s.year_to ?? BIKE.year_end;
+          return iManage && from && to && to > from
+            ? `<button class="action-btn" data-split-year="${s.id}"
+                 data-label="${esc(s.label)}" data-from="${from}" data-to="${to}"
+                 title="This value changed partway through ${from}–${to}. Give the later years their own value without splitting the whole bike.">⋮ Changed in a later year</button>`
+            : "";
+        })()}
         ${iManage ? `<button class="action-btn tag-toggle${s.paused ? " on danger" : ""}"
             data-pause-spec="${s.id}" data-to="${s.paused ? "0" : "1"}"
             title="${s.paused
@@ -2365,13 +2369,14 @@ document.addEventListener("click", guard(async (e) => {
   const splitYear = e.target.closest("[data-split-year]");
   if(splitYear){
     const id = splitYear.dataset.splitYear;
+    const from = Number(splitYear.dataset.from), to = Number(splitYear.dataset.to);
     const years = [];
-    for(let y = BIKE.year_start + 1; y <= BIKE.year_end; y++) years.push(y);
+    for(let y = from + 1; y <= to; y++) years.push(y);
     byId(`spec-form-${id}`).innerHTML = `
       <div class="inline-box" style="margin-top:10px">
         <div class="inline-title">From which year does “${esc(splitYear.dataset.label)}” change?</div>
         <div class="inline-sub">The bike is not split — it is the same machine.
-          Only this spec gains a second value, for ${BIKE.year_start}–<span id="sy-before">…</span>
+          Only this spec gains a second value, for <span id="sy-before">…</span>
           and the year you pick onward. Everything else stays shared.</div>
         <div class="form-row"><label for="sy-${id}">Changed from</label>
           <select id="sy-${id}">
@@ -2383,7 +2388,10 @@ document.addEventListener("click", guard(async (e) => {
         </div>
       </div>`;
     const sel = byId(`sy-${id}`);
-    const show = () => byId("sy-before").textContent = Number(sel.value) - 1;
+    const show = () => {
+      const before = Number(sel.value) - 1;
+      byId("sy-before").textContent = before === from ? String(from) : `${from}–${before}`;
+    };
     sel.addEventListener("change", show); show();
     return;
   }
