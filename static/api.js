@@ -35,15 +35,23 @@ let SCOPE = null;
   document.addEventListener(t, (e) => {
     SCOPE = e.target && e.target.closest ? e.target.closest(".mirror") : null;
   }, true));
+// Outside a mirror, the ORIGINAL row -- not the first copy in the page. A
+// mirror printed higher up (a Fuel and Air spec also shown under General)
+// came first in the document, so a click on the original opened its form up
+// there and the page jumped to the top.
+function notMirrored(list){
+  for(const el of list) if(!el.closest(".mirror")) return el;
+  return list[0] || null;
+}
 function byId(id){
   if(SCOPE){
     const hit = SCOPE.querySelector("#" + CSS.escape(id));
     if(hit) return hit;
   }
-  return document.getElementById(id);
+  return notMirrored(document.querySelectorAll("#" + CSS.escape(id)));
 }
 function scopeAll(sel){ return (SCOPE || document).querySelectorAll(sel); }
-function scopeOne(sel){ return (SCOPE || document).querySelector(sel); }
+function scopeOne(sel){ return SCOPE ? SCOPE.querySelector(sel) : notMirrored(document.querySelectorAll(sel)); }
 
 async function api(method, path, body){
   const opts = { method, headers: {}, credentials: "same-origin" };

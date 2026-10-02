@@ -20,6 +20,9 @@
   .form-row .check{ display: flex; gap: 8px; align-items: center; font-family: inherit; font-size: 12.5px; color: var(--text); letter-spacing: 0; justify-content: flex-start; cursor: pointer; }
   .form-row .check input{ width: auto; flex: none; margin: 0; }
   .form-note{ font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5; }
+  /* What's missing, in amber, while the box is empty. */
+  .need-note{ font-size: 11.5px; color: var(--amber); margin-top: 6px; line-height: 1.5; }
+  #ma-send:disabled{ opacity: 0.45; cursor: not-allowed; }
   .form-actions{ display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
   .state{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.03em; padding: 1px 6px; border: 1px solid var(--line); color: var(--text-faint); }
   .state.pending{ border-color: var(--amber); color: var(--amber); }
@@ -127,11 +130,12 @@ function render(){
           mine ? "Want to ask again?" : "Tell us about you and this bike"}</div>
         <div class="form-row"><label for="ma-exp">How do you know this bike?</label>
           <textarea id="ma-exp" maxlength="1000" placeholder="e.g. I've had one since 2012, rebuilt the top end twice, and I've got the factory service manual.">${esc(draft.experience)}</textarea>
-          <div class="form-note"><span id="ma-count">${draft.experience.length}</span> / 1000 · a sentence or two is plenty.</div></div>
+          <div class="form-note"><span id="ma-count">${draft.experience.length}</span> / 1000 · a sentence or two is plenty.</div>
+          <div class="need-note" id="ma-need"${draft.experience.trim() ? " hidden" : ""}>↑ Write a few words here first: how you know this bike. Admin reads it to decide.</div></div>
         <div class="form-row"><label class="check"><input type="checkbox" id="ma-owns"${draft.owns ? " checked" : ""}> I own one</label></div>
         <div class="form-row"><label class="check"><input type="checkbox" id="ma-owned"${draft.owned ? " checked" : ""}> I used to own one</label></div>
         <div class="form-actions">
-          <button class="primary-btn" id="ma-send">Send request</button>
+          <button class="primary-btn" id="ma-send"${draft.experience.trim() ? "" : ` disabled title="Write how you know this bike first"`}>Send request</button>
           <a class="ghost-btn" style="text-decoration:none" href="/index.html?bike=${b.bike_id}">Cancel</a>
         </div>
       </div></div>` : ""}`;
@@ -141,6 +145,13 @@ function render(){
     exp.addEventListener("input", e => {
       draft.experience = e.target.value;
       document.getElementById("ma-count").textContent = e.target.value.length;
+      // Empty is obvious: the note shows and Send is greyed out until there
+      // is something written.
+      const empty = !e.target.value.trim();
+      document.getElementById("ma-need").hidden = !empty;
+      const send = document.getElementById("ma-send");
+      send.disabled = empty;
+      send.title = empty ? "Write how you know this bike first" : "";
     });
     document.getElementById("ma-owns").addEventListener("change", e => { draft.owns = e.target.checked; });
     document.getElementById("ma-owned").addEventListener("change", e => { draft.owned = e.target.checked; });
@@ -150,7 +161,7 @@ function render(){
 document.addEventListener("click", guard(async (e) => {
   if(e.target.id === "ma-send"){
     const experience = draft.experience.trim();
-    if(experience.length < 20){ toast("Could you tell us a little more? A sentence or two is plenty.", "error"); return; }
+    if(!experience){ toast("Tell us a little about how you know this bike.", "error"); return; }
     await API.post(`/api/bikes/${BIKE_ID}/manager-application`, { experience, owns_one: draft.owns, used_to_own: draft.owned });
     draft.experience = ""; draft.owns = false; draft.owned = false;
     toast("Thanks, your request is in. Check back here for the reply.", "ok");

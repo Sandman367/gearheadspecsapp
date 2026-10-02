@@ -6688,7 +6688,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual((b["has_manager"], b["mine"]), (False, None))
         self.assertEqual(self.anon().get("/api/bikes/999999/manager-application")[0], 404)
         self.assertEqual(self.anon().post(path, {"experience": why})[0], 401)
-        self.assertEqual(rider.post(path, {"experience": "I like it"})[0], 400)
+        self.assertEqual(rider.post(path, {"experience": "   "})[0], 400)      # empty is refused; short is fine
         self.assertEqual(adm.post(path, {"experience": why})[0], 400)
         s, r = rider.post(f"/api/bikes/{managed}/manager-application", {"experience": why})
         self.assertEqual(s, 409, r)

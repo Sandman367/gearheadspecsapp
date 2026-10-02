@@ -2416,8 +2416,8 @@ def create_manager_application(ctx):
     if _bike_has_manager(ctx.conn, bike_id):
         raise HttpError(409, "Someone's already looking after this bike.")
     experience = (ctx.body.get("experience") or "").strip()
-    if len(experience) < 20:
-        raise HttpError(400, "Could you tell us a little more? A sentence or two is plenty.")
+    if not experience:
+        raise HttpError(400, "Tell us a little about how you know this bike.")
     if len(experience) > APPLICATION_MAX:
         raise HttpError(400, f"That's a bit long. Please keep it under {APPLICATION_MAX} characters.")
     try:
