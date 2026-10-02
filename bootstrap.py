@@ -29,7 +29,8 @@ MIGRATIONS = ["migrate_manager_tiers", "migrate_year_photos", "migrate_spec_note
               "migrate_manager_applications", "migrate_visits",
               "migrate_bike_offline", "fix_jr80_two_stroke",
               "fix_vanvan_jr80_years", "fix_jr80_overlap",
-              "migrate_jobs", "reorder_spec_fields"]
+              "migrate_jobs", "reorder_spec_fields",
+              "migrate_specs_entered_by_index"]
 
 
 def main():

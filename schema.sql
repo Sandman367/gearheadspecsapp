@@ -449,6 +449,8 @@ CREATE INDEX idx_specs_field ON specs (field_key);
 -- SQLite walks all rows of a field for each bike: fine at 264 bikes, nine
 -- seconds at 1,700.
 CREATE INDEX idx_specs_bike_field ON specs (bike_id, field_key);
+-- "Which specs did this member enter?" -- member stats, tiers, badges.
+CREATE INDEX idx_specs_entered_by ON specs (entered_by);
 
 -- Community alternates to a spec's stock value.
 -- "Starts offline on this kind of bike." A field can be on a bike's sheet by
