@@ -1537,15 +1537,16 @@ function renderHero(){
               <button class="primary-btn" data-bike-offline="0">Put it back online</button></div>` : ""}
           </div>` : ""}
         <div class="credit">
-          ${bike.lead_manager ? `
+          ${/* Only who looks after the bike NOW. A lead who handed it on or
+               retired keeps the credit on their profile, not here, where it
+               read as if the bike still had a manager. */
+            bike.lead_manager && bike.lead_manager.current ? `
             <span class="lbl">Lead manager</span>
-            <span class="person" title="First manager of this bike, since ${esc(String(bike.lead_manager.since || "").slice(0, 10))}${
-              bike.lead_manager.current ? "" : bike.lead_manager.retired ? " — retired" : " — handed on"}">${
+            <span class="person" title="First manager of this bike, since ${esc(String(bike.lead_manager.since || "").slice(0, 10))}">${
               memberName(bike.lead_manager.id, bike.lead_manager.username, bike.lead_manager.tier || "manager",
-                         bike.lead_manager.retired ? bike.lead_manager.retired.tier : null, bike.lead_manager.founder)}${
-              bike.lead_manager.current ? "" : `<span class="cell-dim" style="margin-left:6px">${bike.lead_manager.retired ? "retired" : "handed on"}</span>`}</span>` : ""}
+                         null, bike.lead_manager.founder)}</span>` : ""}
           ${bike.managers.filter(m => !m.lead).length
-            ? `<span class="lbl">${bike.lead_manager ? "Also" : "Maintained by"}</span>` +
+            ? `<span class="lbl">${bike.lead_manager && bike.lead_manager.current ? "Also" : "Maintained by"}</span>` +
               bike.managers.filter(m => !m.lead).map(m => `<span class="person">${memberName(m.id, m.username, m.tier, null, m.founder)}</span>`).join("")
             : ""}
           ${/* Nobody looking after it now (a lead who handed on counts as
