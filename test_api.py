@@ -7094,5 +7094,18 @@ class ApiTest(unittest.TestCase):
             con.execute("UPDATE bikes SET offline=0 WHERE id=?", (self.cb919,)); con.commit()
             con.close()
 
+    def test_99z_the_header_banner_says_what_the_site_is(self):
+        """The home page's banner tells a new rider the sheets are built by
+        riders, that My Garage keeps their upkeep, and how managers work."""
+        with urllib.request.urlopen(self.base + "/") as r:
+            page = r.read().decode("utf-8")
+        for title in ("Built by riders, one spec at a time",
+                      "Keep your bike's upkeep in one place",
+                      "Know a bike inside out?",
+                      "Doing the job yourself?",
+                      "A wrong value is worse than a gap"):
+            self.assertIn(f'<h2 class="banner-title">{html.escape(title, quote=False)}</h2>', page)
+        self.assertIn("If every rider adds one or two specs, every bike", page)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

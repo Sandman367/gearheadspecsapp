@@ -57,6 +57,26 @@
   }
   .garage-add:hover{ filter: brightness(1.08); }
   .garage-add:disabled{ background: none; border-color: var(--line); color: var(--text-faint); cursor: default; }
+  /* ---- the banner between the logo and My Garage: one message at a time ---- */
+  .header-copy.has-banner{ flex: 0 1 auto; }
+  .header-banner{
+    flex: 1; min-width: 0; max-width: 620px; align-self: stretch;
+    border: 1px solid var(--line); background: rgba(20,18,15,0.82);
+    display: flex; flex-direction: column; justify-content: center; padding: 16px 22px 12px;
+  }
+  .banner-slide{ display: flex; gap: 20px; align-items: center; }
+  .banner-slide[hidden]{ display: none; }
+  .banner-icon{ flex-shrink: 0; color: var(--amber); }
+  .banner-title{ font-family: var(--display); color: var(--amber); font-size: 20px; margin: 0 0 6px; letter-spacing: 0.01em; }
+  .banner-text{ color: var(--text-dim); font-size: 12px; line-height: 1.55; margin: 0; }
+  .banner-text a{ color: var(--amber); }
+  .banner-dots{ display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+  .banner-dots button{
+    width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%;
+    background: var(--line); cursor: pointer;
+  }
+  .banner-dots button[aria-current="true"]{ background: var(--amber); }
+  @media (max-width: 1000px){ .header-banner{ display: none; } }
   .garage-empty{ font-size: 10.5px; color: var(--text-faint); padding: 6px 7px; line-height: 1.5; }
 
   /* ---- layout shell: jump-to sidebar + search column ---- */
@@ -857,7 +877,7 @@
 
 <header>
   <div class="header-inner">
-    <div class="header-copy">
+    <div class="header-copy has-banner">
       <!-- The logo carries the site name, so it is the h1 rather than sitting
            beside one: dropping the heading entirely would leave the page with
            no top-level landmark for anyone navigating by heading. -->
@@ -866,6 +886,30 @@
       <div class="eyebrow">Stock motorcycle specs, checked by riders.</div>
       <div class="subhead" id="total-count">Loading…</div>
     </div>
+
+    <section class="header-banner" id="header-banner" aria-label="About GearHeadSpecs">
+      <div class="banner-slide">
+        <svg class="banner-icon" viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0"/><path d="M13.5 15.2a4.5 4.5 0 0 1 8 3.3"/></svg>
+        <div><h2 class="banner-title">Built by riders, one spec at a time</h2><p class="banner-text">If every rider adds one or two specs, every bike here ends up with a full sheet. <a href="/register.html" data-banner-anon>Create a free account</a></p></div>
+      </div>
+      <div class="banner-slide" hidden>
+        <svg class="banner-icon" viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-5h6v5"/></svg>
+        <div><h2 class="banner-title">Keep your bike's upkeep in one place</h2><p class="banner-text">Add your bike to My Garage to log oil changes and services, and see what's due next. <a href="/login.html" data-banner-anon>Sign in to start</a></p></div>
+      </div>
+      <div class="banner-slide" hidden>
+        <svg class="banner-icon" viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z"/><path d="m9 9 6 6"/><circle cx="9" cy="9" r="1.6"/></svg>
+        <div><h2 class="banner-title">Know a bike inside out?</h2><p class="banner-text">Look after its spec sheet as its bike manager and help keep its specs straight. <a href="/manager-help.html">How bike managers work</a></p></div>
+      </div>
+      <div class="banner-slide" hidden>
+        <svg class="banner-icon" viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
+        <div><h2 class="banner-title">Doing the job yourself?</h2><p class="banner-text">Each job lists the specs, tools and how-to videos other riders found useful, all in one place.</p></div>
+      </div>
+      <div class="banner-slide" hidden>
+        <svg class="banner-icon" viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".6"/></svg>
+        <div><h2 class="banner-title">A wrong value is worse than a gap</h2><p class="banner-text">Only add what you're sure of, and flag anything that looks wrong. Riders count on these numbers.</p></div>
+      </div>
+      <div class="banner-dots" id="banner-dots"></div>
+    </section>
 
     <section class="header-garage" id="my-garage" aria-label="My Garage">
       <div class="garage-head">
@@ -1249,6 +1293,34 @@ document.addEventListener("change", guard(async (e) => {
 
 // Back and forward move between the bike you were looking at and the catalog,
 // rather than leaving the site.
+// The header banner: one message at a time, a new one every 9 seconds. It
+// holds still while the mouse or keyboard is on it, and for anyone whose
+// system asks for less motion. Sign-up links go once you're signed in.
+(function(){
+  const box = byId("header-banner");
+  if(!box) return;
+  const slides = [...box.querySelectorAll(".banner-slide")];
+  const dots = byId("banner-dots");
+  let at = 0, paused = false;
+  dots.innerHTML = slides.map((_, i) =>
+    `<button type="button" aria-label="Show message ${i + 1} of ${slides.length}"${i ? "" : ' aria-current="true"'}></button>`).join("");
+  const show = (i) => {
+    at = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => s.hidden = k !== at);
+    [...dots.children].forEach((d, k) => d.setAttribute("aria-current", k === at ? "true" : "false"));
+  };
+  dots.addEventListener("click", (e) => {
+    const i = [...dots.children].indexOf(e.target);
+    if(i >= 0) show(i);
+  });
+  ["mouseenter", "focusin"].forEach(ev => box.addEventListener(ev, () => paused = true));
+  ["mouseleave", "focusout"].forEach(ev => box.addEventListener(ev, () => paused = false));
+  if(!matchMedia("(prefers-reduced-motion: reduce)").matches)
+    setInterval(() => { if(!paused && !document.hidden) show(at + 1); }, 9000);
+  window.hideBannerSignupLinks = () =>
+    box.querySelectorAll("[data-banner-anon]").forEach(a => a.remove());
+})();
+
 // A bike's own address: /bike/1446/suzuki-dr650se. The server makes the same
 // name part (bike_slug in app.py); if they ever differ it just redirects.
 const HOME_TITLE = document.title.includes("| GearHeadSpecs")
@@ -3440,6 +3512,7 @@ function renderHowCta(){
 
 (async function(){
   await initChrome("/index.html");
+  if(ME.user && window.hideBannerSignupLinks) hideBannerSignupLinks();
   renderHowCta();
   new MutationObserver(syncLanding).observe(
     byId("detail-container"), { childList: true, subtree: true });
