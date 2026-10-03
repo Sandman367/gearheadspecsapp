@@ -7073,7 +7073,7 @@ class ApiTest(unittest.TestCase):
         self.assertIn('<meta name="description"', page)
         self.assertIn('<meta property="og:title"', page)
         self.assertIn(f'rel="canonical" href="{app.PUBLIC_URL}{home}"', page)
-        self.assertIn(f"<li>{html.escape(label)}: {html.escape(value)}</li>", page)
+        self.assertIn(f"<li>{html.escape(label)}: {html.escape(value)}", page)
         self.assertIn("if you know a spec for this bike", page)
         # the catalog itself is untouched
         status, _, page = raw("/")
@@ -7106,6 +7106,113 @@ class ApiTest(unittest.TestCase):
                       "A wrong value is worse than a gap"):
             self.assertIn(f'<h2 class="banner-title">{html.escape(title, quote=False)}</h2>', page)
         self.assertIn("If every rider adds one or two specs, every bike", page)
+
+    def _raw(self, path):
+        import http.client
+        c = http.client.HTTPConnection("127.0.0.1", self.port)
+        c.request("GET", path)
+        r = c.getresponse()
+        out = (r.status, r.getheader("Content-Type"), r.read().decode("utf-8"))
+        c.close()
+        return out
+
+    def test_99z_search_engines_find_every_bike(self):
+        """A search engine reading the site finds a sitemap naming every
+        online bike, a page per make linking to each, and a robots file that
+        welcomes search and AI answer engines but keeps AI training crawlers
+        and the private pages out."""
+        status, ctype, robots = self._raw("/robots.txt")
+        self.assertEqual(status, 200)
+        self.assertIn("text/plain", ctype)
+        self.assertIn("Disallow: /admin.html", robots)
+        self.assertIn("Disallow: /login.html", robots)
+        self.assertIn("User-agent: GPTBot", robots)
+        self.assertIn("User-agent: ClaudeBot", robots)
+        self.assertNotIn("OAI-SearchBot", robots)        # ChatGPT search may quote us
+        self.assertIn(f"Sitemap: {app.PUBLIC_URL}/sitemap.xml", robots)
+
+        con = sqlite3.connect(self.db)
+        online = con.execute("SELECT COUNT(*) FROM bikes WHERE offline=0").fetchone()[0]
+        name = con.execute("SELECT display_name FROM bike_display WHERE bike_id=?",
+                           (self.cb919,)).fetchone()[0]
+        make = con.execute("SELECT make FROM bikes WHERE id=?", (self.cb919,)).fetchone()[0]
+        con.execute("UPDATE bikes SET offline=1 WHERE id=?", (self.cb919,)); con.commit()
+        try:
+            _, _, xml = self._raw("/sitemap.xml")
+            self.assertNotIn(app.bike_path(self.cb919, name), xml)      # offline: left out
+        finally:
+            con.execute("UPDATE bikes SET offline=0 WHERE id=?", (self.cb919,)); con.commit()
+            con.close()
+        status, ctype, xml = self._raw("/sitemap.xml")
+        self.assertEqual(status, 200)
+        self.assertIn("xml", ctype)
+        self.assertEqual(xml.count("<loc>" + app.PUBLIC_URL + "/bike/"), online)
+        self.assertIn(app.bike_path(self.cb919, name), xml)
+
+        status, _, every = self._raw("/bikes")
+        self.assertEqual(status, 200)
+        self.assertIn(f'href="/bikes/{app.bike_slug(make)}"', every)
+        status, _, page = self._raw(f"/bikes/{app.bike_slug(make)}")
+        self.assertEqual(status, 200)
+        self.assertIn(f'href="{app.bike_path(self.cb919, name)}"', page)
+        self.assertIn("specs filled in", page)
+        self.assertEqual(self._raw("/bikes/no-such-make")[0], 404)
+
+        status, _, llms = self._raw("/llms.txt")
+        self.assertEqual(status, 200)
+        self.assertIn("please link to that bike's page", llms)
+
+        _, _, home = self._raw("/")
+        self.assertIn('<meta name="description"', home)
+        self.assertIn('href="/bikes"', home)
+
+    def test_99z_a_bike_page_says_where_each_value_came_from(self):
+        """Next to each value the page says how it was sourced, in words, and
+        carries the same specs in the form search and AI engines read."""
+        con = sqlite3.connect(self.db)
+        sid, value, label = con.execute(
+            "SELECT s.id, s.value, f.label FROM specs s JOIN spec_fields f ON f.field_key=s.field_key"
+            " WHERE s.bike_id=? AND s.paused=0 AND s.archived=0 AND TRIM(COALESCE(s.value,''))<>''"
+            " AND f.value_type='text' LIMIT 1", (self.cb919,)).fetchone()
+        was = con.execute("SELECT confidence FROM specs WHERE id=?", (sid,)).fetchone()[0]
+        con.execute("UPDATE specs SET confidence='confirmed' WHERE id=?", (sid,)); con.commit()
+        try:
+            name = con.execute("SELECT display_name FROM bike_display WHERE bike_id=?",
+                               (self.cb919,)).fetchone()[0]
+            _, _, page = self._raw(app.bike_path(self.cb919, name))
+            self.assertIn(f"<li>{html.escape(label)}: {html.escape(value)}"
+                          " (checked against the service manual)</li>", page)
+            ld = page.split('<script type="application/ld+json">', 1)[1].split("</script>", 1)[0]
+            data = json.loads(ld)
+            self.assertEqual(data["@type"], "Motorcycle")
+            self.assertIn({"@type": "PropertyValue", "name": label, "value": value,
+                           "description": "checked against the service manual"},
+                          data["additionalProperty"])
+        finally:
+            con.execute("UPDATE specs SET confidence=? WHERE id=?", (was, sid)); con.commit()
+            con.close()
+
+    def test_99z_nobody_pulls_the_whole_catalogue_at_once(self):
+        """The bike list hands out fifty at a time to anyone but admin, and
+        one visitor asking for data faster than anyone reads is told to wait."""
+        _, b = self.anon().get("/api/bikes?limit=1000")
+        self.assertLessEqual(len(b["bikes"]), 50)
+        self.assertGreater(b["total"], 50)
+        _, b = self.as_("admin").get("/api/bikes?limit=1000")
+        self.assertGreater(len(b["bikes"]), 50)
+        app._rate_hits.pop("203.0.113.9", None)
+        t = 1_000_000.0
+        self.assertFalse(any(app.over_rate_limit("203.0.113.9", t + i * 0.1)
+                             for i in range(app.RATE_LIMIT)))
+        self.assertTrue(app.over_rate_limit("203.0.113.9", t + 30))
+        self.assertFalse(app.over_rate_limit("203.0.113.9", t + 200))    # a minute on, fine again
+        # through the server, as Cloudflare would report the visitor
+        app._rate_hits["198.51.100.7"] = [__import__('time').time()] * app.RATE_LIMIT
+        s, b = self.anon().call("GET", "/api/stats", headers={"CF-Connecting-IP": "198.51.100.7"})
+        self.assertEqual(s, 429)
+        self.assertIn("Wait a minute", b["error"])
+        self.assertEqual(self.anon().get("/api/stats")[0], 200)     # someone else is unaffected
+        app._rate_hits.pop("198.51.100.7", None)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

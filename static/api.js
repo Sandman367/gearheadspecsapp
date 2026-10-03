@@ -159,6 +159,7 @@ let ME = { user: null, manages: [] };
 
 const NAV = [
   { href: "/index.html",         label: "Browse",         role: "anon" },
+  { href: "/bikes",              label: "All bikes",      role: "anon" },
   { href: "/manager.html",       label: "My Bikes",       role: "manager" },
   { href: "/spec-tree.html",     label: "Spec Tree",      role: "admin" },
   { href: "/board.html",         label: "Board",          role: "manager", count: "board" },

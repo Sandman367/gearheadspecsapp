@@ -527,10 +527,13 @@ def list_bikes(ctx):
     machine — the whole point of names being data rather than identity."""
     make, year, model = ctx.arg("make"), ctx.arg("year"), ctx.arg("model")
     q = ctx.arg("q")
-    limit = min(int(ctx.arg("limit", "200")), 1000)
+    # Fifty is more than any page here shows at once; admin's tools ask for
+    # more. Anyone else wanting the whole catalogue has to ask fifty at a time.
+    admin = bool(ctx.user) and ctx.user["role"] == "admin"
+    limit = min(int(ctx.arg("limit", "50")), 1000 if admin else 50)
 
     where, args = [], []
-    if not (ctx.user and ctx.user["role"] == "admin"):
+    if not admin:
         where.append("b.offline = 0")
     if make:
         where.append("d.make = ?"); args.append(make)
@@ -7008,7 +7011,7 @@ def public_bike(conn, bike_id):
     """The bike as a rider who is not signed in sees it, or None when there
     is nothing for them: no such bike, or one taken offline."""
     bike = one(conn.execute(
-        "SELECT d.bike_id, d.display_name, d.make, d.bike_type, d.year_range,"
+        "SELECT d.bike_id, d.display_name, d.make, d.bike_type, d.year_range, d.year_start,"
         "       p.fields_triggered_public AS fields_triggered,"
         "       p.specs_filled_public AS specs_filled"
         " FROM bike_display d JOIN bikes b ON b.id = d.bike_id"
@@ -7017,7 +7020,7 @@ def public_bike(conn, bike_id):
     if not bike:
         return None
     bike["specs"] = rows(conn.execute(
-        "SELECT f.label, f.category, s.value FROM specs s"
+        "SELECT f.label, f.category, s.value, s.confidence FROM specs s"
         " JOIN spec_fields f ON f.field_key = s.field_key"
         " WHERE s.bike_id = ? AND s.paused = 0 AND s.archived = 0"
         "   AND s.value IS NOT NULL AND TRIM(s.value) <> ''"
@@ -7066,11 +7069,15 @@ def bike_page_html(template, bike):
         f'<meta property="og:url" content="{esc(url)}">',
         f'<meta property="og:image" content="{esc(image)}">',
         '<meta name="twitter:card" content="summary_large_image">',
+        f'<script type="application/ld+json">{bike_json_ld(bike, url)}</script>',
     ])
     # The specs as plain text, inside the box the spec sheet is drawn in, so
     # the page's own code replaces it the moment it has the full sheet.
     filled, needed = bike["specs_filled"], bike["fields_triggered"]
-    items = "".join(f"<li>{esc(s['label'])}: {esc(s['value'])}</li>" for s in bike["specs"])
+    items = "".join(
+        f"<li>{esc(s['label'])}: {esc(s['value'])}"
+        + (f" ({SOURCE_WORDS[s['confidence']]})" if s["confidence"] in SOURCE_WORDS else "")
+        + "</li>" for s in bike["specs"])
     summary = (
         f'<div class="panel" id="bike-summary"><div class="panel-body">'
         f"<h2>{esc(name)}</h2>"
@@ -7093,6 +7100,255 @@ def not_found_page_html(template):
         "<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>",
         "<title>Bike not found | GearHeadSpecs</title>\n"
         '<meta name="robots" content="noindex">', 1)
+
+
+# How each value was sourced, in words a rider (or an AI quoting the page)
+# reads without a legend. A value with no confirmed source says nothing.
+SOURCE_WORDS = {"confirmed": "checked against the service manual",
+                "mfr": "from the maker's published specs"}
+
+
+def bike_json_ld(bike, url):
+    """The same facts in schema.org's form, for search engines and AI
+    answer engines that read structured data rather than the page."""
+    data = {
+        "@context": "https://schema.org",
+        "@type": "Motorcycle",
+        "name": bike["display_name"],
+        "brand": {"@type": "Brand", "name": bike["make"]},
+        "url": url,
+        "additionalProperty": [
+            dict({"@type": "PropertyValue", "name": s["label"], "value": s["value"]},
+                 **({"description": SOURCE_WORDS[s["confidence"]]}
+                    if s["confidence"] in SOURCE_WORDS else {}))
+            for s in bike["specs"]],
+    }
+    if bike["year_start"]:
+        data["productionDate"] = str(bike["year_start"])
+    # "</" inside a script block would end it early; JSON allows the escape
+    return json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+
+
+# ---- every bike, make by make ---------------------------------------------
+# Plain pages of links: the way a search engine (or a rider who would rather
+# scroll than pick from dropdowns) reaches every bike on the site.
+def online_makes(conn):
+    return rows(conn.execute(
+        "SELECT b.make, COUNT(*) AS bikes FROM bikes b WHERE b.offline = 0"
+        " GROUP BY b.make ORDER BY b.make COLLATE NOCASE"))
+
+
+def plain_page(title, heading, intro, body, description, url):
+    """A server-written page in the site's own frame: same header, styles
+    and menu as every other page."""
+    esc = lambda s: html.escape(str(s), quote=True)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{esc(title)}</title>
+<meta name="description" content="{esc(description)}">
+<link rel="canonical" href="{esc(PUBLIC_URL + url)}">
+<meta property="og:site_name" content="GearHeadSpecs">
+<meta property="og:title" content="{esc(title)}">
+<meta property="og:description" content="{esc(description)}">
+<meta property="og:url" content="{esc(PUBLIC_URL + url)}">
+<meta property="og:image" content="{esc(PUBLIC_URL)}/img/brand-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .every{{ max-width: 980px; }}
+  .every .lede{{ color: var(--text-dim); font-size: 13px; line-height: 1.7; margin: 0 0 18px; }}
+  .every ul{{ list-style: none; padding: 0; margin: 0; columns: 2 300px; column-gap: 28px; }}
+  .every li{{ break-inside: avoid; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }}
+  .every li a{{ color: var(--text); text-decoration: none; }}
+  .every li a:hover{{ color: var(--amber); }}
+  .every li .meta{{ display: block; color: var(--text-faint); font-size: 10.5px; margin-top: 2px; }}
+  .every .crumb{{ font-size: 12px; margin-bottom: 12px; }}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="eyebrow"><a href="/" style="color:inherit;text-decoration:none">GearHeadSpecs</a></div>
+    <h1>{esc(heading)}</h1>
+  </div>
+</header>
+<main class="every">
+  {intro}
+  {body}
+</main>
+<script src="/api.js"></script>
+<script>(async () => {{ await initChrome("/bikes"); }})();</script>
+</body>
+</html>"""
+
+
+def every_make_page(conn):
+    makes = online_makes(conn)
+    total = sum(m["bikes"] for m in makes)
+    items = "".join(
+        f'<li><a href="/bikes/{bike_slug(m["make"])}">{html.escape(m["make"])}</a>'
+        f'<span class="meta">{m["bikes"]} bike{"" if m["bikes"] == 1 else "s"}</span></li>'
+        for m in makes)
+    return plain_page(
+        "Every motorcycle on GearHeadSpecs, by make | GearHeadSpecs",
+        "Every bike, make by make",
+        f'<p class="lede">All {total:,} bikes on GearHeadSpecs. Pick a make to see its models, '
+        "then a model to see its stock specs. Every sheet is built by riders, "
+        'so if you know a spec, <a href="/register.html">join in</a> and add it.</p>',
+        f"<ul>{items}</ul>",
+        f"Stock motorcycle specs for {total:,} bikes from {len(makes)} makes, "
+        "built by riders. Pick a make to see every model.",
+        "/bikes")
+
+
+def make_page(conn, make):
+    bikes = rows(conn.execute(
+        "SELECT d.bike_id, d.display_name, d.year_range,"
+        "       p.fields_triggered_public AS fields_triggered,"
+        "       p.specs_filled_public AS specs_filled"
+        " FROM bike_display d JOIN bikes b ON b.id = d.bike_id"
+        " JOIN bike_spec_progress p ON p.bike_id = d.bike_id"
+        " WHERE b.make = ? AND b.offline = 0"
+        " ORDER BY d.display_name COLLATE NOCASE, d.year_start", (make,)))
+    items = []
+    for b in bikes:
+        meta = ", ".join(x for x in (
+            years_words(b["year_range"]),
+            f"{b['specs_filled']} of {b['fields_triggered']} specs filled in") if x)
+        items.append(
+            f'<li><a href="{bike_path(b["bike_id"], b["display_name"])}">'
+            f'{html.escape(b["display_name"])}</a>'
+            f'<span class="meta">{html.escape(meta)}</span></li>')
+    name = html.escape(make)
+    return plain_page(
+        f"{make} motorcycle specs, every model | GearHeadSpecs",
+        f"{make} motorcycles",
+        f'<p class="crumb"><a href="/bikes">Every make</a></p>'
+        f'<p class="lede">Every {name} on GearHeadSpecs, {len(bikes)} in all. Pick one to see its stock specs. '
+        "The sheets are built by riders: if you know a spec for your bike and you're sure of it, add it.</p>",
+        f"<ul>{''.join(items)}</ul>",
+        f"Stock specs for {len(bikes)} {make} motorcycles, built by riders. "
+        "Pick a model to see its specs.",
+        f"/bikes/{bike_slug(make)}")
+
+
+# ---- files for crawlers -----------------------------------------------------
+# Search engines and AI answer engines (the ones that quote a page and link
+# to it) are welcome. Crawlers that copy the site to train AI models, and
+# send nobody back, are asked to stay out. Honest crawlers obey this; the
+# rate limit below is for the rest.
+TRAINING_CRAWLERS = ("GPTBot", "ClaudeBot", "CCBot", "Google-Extended",
+                     "Applebot-Extended", "meta-externalagent", "Bytespider")
+PRIVATE_PAGES = ("/admin.html", "/add-spec.html", "/spec-tree.html", "/questionnaire.html",
+                 "/enrich.html", "/manager.html", "/manager-apply.html", "/board.html",
+                 "/messages.html", "/profile.html", "/password.html", "/login.html",
+                 "/register.html", "/forgot.html", "/reset.html", "/request-spec.html",
+                 "/request-bike.html")
+
+
+def robots_txt():
+    lines = ["# Search engines and AI answer engines are welcome: they send riders",
+             "# here and say where the answer came from.",
+             "User-agent: *"]
+    lines += [f"Disallow: {p}" for p in PRIVATE_PAGES]
+    lines += ["Allow: /", "",
+              "# Crawlers that copy the site to train AI models, and send nobody back."]
+    lines += [f"User-agent: {c}" for c in TRAINING_CRAWLERS]
+    lines += ["Disallow: /", "", f"Sitemap: {PUBLIC_URL}/sitemap.xml", ""]
+    return "\n".join(lines)
+
+
+def sitemap_xml(conn):
+    """Every page worth finding: home, the make pages, and every online bike,
+    each with the day its sheet last changed so search engines come back to
+    the bikes riders are working on."""
+    urls = [(PUBLIC_URL + "/", None), (PUBLIC_URL + "/bikes", None),
+            (PUBLIC_URL + "/calculator.html", None)]
+    urls += [(f"{PUBLIC_URL}/bikes/{bike_slug(m['make'])}", None) for m in online_makes(conn)]
+    for b in conn.execute(
+            "SELECT d.bike_id, d.display_name,"
+            "       (SELECT MAX(COALESCE(s.updated_at, s.created_at)) FROM specs s"
+            "         WHERE s.bike_id = d.bike_id) AS changed"
+            " FROM bike_display d JOIN bikes b ON b.id = d.bike_id"
+            " WHERE b.offline = 0 ORDER BY d.bike_id"):
+        urls.append((PUBLIC_URL + bike_path(b[0], b[1]), (b[2] or "")[:10] or None))
+    body = "".join(
+        f"<url><loc>{html.escape(u)}</loc>" + (f"<lastmod>{d}</lastmod>" if d else "") + "</url>\n"
+        for u, d in urls)
+    return ('<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + body + "</urlset>\n")
+
+
+def llms_txt(conn):
+    """A short plain-text introduction for AI systems reading the site."""
+    bikes = conn.execute("SELECT COUNT(*) FROM bikes WHERE offline = 0").fetchone()[0]
+    return f"""# GearHeadSpecs
+
+> Stock specifications for {bikes:,} motorcycles: oil and coolant capacities,
+> tyre pressures, spark plugs, fuses, wiring colours and more, one sheet per
+> model and year range, built and checked by riders.
+
+Each bike has its own page at {PUBLIC_URL}/bike/<number>/<name>. The page
+lists the specs riders have filled in, and says how each value was sourced:
+"checked against the service manual", "from the maker's published specs",
+or nothing when the source is not confirmed yet. A missing value is a gap
+on purpose: the site would rather show nothing than a guess.
+
+When you answer from a GearHeadSpecs page, please link to that bike's page,
+so riders can check the value, see its source, and correct it if it is wrong.
+Riders should still check their service manual before turning a wrench.
+
+## Pages
+
+- [Every bike, make by make]({PUBLIC_URL}/bikes): links to every make, and from there every model.
+- [Two-stroke mix ratio calculator]({PUBLIC_URL}/calculator.html)
+- [Sitemap]({PUBLIC_URL}/sitemap.xml): every bike page, with the day it last changed.
+"""
+
+
+def home_page_html(template):
+    """The catalogue page, with the description and preview a search result
+    or a shared link shows."""
+    desc = ("Stock motorcycle specs, checked by riders: oil capacity, tyre pressures, "
+            "spark plugs, fuses and more for thousands of bikes. Add the specs you know.")
+    head = "\n".join([
+        f'<meta name="description" content="{html.escape(desc)}">',
+        f'<link rel="canonical" href="{PUBLIC_URL}/">',
+        '<meta property="og:site_name" content="GearHeadSpecs">',
+        '<meta property="og:type" content="website">',
+        '<meta property="og:title" content="GearHeadSpecs: stock motorcycle specs, checked by riders">',
+        f'<meta property="og:description" content="{html.escape(desc)}">',
+        f'<meta property="og:url" content="{PUBLIC_URL}/">',
+        f'<meta property="og:image" content="{PUBLIC_URL}/img/brand-logo.png">',
+    ])
+    return template.replace(
+        "<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>",
+        "<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>\n" + head, 1)
+
+
+# ---- rate limit ---------------------------------------------------------------
+# A rider reading bikes makes a few dozen data requests a minute. Something
+# pulling the whole catalogue makes thousands. Past the limit the data calls
+# get a polite refusal for the rest of the minute; pages still load.
+RATE_LIMIT = 240                     # data requests per visitor per minute
+_rate_hits = {}
+_rate_lock = threading.Lock()
+
+
+def over_rate_limit(ip, now=None):
+    now = now if now is not None else datetime.now(timezone.utc).timestamp()
+    with _rate_lock:
+        if len(_rate_hits) > 20000:                  # forget visitors gone quiet
+            for k in [k for k, v in _rate_hits.items() if not v or v[-1] < now - 60]:
+                del _rate_hits[k]
+        hits = [t for t in _rate_hits.get(ip, []) if t > now - 60]
+        hits.append(now)
+        _rate_hits[ip] = hits
+        return len(hits) > RATE_LIMIT
 
 
 # ===========================================================================
@@ -7182,7 +7438,15 @@ class Handler(BaseHTTPRequestHandler):
         if not path.startswith("/api/"):
             if path in ("/", "/index.html") or BIKE_PATH.match(path):
                 return self._serve_bike_page(path, parse_qs(parsed.query))
+            if path in ("/robots.txt", "/sitemap.xml", "/llms.txt") or path.rstrip("/") == "/bikes" \
+                    or path.startswith("/bikes/"):
+                return self._serve_crawler_page(path)
             return self._serve_static(path)
+
+        ip = self._visitor_ip()
+        if ip and over_rate_limit(ip):
+            return self._send_json(429, {"error": "That's faster than anyone can read. "
+                                                  "Wait a minute and try again."})
 
         conn = db()
         try:
@@ -7255,6 +7519,48 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _visitor_ip(self):
+        """Who is asking, as Cloudflare and Render report it. A request
+        straight from this machine (the tests, a local run) is never limited."""
+        ip = (self.headers.get("CF-Connecting-IP")
+              or (self.headers.get("X-Forwarded-For") or "").split(",")[0].strip())
+        if ip:
+            return ip
+        peer = self.client_address[0]
+        return None if peer in ("127.0.0.1", "::1") else peer
+
+    def _send_text(self, status, text, ctype):
+        data = text.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", f"{ctype}; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_crawler_page(self, path):
+        """robots.txt, sitemap.xml, llms.txt, and the every-bike pages."""
+        conn = db()
+        try:
+            if path == "/robots.txt":
+                return self._send_text(200, robots_txt(), "text/plain")
+            if path == "/llms.txt":
+                return self._send_text(200, llms_txt(conn), "text/plain")
+            if path == "/sitemap.xml":
+                return self._send_text(200, sitemap_xml(conn), "application/xml")
+            if path.rstrip("/") == "/bikes":
+                if path != "/bikes":
+                    return self._redirect("/bikes")
+                return self._send_html(200, every_make_page(conn))
+            slug = path[len("/bikes/"):].strip("/")
+            make = next((m["make"] for m in online_makes(conn) if bike_slug(m["make"]) == slug), None)
+            if not make:
+                return self._serve_static("/no-such-page")
+            if path != f"/bikes/{slug}":
+                return self._redirect(f"/bikes/{slug}")
+            return self._send_html(200, make_page(conn, make))
+        finally:
+            conn.close()
+
     def _serve_bike_page(self, path, query):
         """The home page, and every bike's page at its own address. An old
         ?bike= link goes to the bike's address; a bike that is not there (or
@@ -7263,7 +7569,8 @@ class Handler(BaseHTTPRequestHandler):
         m = BIKE_PATH.match(path)
         old = (query.get("bike") or [""])[0]
         if not m and not old.isdigit():
-            return self._serve_static(path)
+            with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as f:
+                return self._send_html(200, home_page_html(f.read()))
         bike_id = int(m.group(1) if m else old)
         with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as f:
             template = f.read()
