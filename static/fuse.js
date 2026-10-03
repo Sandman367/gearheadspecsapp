@@ -196,7 +196,7 @@ function fuseOneHTML(value, id, opts = {}){
       ${fuseArt(value, id)}
       <span class="fuse-amp">${esc(row ? row.text : "")}</span>
       <span class="fuse-family">${esc(f.name)}${
-        row && row.color_name ? ` · ${esc(row.color_name)}` : ""}</span>
+        row && row.color_name ? `, ${esc(row.color_name)}` : ""}</span>
       ${opts.role ? `<span class="fuse-role">${esc(opts.role)}</span>` : `<span></span>`}
       ${f.codes ? `<span class="fuse-codes" title="What a manual or a parts bin may call this size">${esc(f.codes)}</span>` : `<span></span>`}
     </span>`;
@@ -273,8 +273,8 @@ function fusePickerHTML(id, current, cur){
              <div><div class="fp-big">${esc(fuseParts(set[idx].value).row?.text || "")}</div>
                <div class="fp-desc">${esc(fam.name)}${
                  fuseParts(set[idx].value).row?.color_name
-                   ? " · " + esc(fuseParts(set[idx].value).row.color_name) : ""}</div>
-               <div class="fp-mm">${esc(fam.codes)}${fam.mm ? ` · ${esc(fam.mm)} mm` : ""}</div></div></div>`
+                   ? ", " + esc(fuseParts(set[idx].value).row.color_name) : ""}</div>
+               <div class="fp-mm">${esc(fam.codes)}${fam.mm ? `, ${esc(fam.mm)} mm` : ""}</div></div></div>`
         : `<div class="fp-hint">${fam ? "Now pick a rating" : "Pick a size, then a rating"}</div>`}
 
       <div class="wp-row">

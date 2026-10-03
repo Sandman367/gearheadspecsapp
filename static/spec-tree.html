@@ -215,7 +215,7 @@ function chipFor(f){
     // The answer's own wording. "q3=B" is precise and unreadable; "Belt drive"
     // is what the person answering the questionnaire actually chose.
     return f.triggers.map(t =>
-      `<span class="tree-chip branch" title="${esc(t.question_id)} = ${esc(t.option)} · ${esc(t.question)}">${esc(t.text)}</span>`
+      `<span class="tree-chip branch" title="${esc(t.question_id)} = ${esc(t.option)}, ${esc(t.question)}">${esc(t.text)}</span>`
     ).join(" ");
   }
   return `<span class="tree-chip named">named bikes</span>`;
@@ -293,7 +293,7 @@ function hereCell(f){
                 title="${!single ? "Split by year — merge or edit it on the spec sheet"
                   : "Holds a value or an alternate — somebody's work. Clear it on the spec sheet first" + (IS_ADMIN ? "" : ", or ask admin")}">Remove</button>`;
   }
-  return `<div class="st">${state}<span class="note">${esc(notes.join(" · "))}</span></div>
+  return `<div class="st">${state}<span class="note">${esc(notes.join(", "))}</span></div>
     <div class="acts">
       <button class="action-btn" data-here-pause="${key}" data-to="${allOff ? "0" : "1"}" data-label="${esc(f.label)}"
               title="${allOff ? "Show it to riders on this bike" : "Hide it from riders on this bike — the value stays"}">${
@@ -382,7 +382,7 @@ function render(){
       <div class="cat-bar">
         <h3>${esc(cat)}</h3>
         <span class="n">${byCat[cat].length} field${byCat[cat].length === 1 ? "" : "s"}${
-          onBike ? ` · ${byCat[cat].filter(f => f.here).length} on this bike` : ""}</span>
+          onBike ? `, ${byCat[cat].filter(f => f.here).length} on this bike` : ""}</span>
       </div>
       <div class="table-wrap">
         <table class="tree-table">
@@ -438,7 +438,7 @@ function bikePickerHTML(){
       <select id="tree-bike">
         <option value="">Just the tree — no bike controls</option>
         ${TREE.my_bikes.map(m => `<option value="${m.bike_id}"${b && b.bike_id === m.bike_id ? " selected" : ""}>${
-          esc(m.display_name)}${m.year_range ? ` · ${esc(m.year_range)}` : ""}</option>`).join("")}
+          esc(m.display_name)}${m.year_range ? `, ${esc(m.year_range)}` : ""}</option>`).join("")}
       </select>
     </div>`;
 }
@@ -457,7 +457,7 @@ function paint(){
 
   document.getElementById("sub").textContent =
     `${f.length} fields across ${TREE.categories.length} categories`
-    + (b ? ` · ${here.length} on ${b.display_name}` : "");
+    + (b ? `, ${here.length} on ${b.display_name}` : "");
 
   document.getElementById("content").innerHTML = `
     <div class="panel">
@@ -507,10 +507,10 @@ function paint(){
           </div>
           <span class="tree-count" id="tree-showing"></span>
         </div>
-        ${b ? `<div class="bike-line"><b>${esc(b.display_name)}</b>${b.year_range ? ` · ${esc(b.year_range)}` : ""}${
-                b.bike_type ? ` · ${esc(b.bike_type)}` : ""} — ${here.length} of ${f.length} fields on its sheet,
+        ${b ? `<div class="bike-line"><b>${esc(b.display_name)}</b>${b.year_range ? `, ${esc(b.year_range)}` : ""}${
+                b.bike_type ? `, ${esc(b.bike_type)}` : ""} — ${here.length} of ${f.length} fields on its sheet,
                 ${hereOff} offline, ${hereEmpty} empty.
-                <a href="/index.html?bike=${b.bike_id}">Open its spec sheet →</a></div>` : ""}
+                <a href="/index.html?bike=${b.bike_id}">Open its spec sheet</a></div>` : ""}
       </div>
     </div>
 

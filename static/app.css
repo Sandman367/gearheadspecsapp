@@ -101,8 +101,7 @@ nav.mainnav .nav-right{ margin-left: auto; display: flex; align-items: center; g
 .mgr-mark.t-gold, .tier-pill.t-gold, .mgr-mark.t-admin, .tier-pill.t-admin{ color: var(--amber); }
 .mgr-mark.t-founder{ color: var(--amber); margin-left: 2px; }
 .tier-pill{
-  display: inline-block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
-  text-transform: uppercase; padding: 1px 7px; border: 1px solid currentColor; margin-left: 6px;
+  display: inline-block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; padding: 1px 7px; border: 1px solid currentColor; margin-left: 6px;
   vertical-align: 1px;
 }
 .member-name{ color: inherit; text-decoration: none; }
@@ -188,8 +187,6 @@ button.stat-card{
 button.stat-card:hover{ border-color: var(--amber); background: var(--panel-2); }
 button.stat-card:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
 /* An arrow, so the card reads as a control and not just a number. */
-button.stat-card .lbl::after{ content: " \2192"; opacity: 0.5; }
-button.stat-card.away .lbl::after{ content: " \2197"; }
 
 /* Where the jump landed — otherwise a scroll on a page of near-identical
    panels leaves you guessing which one it meant. */

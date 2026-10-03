@@ -77,7 +77,7 @@
   }
   .cat-nav-item{
     /* the name, with its count in small type underneath: plain words fit the
-       sidebar on two lines where "24 · 8 gaps" squeezed onto one */
+       sidebar on two lines where "24, 8 gaps" squeezed onto one */
     display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
     background: none; border: none; border-left: 3px solid transparent;
     color: var(--text-dim); font-family: var(--mono); font-size: 12.5px;
@@ -132,7 +132,7 @@
   .job-spec .gap{ color: var(--text-faint); font-style: italic; font-weight: 400; }
   .job-spec a{ font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
   .job-sub{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--text-faint);
-            margin: 16px 0 6px; text-transform: uppercase; }
+            margin: 16px 0 6px; }
   .job-tools{ display: flex; flex-wrap: wrap; gap: 6px; }
   .job-tool{ display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2);
              padding: 4px 9px; font-size: 12px; }
@@ -780,8 +780,7 @@
   .how{ display: none; margin: 2px 0 10px; }
   .how.visible{ display: block; }
   .how-title{
-    font-family: var(--display); font-size: 15px; letter-spacing: 0.06em;
-    text-transform: uppercase; margin: 0 0 4px; color: var(--text);
+    font-family: var(--display); font-size: 15px; letter-spacing: 0.06em; margin: 0 0 4px; color: var(--text);
   }
   .how-lead{
     font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
@@ -798,8 +797,7 @@
   .how-card.alts{ border-left-color: var(--amber); }
   .how-card p{ margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--text-dim); }
   .how-card .term{
-    font-family: var(--display); font-size: 14.5px; letter-spacing: 0.05em;
-    text-transform: uppercase; font-weight: 500;
+    font-family: var(--display); font-size: 14.5px; letter-spacing: 0.05em; font-weight: 500;
   }
   .how-card .term{ color: var(--amber); }
   .how-card .chip{
@@ -904,7 +902,7 @@
       <div class="cat-nav-tools side-calc" id="side-calc" hidden>
         <div class="side-calc-head">
           <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix ratio calculator</span>
-          <a href="/calculator.html" target="_blank" rel="noopener" title="Open the calculator in a new tab">open ↗</a>
+          <a href="/calculator.html" target="_blank" rel="noopener" title="Open the calculator in a new tab">open in a new tab</a>
         </div>
         <iframe id="mix-calc-side" title="Mix Ratio Calculator" loading="lazy"></iframe>
       </div>
@@ -944,7 +942,7 @@
         <div class="panel-head">
           <div><h3 class="calc-name" style="font-size:inherit"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix ratio calculator</h3>
             <p>How much 2-stroke oil to add to your gas.</p></div>
-          <a class="ghost-btn" style="text-decoration:none" href="/calculator.html" target="_blank" rel="noopener">Open in a new tab ↗</a>
+          <a class="ghost-btn" style="text-decoration:none" href="/calculator.html" target="_blank" rel="noopener">Open in a new tab</a>
         </div>
         <iframe id="mix-calc-frame" title="Mix Ratio Calculator" loading="lazy"></iframe>
       </section>
@@ -1121,7 +1119,7 @@ const search = guard(async (autoOpen = false) => {
     // A rider whose machine is not in the catalogue needs the way to ask for
     // it, not an empty page.
     els.results.innerHTML = data.total === 0
-      ? `<div class="empty"><a href="/request-bike.html">Can't find your bike? Ask for it to be added →</a></div>`
+      ? `<div class="empty"><a href="/request-bike.html">Can't find your bike? Request it</a></div>`
       : "";
     return;
   }
@@ -1139,15 +1137,15 @@ const search = guard(async (autoOpen = false) => {
         <div class="result" data-bike="${b.bike_id}">
           <div>
             <div class="result-name">${esc(b.display_name)}</div>
-            <div class="result-meta">${esc(b.year_range || "year unknown")}
-              · ${b.specs_filled}/${b.fields_triggered} specs filled${
-                b.years_verified ? "" : " · years unconfirmed"}</div>
+            <div class="result-meta">${esc(b.year_range || "year unknown")},
+              ${b.specs_filled} of ${b.fields_triggered} specs filled in${
+                b.years_verified ? "" : ", years not confirmed yet"}</div>
           </div>
           <div class="progress"><div class="progress-fill" style="width:${
             b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0}%"></div></div>
         </div>`).join("")
     : `<div class="empty">Nothing matches those filters.
-         <a href="/request-bike.html">Can't find your bike? Ask for it to be added →</a></div>`;
+         <a href="/request-bike.html">Can't find your bike? Request it</a></div>`;
 });
 
 [els.make, els.year].forEach(s =>
@@ -1288,7 +1286,7 @@ function jobCard(j){
   const tools = j.tools.filter(t => !t.paused), links = j.links.filter(l => !l.paused);
   const sum = [`${specs.length} spec${specs.length !== 1 ? "s" : ""}`, gaps ? `${gaps} not yet sourced` : "",
                tools.length ? `${tools.length} tool${tools.length !== 1 ? "s" : ""}` : "",
-               links.length ? `${links.length} link${links.length !== 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+               links.length ? `${links.length} link${links.length !== 1 ? "s" : ""}` : ""].filter(Boolean).join(", ");
   const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch(e){ return ""; } };
   return `
     <div class="job-card${open ? " open" : ""}" id="job-${esc(j.task_key)}">
@@ -1320,9 +1318,9 @@ function jobCard(j){
           <div class="job-link${l.paused ? " hidden-item" : ""}">
             <button class="job-vote${l.my_vote ? " on" : ""}" data-job-vote="${l.id}" data-auth-kind="vote"${authAttr()}
                     title="${l.my_vote ? "You found this useful" : "This helped me"}">${THUMB_SVG}<span>${l.votes}</span></button>
-            <span class="kind ${esc(l.link_type)}">${l.link_type === "yt" ? "▶" : l.link_type === "forum" ? "💬" : "↗"}</span>
+            <span class="kind ${esc(l.link_type)}">${l.link_type === "yt" ? "▶" : l.link_type === "forum" ? "💬" : "🔗"}</span>
             <span class="txt"><a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener nofollow ugc">${esc(l.title)}</a>
-              <small>${esc(host(l.url))}${l.added_by ? " · added by " + esc(l.added_by) : ""}${l.paused ? " · hidden from riders" : ""}</small></span>
+              <small>${esc(host(l.url))}${l.added_by ? ", added by " + esc(l.added_by) : ""}${l.paused ? ", hidden from riders" : ""}</small></span>
             ${MANAGES_THIS_BIKE ? `<button class="job-x" data-job-pause="links|${l.id}" title="${l.paused ? "Show it again" : "Hide it from riders (kept, not deleted)"}">${l.paused ? "show" : "✕"}</button>` : ""}
           </div>`).join("")
           : `<div class="cell-dim">No links yet. Found a good video or thread for this job? Add it.</div>`}
@@ -1559,7 +1557,7 @@ function renderHero(){
                nobody): anyone but admin can put their hand up. */
             !bike.managers.length && !(ME.user && ME.user.role === "admin")
             ? `<a class="primary-btn" style="text-decoration:none" href="/manager-apply.html?bike=${bike.bike_id}"
-                  title="Nobody's looking after this bike yet">Know this bike well? Offer to look after it →</a>` : ""}
+                  title="Nobody's looking after this bike yet">Know this bike well? Offer to look after it</a>` : ""}
           <span class="fill"><span><b>${bike.specs_filled}</b> of ${bike.fields_triggered} specs filled in</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
           ${ME.user && ME.user.role === "admin" && !bike.offline
@@ -1612,7 +1610,7 @@ function renderPhotoBlock(){
       <div class="bike-photo${shown ? " has-photo" : ""}">
         ${shown
           ? `<img src="${esc(shown.url)}" alt="${esc(bike.display_name)}${shown.year ? " " + shown.year : ""}">
-             ${shown.uploaded_by ? `<span class="photo-credit">${shown.year ? shown.year + " · " : ""}${esc(shown.uploaded_by)}</span>` : ""}`
+             ${shown.uploaded_by ? `<span class="photo-credit">${shown.year ? shown.year + " photo by " : "Photo by "}${esc(shown.uploaded_by)}</span>` : ""}`
           : `<svg viewBox="0 0 64 64" fill="none" stroke-width="2">
               <circle cx="16" cy="46" r="9"/><circle cx="48" cy="46" r="9"/>
               <path d="M16 46 28 26h14l10 20M28 26l6-8h9"/></svg>
@@ -1663,7 +1661,7 @@ function wireDiagramsHTML(){
   return `<div class="wire-diagrams">
       <span class="who">Wiring diagram for this bike</span>
       ${list.map(d => `<div class="row${d.paused ? " off" : ""}">
-        <a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.title)} ↗</a>
+        <a href="${esc(d.url)}" target="_blank" rel="noopener noreferrer">${esc(d.title)}</a>
         ${d.year_from || d.year_to ? `<span class="years">${
           esc(String(d.year_from || ""))}–${esc(String(d.year_to || ""))}</span>` : ""}
         ${d.added_by ? `<span class="years">· ${esc(d.added_by)}</span>` : ""}
@@ -1831,7 +1829,7 @@ function renderEcho(s, here){
 
    Printed the way a manual prints it — every range visible at once — rather
    than behind a year selector. Somebody reading this has a particular bike in
-   front of them, and "8.8 L (1976-77) · 12 L (1978-89)" answers them faster
+   front of them, and "8.8 L (1976-77), 12 L (1978-89)" answers them faster
    than a control they have to operate first. */
 function renderSpecGroup(variants){
   const first = variants[0];
@@ -2069,9 +2067,9 @@ function renderSpec(s, opts = {}){
              ? `, taken down by ${esc(s.paused_by_username)}` : ""}. Votes, flags
            and submissions are closed until you put it back.</div>` : ""}
       ${s.site_note ? `<div class="spec-note site"><span class="who">Note on this spec, on every bike${
-          s.site_note_by ? ` · ${esc(s.site_note_by)}` : ""}</span>${esc(s.site_note)}</div>` : ""}
+          s.site_note_by ? ` from ${esc(s.site_note_by)}` : ""}</span>${esc(s.site_note)}</div>` : ""}
       ${s.note ? `<div class="spec-note"><span class="who">Note on this bike${
-          s.note_by ? ` · ${esc(s.note_by)}` : ""}</span>${esc(s.note)}${
+          s.note_by ? ` from ${esc(s.note_by)}` : ""}</span>${esc(s.note)}${
           iManage ? `<button class="action-btn edit" data-note="${s.id}" data-key="${esc(s.field_key)}"
                        data-body="${esc(s.note)}">Edit</button>` : ""}</div>` : ""}
       ${locked ? `<div class="fixed-note">Tagged <strong>Fixed spec</strong>${
@@ -2085,7 +2083,7 @@ function renderSpec(s, opts = {}){
           ${archived.map(a => `<div class="archived-alt"><span>${
             isWire ? wireValueHTML(a.text, `h${a.id}`) : esc(a.text)}</span>
             <span class="cell-dim">${a.submitted_by_username ? "by " + esc(a.submitted_by_username) : ""}${
-              a.votes ? ` · ${a.votes} vote${a.votes === 1 ? "" : "s"}` : ""}</span>
+              a.votes ? `, ${a.votes} vote${a.votes === 1 ? "" : "s"}` : ""}</span>
             <button class="action-btn" data-alt-pause="${a.id}" data-to="0">Put back</button>
             <button class="action-btn" data-alt-archive="${a.id}"
               title="Put this one alternative away. Off your sheet as well as the riders' — the text, who suggested it and its votes all stay.">⤓ Archive</button></div>`).join("")}
@@ -2325,7 +2323,7 @@ function renderInstance(g, tasks){
                   t.interval_miles.toLocaleString()} mi</div>` : ""}
                 ${last ? `<div class="svc-spec"><b>Last done:</b> ${esc(last.performed_on)}${
                   last.miles != null ? ` at ${Number(last.miles).toLocaleString()} mi` : ""
-                } · ${t.history.length} entr${t.history.length === 1 ? "y" : "ies"}</div>` : ""}
+                }, ${t.history.length} entr${t.history.length === 1 ? "y" : "ies"}</div>` : ""}
               </div>
               <div class="btn-row">
                 ${badge}
@@ -2625,8 +2623,8 @@ document.addEventListener("click", guard(async (e) => {
             <strong>${esc(x.label)}</strong>
             <span class="val">${esc(String(x.value).slice(0, 50))}</span>
             <span class="keeps">value only, spec still on the sheet${
-              x.entered_by ? ` · was ${esc(x.entered_by)}'s` : ""}${
-              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+              x.entered_by ? `, was ${esc(x.entered_by)}'s` : ""}${
+              x.archived_at ? ", " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
             ${x.spec_refilled
               ? `<span class="keeps">a new value is there now</span>`
               : `<button class="action-btn" data-value-restore="${x.id}">Put the value back</button>`}
@@ -2637,9 +2635,9 @@ document.addEventListener("click", guard(async (e) => {
             ${x.value ? `<span class="val">${esc(String(x.value).slice(0, 60))}</span>`
                       : `<span class="cell-dim">no value</span>`}
             <span class="keeps">${x.alternates ? `${x.alternates} alternative${
-              x.alternates === 1 ? "" : "s"} kept · ` : ""}${
+              x.alternates === 1 ? "" : "s"} kept, ` : ""}${
               x.archived_by ? "by " + esc(x.archived_by) : ""}${
-              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+              x.archived_at ? ", " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
             <button class="action-btn" data-unarchive="${x.id}">Put back on the sheet</button>
           </div>`).join("")}
         ${r.alternates.map(x => `<div class="archive-row">
@@ -2647,8 +2645,8 @@ document.addEventListener("click", guard(async (e) => {
             <strong>${esc(x.label)}</strong>
             <span class="val">Alt: ${esc(String(x.text).slice(0, 50))}</span>
             <span class="keeps">${x.suggested_by ? "suggested by " + esc(x.suggested_by) : ""}${
-              x.votes ? ` · ${x.votes} vote${x.votes === 1 ? "" : "s"} kept` : ""}${
-              x.archived_at ? " · " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
+              x.votes ? `, ${x.votes} vote${x.votes === 1 ? "" : "s"} kept` : ""}${
+              x.archived_at ? ", " + esc(String(x.archived_at).slice(0, 10)) : ""}</span>
             <button class="action-btn" data-alt-unarchive="${x.id}">Put back</button>
           </div>`).join("")}
       </div>`;
@@ -2896,7 +2894,7 @@ document.addEventListener("click", guard(async (e) => {
     const prev = () => {
       const at = Number(byId("bs-year").value);
       byId("bs-preview").textContent =
-        `${start}–${at - 1} stays here · ${at}–${end} becomes the new bike`;
+        `${start}–${at - 1} stays here, ${at}–${end} becomes the new bike`;
     };
     byId("bs-year").addEventListener("change", prev);
     prev();
@@ -2915,8 +2913,8 @@ document.addEventListener("click", guard(async (e) => {
           ${r.specs_moved} moved, ${r.model_years_moved} model year${r.model_years_moved === 1 ? "" : "s"} moved.${
           r.notified_admin ? " Admin has been told." : ""}</div>
         <div class="split-result">
-          <button class="action-btn" data-open-bike="${r.earlier.bike_id}">${esc(r.earlier.display_name)} · ${esc(r.earlier.year_range)}</button>
-          <button class="action-btn" data-open-bike="${r.later.bike_id}">${esc(r.later.display_name)} · ${esc(r.later.year_range)}</button>
+          <button class="action-btn" data-open-bike="${r.earlier.bike_id}">${esc(r.earlier.display_name)}, ${esc(r.earlier.year_range)}</button>
+          <button class="action-btn" data-open-bike="${r.later.bike_id}">${esc(r.later.display_name)}, ${esc(r.later.year_range)}</button>
         </div>
       </div>`;
     toast(`Split at ${at_year}.`, "ok");
@@ -2956,7 +2954,7 @@ document.addEventListener("click", guard(async (e) => {
                   c === home ? ` <small>usual</small>` : ""}</label>`;
           }).join("")}
         </div>${site.size && ME.user.role === "admin"
-          ? `<div class="inline-sub">Site-wide headings are changed in Admin → Manage the Spec Tree.</div>` : ""}
+          ? `<div class="inline-sub">Site-wide headings are changed in Admin, under Manage the Spec Tree.</div>` : ""}
         <div class="form-actions">
           <button class="ghost-btn" data-cancel="${id}">Cancel</button>
           <button class="primary-btn" data-cats-go="${id}" data-key="${esc(catsOpen.dataset.key)}">Save</button>

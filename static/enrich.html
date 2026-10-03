@@ -88,8 +88,8 @@ function render(){
   const activeLinks = DATA.links.filter(l => !l.paused).length;
 
   document.getElementById("content").innerHTML = `
-    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">← Back to spec sheet</a> ·
-      ${esc(s.category)} · ${esc(s.label)}</div>
+    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">Back to the spec sheet</a>:
+      ${esc(s.label)}, in ${esc(s.category)}</div>
 
     <div class="stat-grid">
       <div class="stat-card"><div class="num">${DATA.tools.filter(t => !t.paused).length}</div><div class="lbl">Tools Listed</div></div>
@@ -180,8 +180,8 @@ function renderLink(l){
           <span class="link-type ${esc(l.link_type)}">${esc(l.link_type)}</span>
           <a href="${esc(safeUrl(l.url))}" target="_blank" rel="noopener noreferrer nofollow">${esc(l.title)}</a>
         </div>
-        <div class="link-url">${esc(l.url)} · added by ${esc(l.added_by || "—")}
-          ${l.paused ? " · paused by manager" : ""}</div>
+        <div class="link-url">${esc(l.url)}, added by ${esc(l.added_by || "—")}
+          ${l.paused ? ", paused by manager" : ""}</div>
         <div id="link-form-${l.id}"></div>
       </div>
       <div class="btn-row">

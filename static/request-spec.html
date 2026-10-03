@@ -188,11 +188,11 @@ function render(){
   const asked = DATA.fields.filter(f => f.requests > 0);
 
   document.getElementById("content").innerHTML = `
-    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">← Back to the spec sheet</a></div>
+    <div class="page-crumb"><a href="/index.html?bike=${BIKE_ID}">Back to the spec sheet</a></div>
     <div class="panel">
       <div class="panel-body">
         <div class="bike-line">${esc(BIKE.display_name)}</div>
-        <div class="bike-sub">${esc(BIKE.year_range || "")} · ${BIKE.fields_triggered} fields on its sheet.
+        <div class="bike-sub">${esc(BIKE.year_range || "")}, ${BIKE.fields_triggered} fields on its sheet.
           ${iManage()
             ? `You look after this bike: tick the specs it's missing and they go straight onto its sheet,
                empty and ready to fill. A spec that isn't in the list at all goes to admin as a proposal.`
@@ -279,13 +279,13 @@ function render(){
         ${asked.map(f => `
           <div class="asked-row">
             <span>${esc(f.label)} <span class="who">· ${esc(f.category)}</span></span>
-            <span class="who">${f.requests} rider${f.requests !== 1 ? "s" : ""}${f.mine ? " · incl. you" : ""}</span>
+            <span class="who">${f.requests} rider${f.requests !== 1 ? "s" : ""}${f.mine ? ", including you" : ""}</span>
           </div>`).join("")}
         ${DATA.proposals.map(p => `
           <div class="asked-row">
             <span>${esc(p.field_name)} <span class="who">· ${esc(p.category)}${
-              p.value_type && p.value_type !== "text" ? ` · ${esc(p.value_type.replace("_", " "))}` : ""} · not on the tree yet</span></span>
-            <span class="who">with admin${p.mine ? " · yours" : ""}</span>
+              p.value_type && p.value_type !== "text" ? `, ${esc(p.value_type.replace("_", " "))}` : ""}, not on the list yet</span></span>
+            <span class="who">with admin${p.mine ? ", yours" : ""}</span>
           </div>`).join("")}
       </div>
     </div>` : ""}`;

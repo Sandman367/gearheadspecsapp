@@ -327,7 +327,7 @@ const HOLLOW = `<path fill="var(--bg)" stroke="currentColor" stroke-width="1.8" 
 // colour of the tier they left with.
 function retiredMark(tier, size){
   const s = size || 16;
-  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="retired ${esc(TIER_NAME[tier] || tier)} bike manager" role="img"><title>Retired · ${esc(TIER_NAME[tier] || tier)}</title>${HOLLOW}<path fill="currentColor" d="M7.8 13.4a4.2 4.2 0 0 1 8.4 0z"/><rect x="6.6" y="14.4" width="10.8" height="1.6" fill="currentColor"/><rect x="8.4" y="16.8" width="7.2" height="1.3" fill="currentColor" opacity=".55"/></svg>`;
+  return `<svg class="mgr-mark t-${esc(tier)}" viewBox="0 0 24 24" width="${s}" height="${s}" aria-label="retired ${esc(TIER_NAME[tier] || tier)} bike manager" role="img"><title>Retired, ${esc(TIER_NAME[tier] || tier)}</title>${HOLLOW}<path fill="currentColor" d="M7.8 13.4a4.2 4.2 0 0 1 8.4 0z"/><rect x="6.6" y="14.4" width="10.8" height="1.6" fill="currentColor"/><rect x="8.4" y="16.8" width="7.2" height="1.3" fill="currentColor" opacity=".55"/></svg>`;
 }
 // The Founding Manager badge: a hollow shield with a solid star -- visibly
 // not a tier. Given by admin, shown beside the tier shield.

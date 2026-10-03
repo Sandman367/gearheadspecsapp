@@ -146,8 +146,8 @@ function listHTML(){
       ${THREADS.length ? THREADS.map(t => `
         <button class="thread-row${t.unread ? " unread" : ""}${OPEN && OPEN.thread.id === t.id ? " on" : ""}" data-open="${t.id}">
           <div class="t"><span class="dot"></span><span>${esc(t.title)}</span>${t.pinned ? `<span class="pin">pinned</span>` : ""}${t.locked ? `<span class="lock">locked</span>` : ""}</div>
-          <div class="m">${t.posts} post${t.posts !== 1 ? "s" : ""} · last <b>${esc(t.last_by || t.author)}</b> ${esc(fmt(t.last_post_at))}${
-            t.bike_name ? ` · <b>${esc(t.bike_name)}</b>` : ""}</div>
+          <div class="m">${t.posts} post${t.posts !== 1 ? "s" : ""}, last <b>${esc(t.last_by || t.author)}</b> ${esc(fmt(t.last_post_at))}${
+            t.bike_name ? `, <b>${esc(t.bike_name)}</b>` : ""}</div>
         </button>`).join("")
       : `<div class="none">${QUERY ? "No thread matches that." : "No threads yet. Start one."}</div>`}
     </div>`;
@@ -183,13 +183,13 @@ function threadHTML(){
   const t = OPEN.thread;
   const canDelete = IS_ADMIN || (t.mine && OPEN.posts.every(p => p.mine));
   return `
-    <a class="back-link" href="#" id="back-to-list">← All threads</a>
+    <a class="back-link" href="#" id="back-to-list">Back to all threads</a>
     <div class="panel">
       <div class="thread-head">
         <h2>${esc(t.title)}</h2>
         <div class="m">started by <b style="color:var(--text)">${esc(t.author)}</b> ${esc(fmt(t.created_at))}${
-          t.bike_name ? ` · about <a href="/index.html?bike=${t.bike_id}">${esc(t.bike_name)}${t.bike_years ? ` · ${esc(t.bike_years)}` : ""}</a>` : ""}${
-          t.pinned ? ` · <span class="pin">pinned</span>` : ""}${t.locked ? ` · <span class="lock">locked</span>` : ""}</div>
+          t.bike_name ? `, about <a href="/index.html?bike=${t.bike_id}">${esc(t.bike_name)}${t.bike_years ? `, ${esc(t.bike_years)}` : ""}</a>` : ""}${
+          t.pinned ? `, <span class="pin">pinned</span>` : ""}${t.locked ? `, <span class="lock">locked</span>` : ""}</div>
         ${IS_ADMIN || canDelete ? `<div class="thread-tools">
           ${IS_ADMIN ? `<button class="action-btn" data-pin="${t.id}">${t.pinned ? "Unpin" : "Pin"}</button>
                         <button class="action-btn" data-lock="${t.id}">${t.locked ? "Unlock" : "Lock"}</button>` : ""}
@@ -199,7 +199,7 @@ function threadHTML(){
       ${OPEN.posts.map(p => `
         <div class="post${p.first ? " first" : ""}" id="post-${p.id}">
           <div class="who"><b>${memberName(p.author_id, p.author, p.author_role, p.author_retired, p.author_founder)}</b>${p.author_role === "admin" ? `<span class="role">admin</span>` : ""}
-            <span>${esc(fmt(p.created_at))}${p.edited_at ? " · edited" : ""}</span>
+            <span>${esc(fmt(p.created_at))}${p.edited_at ? ", edited" : ""}</span>
             ${EDITING !== p.id ? `<span class="tools">
               ${!p.mine ? `<a class="action-btn" style="text-decoration:none" href="/messages.html?with=${p.author_id}" title="Message ${esc(p.author)} directly">Message</a>` : ""}
               ${p.mine || IS_ADMIN ? `<button class="action-btn" data-edit="${p.id}">Edit</button>` : ""}
@@ -355,7 +355,7 @@ document.addEventListener("click", guard(async (e) => {
   await initChrome("/board.html");
   if(!requireRole("manager")) return;
   IS_ADMIN = ME.user.role === "admin";
-  document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  document.getElementById("who").textContent = `Signed in as ${ME.user.username}`;
   const [list, people] = await Promise.all([API.get("/api/board/threads"), API.get("/api/board/members")]);
   THREADS = list.threads; PEOPLE = people.people;
   const t = threadId();

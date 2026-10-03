@@ -86,11 +86,11 @@ const load = guard(async () => {
       <div class="panel-body who">
         <h2>${memberMarks(st.tier || (st.retired ? "manager" : null), st.retired && !st.tier ? st.retired.tier : null, st.founder, 26)}${esc(st.username)}</h2>
         <span class="sub">${st.role === "admin" ? "Site admin"
-          : st.is_manager ? `${esc(TIER_NAME[st.tier] || "")} bike manager${st.founder ? " · Founding Manager" : ""}${
-              st.lead_of.length ? ` · lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""} · ${
-              st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(" · ")}`
-          : st.retired ? `Retired bike manager${st.founder ? " · Founding Manager" : ""} · stepped back ${esc(String(st.retired.at || "").slice(0, 10))} as ${esc(TIER_NAME[st.retired.tier])}${
-              st.lead_of.length ? ` · still named lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""}`
+          : st.is_manager ? `${esc(TIER_NAME[st.tier] || "")} bike manager${st.founder ? ", Founding Manager" : ""}${
+              st.lead_of.length ? `, lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""}, ${
+              st.bikes.map(b => esc(b.display_name) + (b.year_range ? ` (${esc(b.year_range)})` : "")).join(", ")}`
+          : st.retired ? `Retired bike manager${st.founder ? ", Founding Manager" : ""}, stepped back ${esc(String(st.retired.at || "").slice(0, 10))} as ${esc(TIER_NAME[st.retired.tier])}${
+              st.lead_of.length ? `, still named lead manager of ${st.lead_of.length} bike${st.lead_of.length === 1 ? "" : "s"}` : ""}`
           : "Rider"}</span>
       </div>
     </div>
@@ -159,7 +159,7 @@ const load = guard(async () => {
 
 (async () => {
   await initChrome(null);
-  if(ME.user) document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  if(ME.user) document.getElementById("who").textContent = `Signed in as ${ME.user.username}`;
   await load();
 })();
 </script>

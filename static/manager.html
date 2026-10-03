@@ -161,7 +161,7 @@ function render(){
         <tbody>${STATE.submissions.length ? STATE.submissions.map((sub, i) => `
           <tr>
             <td data-label="Spec"><strong>${esc(sub.spec_label)}</strong>
-              <div class="current-value">${esc(sub.category)} · ${esc(sub.bike_name)}</div></td>
+              <div class="current-value">${esc(sub.category)}, ${esc(sub.bike_name)}</div></td>
             <td data-label="Value">${esc(sub.value)}</td>
             <td data-label="By"><button class="username-btn" data-profile="${sub.entered_by_id}" data-slot="s${i}">${esc(sub.entered_by)}</button></td>
             <td data-label="When" class="cell-dim">${esc(fmtDate(sub.updated_at))}</td>
@@ -185,7 +185,7 @@ function render(){
           <div>
             <div class="bike-name">${esc(b.display_name)}</div>
             <div class="bike-meta">${esc(b.specialty || b.bike_type || "—")} ·
-              ${b.fields_triggered} fields triggered · ${b.specs_filled} filled ·
+              ${b.fields_triggered} fields triggered, ${b.specs_filled} filled ·
               <span class="needed-count">${b.specs_needed} still need a value</span></div>
           </div>
           <div class="bike-right">
@@ -229,7 +229,7 @@ function render(){
             <td data-label="Outcome"><span class="badge outcome-${esc(r.outcome)}">${
               r.outcome === "fixed" ? "Fixed" : "Dismissed"}</span></td>
             <td data-label="Change" class="cell-comment">${r.outcome === "fixed"
-              ? `"${esc(r.old_value)}" → "${esc(r.new_value)}"`
+              ? `"${esc(r.old_value)}" changed to "${esc(r.new_value)}"`
               : `Kept "${esc(r.old_value)}" — flag was not valid`}</td>
             <td data-label="When" class="cell-dim">${esc(fmtDate(r.resolved_at))}</td>
           </tr>`).join("")
@@ -370,7 +370,7 @@ function fieldRequestRows(items, showManager){
       <td data-label="Spec"><strong>${esc(r.label)}</strong>
         <div class="current-value">${esc(r.category)}</div></td>
       <td data-label="Bike" class="cell-dim"><a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name)}</a>${
-        r.year_range ? ` · ${esc(r.year_range)}` : ""}${
+        r.year_range ? `, ${esc(r.year_range)}` : ""}${
         showManager && !r.has_manager ? ` <span class="badge amber">no manager</span>` : ""}</td>
       <td data-label="Asked by"><span class="badge amber">${r.requests} rider${r.requests !== 1 ? "s" : ""}</span>
         <div class="cell-dim" style="margin-top:4px">${r.asked_by.map(a =>
@@ -681,7 +681,7 @@ document.addEventListener("click", guard(async (e) => {
 function renderProfile(p, slotId){
   return `
     <div class="inline-box">
-      <div class="inline-title">@${esc(p.username)} · ${esc(p.role)}</div>
+      <div class="inline-title">@${esc(p.username)}, ${esc(p.role)}</div>
       <div class="profile-stat-grid">
         <div class="profile-stat"><div class="profile-stat-num">${p.specs_entered}</div><div class="profile-stat-lbl">Specs Entered</div></div>
         <div class="profile-stat${p.specs_flagged ? " alert" : ""}"><div class="profile-stat-num">${p.specs_flagged}</div><div class="profile-stat-lbl">Their Specs Flagged</div></div>

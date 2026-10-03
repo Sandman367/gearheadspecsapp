@@ -11,7 +11,7 @@
   .guide{ display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; align-items: start; }
   @media (max-width: 900px){ .guide{ grid-template-columns: 1fr; } .toc{ position: static !important; } }
   .toc{ position: sticky; top: 18px; border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; }
-  .toc .t{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); text-transform: uppercase; margin-bottom: 8px; }
+  .toc .t{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); margin-bottom: 8px; }
   .toc a{ display: block; font-size: 12.5px; color: var(--text-dim); text-decoration: none; padding: 5px 0 5px 8px; border-left: 2px solid transparent; }
   .toc a:hover{ color: var(--amber); border-left-color: var(--amber); }
   .doc section{ border: 1px solid var(--line); background: var(--panel); padding: 20px 24px; margin-bottom: 18px; scroll-margin-top: 16px; }
@@ -91,7 +91,7 @@
           <li>Open <span class="k">My Bikes</span> in the menu. Your bike is listed there with how full its sheet is.</li>
           <li>Open the bike's page and look at the <b>years</b> under its name. If the span is wrong, or it says
             <span class="k">year span unconfirmed</span>, see <a href="#years">When something changed by year</a>.</li>
-          <li>Run the questionnaire from <span class="k">My Bikes</span> → <span class="k">Fill gaps</span> if the sheet
+          <li>Run the questionnaire from <span class="k">My Bikes</span>, then <span class="k">Fill gaps</span> if the sheet
             has specs your bike doesn't have, or is missing ones it does. See <a href="#questionnaire">The questionnaire</a>.</li>
           <li>Add the main photo: <span class="k">Add the main photo</span> on the bike's page.</li>
           <li>Fill in the specs you know from the manual, starting with the ones in the header at the top.</li>
@@ -161,7 +161,7 @@
 
       <section id="flags">
         <h2>Answering flags</h2>
-        <p class="lede">Flags come to you on <span class="k">My Bikes</span> → <b>Flags on My Specs</b>.</p>
+        <p class="lede">Flags come to you on <span class="k">My Bikes</span>, under <b>Flags on My Specs</b>.</p>
         <ul>
           <li><span class="k">Fix Value</span> sets the right value straight away. Use it when the manual says so.</li>
           <li><span class="k">❙❙ Take offline</span> stops the value being read as fact while you find the manual.
@@ -233,7 +233,7 @@
       <section id="questionnaire">
         <h2>The questionnaire</h2>
         <p>The questionnaire asks plain questions about your bike (does it have a battery? carbs or injection? chain or belt?)
-          and puts exactly the right fields on it. Open it from <span class="k">My Bikes</span> → <span class="k">Fill gaps</span>.</p>
+          and puts exactly the right fields on it. Open it from <span class="k">My Bikes</span>, then <span class="k">Fill gaps</span>.</p>
         <ul>
           <li>Re-running it only <b>adds</b> fields. Anything that no longer fits is listed for you to remove deliberately.</li>
           <li>Not sure of an answer? Choose <b>Not sure</b>. It goes to admin rather than guessing. You'll see it under

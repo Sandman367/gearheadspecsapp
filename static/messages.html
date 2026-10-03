@@ -166,10 +166,10 @@ function threadHTML(){
     const d = dayOf(m.created_at);
     const sep = d !== lastDay ? `<div class="day">${esc(new Date(m.created_at.replace(" ", "T") + "Z").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }))}</div>` : "";
     lastDay = d;
-    return sep + `<div class="msg ${m.mine ? "mine" : "theirs"}">${richText(m.body)}<span class="w">${esc(fmt(m.created_at))}${m.mine && m.read_at ? " · read" : ""}</span></div>`;
+    return sep + `<div class="msg ${m.mine ? "mine" : "theirs"}">${richText(m.body)}<span class="w">${esc(fmt(m.created_at))}${m.mine && m.read_at ? ", read" : ""}</span></div>`;
   }).join("");
   return `
-    <a class="back-link" href="#" id="back-to-list">← All conversations</a>
+    <a class="back-link" href="#" id="back-to-list">Back to all conversations</a>
     <div class="panel">
       <div class="thread-head">
         <h2>${esc(o.username)}</h2>
@@ -253,7 +253,7 @@ document.addEventListener("click", guard(async (e) => {
 (async () => {
   await initChrome("/messages.html");
   if(!requireRole("manager")) return;
-  document.getElementById("who").textContent = `${ME.user.username} · ${ME.user.role}`;
+  document.getElementById("who").textContent = `Signed in as ${ME.user.username}`;
   const [convs, people] = await Promise.all([API.get("/api/messages"), API.get("/api/board/members")]);
   CONVS = convs.conversations; PEOPLE = people.people;
   const w = withId();

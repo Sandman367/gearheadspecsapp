@@ -85,7 +85,7 @@ function yearsOf(r){
 
 function requestRow(r, signedIn){
   const decided = r.status !== "pending";
-  const meta = [yearsOf(r), r.displacement, r.bike_type].filter(Boolean).join(" · ");
+  const meta = [yearsOf(r), r.displacement, r.bike_type].filter(Boolean).join(", ");
   return `
     <div class="req">
       <div>
@@ -96,14 +96,14 @@ function requestRow(r, signedIn){
       <div class="side">
         ${decided
           ? `<span class="state ${esc(r.status)}">${r.status === "added" ? "added" : "declined"}</span>`
-          : `<span class="riders${r.mine ? " mine" : ""}">${r.riders} rider${r.riders !== 1 ? "s" : ""} waiting${r.mine ? " · incl. you" : ""}</span>
+          : `<span class="riders${r.mine ? " mine" : ""}">${r.riders} rider${r.riders !== 1 ? "s" : ""} waiting${r.mine ? ", including you" : ""}</span>
              <button class="action-btn${r.mine ? " on" : ""}" data-support="${r.id}" data-on="${r.mine ? "0" : "1"}"
                      ${signedIn ? "" : `data-needs-auth title="Sign in to add your name"`}>${
                r.mine ? "✓ You're waiting — take my name off" : "+ Me too"}</button>`}
       </div>
       ${decided && r.status === "added" && r.bike_id
         ? `<div class="note">Now in the catalogue: <a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name || (r.make + " " + r.model))}${
-            r.bike_years ? ` · ${esc(r.bike_years)}` : ""}</a>${r.admin_note ? ` — ${esc(r.admin_note)}` : ""}</div>`
+            r.bike_years ? `, ${esc(r.bike_years)}` : ""}</a>${r.admin_note ? ` — ${esc(r.admin_note)}` : ""}</div>`
         : decided && r.admin_note ? `<div class="note">${esc(r.admin_note)}</div>` : ""}
     </div>`;
 }
@@ -114,7 +114,7 @@ function render(){
   const decided = DATA.decided;
 
   document.getElementById("content").innerHTML = `
-    <div class="page-crumb"><a href="/index.html">← Back to Browse</a></div>
+    <div class="page-crumb"><a href="/index.html">Back to Browse</a></div>
     <div class="panel">
       <div class="panel-body">
         <div style="font-family:var(--display);font-size:20px;margin-bottom:2px">Can't find your bike?</div>
@@ -247,7 +247,7 @@ function checkMaybe(){
     }
     if(open.length){
       html += `<div class="maybe"><div class="t">Already asked for</div>
-        ${open.map(r => `<div class="join"><span>${esc(r.make)} ${esc(r.model)} <small style="color:var(--text-faint)">· ${esc(yearsOf(r))} · ${r.riders} waiting</small></span>
+        ${open.map(r => `<div class="join"><span>${esc(r.make)} ${esc(r.model)} <small style="color:var(--text-faint)">(${esc(yearsOf(r))}, ${r.riders} waiting)</small></span>
           ${r.mine ? `<span style="color:var(--good);font-size:11px">you're on it</span>`
                    : `<button class="action-btn" data-support="${r.id}" data-on="1" ${ME.user ? "" : "data-needs-auth"}>+ Me too</button>`}</div>`).join("")}
       </div>`;

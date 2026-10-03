@@ -73,8 +73,8 @@ function mineBox(a){
         <div style="font-family:var(--display);font-size:16px">Your request</div>
         <span class="state ${esc(a.status)}">${esc(label)}</span>
       </div>
-      <div class="form-note">You sent this on ${esc(when(a.created_at))}${a.resolved_at ? ` · ${esc(label)} ${esc(when(a.resolved_at))}` : ""}${
-        a.owns_one ? " · you own one" : ""}${a.used_to_own ? " · you used to own one" : ""}</div>
+      <div class="form-note">You sent this on ${esc(when(a.created_at))}${a.resolved_at ? `, ${esc(label)} ${esc(when(a.resolved_at))}` : ""}${
+        a.owns_one ? ", you own one" : ""}${a.used_to_own ? ", you used to own one" : ""}</div>
       <div class="quote">“${esc(a.experience)}”</div>
       ${a.admin_note ? `<div class="note">Admin wrote back: ${esc(a.admin_note)}</div>` : ""}
       ${a.status === "pending" ? `
@@ -96,7 +96,7 @@ function render(){
   const canApply = !DATA.has_manager && !waiting && !isAdmin && !DATA.you_manage;
 
   document.getElementById("content").innerHTML = `
-    <div class="page-crumb"><a href="/index.html?bike=${b.bike_id}">← Back to the ${esc(b.display_name)}</a></div>
+    <div class="page-crumb"><a href="/index.html?bike=${b.bike_id}">Back to the ${esc(b.display_name)}</a></div>
     <div class="panel"><div class="panel-body">
       <div><span class="bike-name">${esc(b.display_name)}</span>${b.year_range ? `<span class="bike-years">${esc(b.year_range)}</span>` : ""}</div>
       <div class="lede">
@@ -120,7 +120,7 @@ function render(){
           </div>
         </div>`}
       ${isAdmin && !DATA.has_manager ? `<div class="form-note" style="margin-top:10px">You're admin, so you can already edit every bike.
-          To hand this one to someone, use <a href="/admin.html#p-managers">Admin → Assignments</a>.</div>` : ""}
+          To hand this one to someone, use <a href="/admin.html#p-managers">Admin, under Bike Managers</a>.</div>` : ""}
     </div></div>
 
     ${mine ? mineBox(mine) : ""}
@@ -131,7 +131,7 @@ function render(){
           mine ? "Want to ask again?" : "Tell us about you and this bike"}</div>
         <div class="form-row"><label for="ma-exp">How do you know this bike?</label>
           <textarea id="ma-exp" maxlength="1000" placeholder="e.g. I've had one since 2012, rebuilt the top end twice, and I've got the factory service manual.">${esc(draft.experience)}</textarea>
-          <div class="form-note"><span id="ma-count">${draft.experience.length}</span> / 1000 · a sentence or two is plenty.</div>
+          <div class="form-note"><span id="ma-count">${draft.experience.length}</span> of 1000 characters. A sentence or two is plenty.</div>
           <div class="need-note" id="ma-need"${draft.experience.trim() ? " hidden" : ""}>↑ Write a few words here first: how you know this bike. Admin reads it to decide.</div></div>
         <div class="form-row"><label class="check"><input type="checkbox" id="ma-owns"${draft.owns ? " checked" : ""}> I own one</label></div>
         <div class="form-row"><label class="check"><input type="checkbox" id="ma-owned"${draft.owned ? " checked" : ""}> I used to own one</label></div>

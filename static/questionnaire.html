@@ -191,7 +191,7 @@ const renderNewBikeForm = guard(async () => {
     modelSel.innerHTML =
       `<option value="${NEW_VALUE}">+ New model…</option>` +
       f.models.map(m => `<option value="${esc(m.model_code)}">${esc(m.model_code)}${
-        m.cc ? ` · ${m.cc}cc` : ""}</option>`).join("");
+        m.cc ? `, ${m.cc}cc` : ""}</option>`).join("");
     onModelChange();
   });
 
@@ -268,7 +268,7 @@ function renderQuestion(){
         ${q.internal_only ? `<div class="internal-note">Internal only — this
           answer routes the bike to the right expert admin and is not shown on
           the public spec page.</div>` : ""}
-        <div class="qsection">${esc(q.section)}${q.follow_up ? " · follow-up" : ""}</div>
+        <div class="qsection">${esc(q.section)}${q.follow_up ? ", follow-up" : ""}</div>
         <div class="qtext">${esc(q.text)}</div>
         ${chosen ? `<div class="answered-note">${
           SAVED_ANSWERS[currentQ] === chosen && !CHANGED.has(currentQ)
@@ -282,11 +282,11 @@ function renderQuestion(){
             ${o.l === chosen ? `<span class="qopt-tick">✓</span>` : ""}
           </button>`).join("")}
         <div class="form-actions" style="justify-content:space-between">
-          <button class="ghost-btn" id="q-back" ${history.length ? "" : "disabled"}>← Back</button>
+          <button class="ghost-btn" id="q-back" ${history.length ? "" : "disabled"}>Back</button>
           <span class="cell-dim">${history.length + 1} of about ${DEF.primary_order.length}${
-            answeredCount ? ` · ${answeredCount} answered` : ""}</span>
+            answeredCount ? `, ${answeredCount} answered` : ""}</span>
           ${chosen
-            ? `<button class="primary-btn" id="q-next">Keep this →</button>`
+            ? `<button class="primary-btn" id="q-next">Keep this</button>`
             : `<span></span>`}
         </div>
       </div>
@@ -381,7 +381,7 @@ function renderSubmit(){
           <div class="form-actions">
             <a class="ghost-btn" style="text-decoration:none" href="/manager.html">My Bikes</a>
             <a class="primary-btn" style="text-decoration:none;padding:9px 18px"
-               href="/questionnaire.html?bike=${newBikeId}">Fill in the values →</a>
+               href="/questionnaire.html?bike=${newBikeId}">Fill in the values</a>
           </div>
         </div>
       </div>`;
@@ -457,7 +457,7 @@ const renderManagerLanding = guard(async () => {
           <div class="gap-top">
             <div class="gap-label"><strong>${esc(b.display_name)}</strong>
               <div class="gap-cat">${esc(b.year_range || "")}
-                ${b.specialty ? " · " + esc(b.specialty) : ""}</div></div>
+                ${b.specialty ? ", " + esc(b.specialty) : ""}</div></div>
             <span class="badge ${b.specs_needed ? "amber" : "good"}">${
               b.specs_filled} of ${b.fields_triggered} filled</span>
             <a class="action-btn open" href="/questionnaire.html?bike=${b.bike_id}">Fill in values</a>

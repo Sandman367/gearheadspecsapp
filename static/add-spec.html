@@ -95,7 +95,7 @@ function impact(){
 
 function renderPicked(){
   document.getElementById("picked").innerHTML = PICKED.map((t, i) =>
-    `<span class="picked-tag">${esc(t.question_id)}=${esc(t.option)} · ${esc(t.text)}
+    `<span class="picked-tag">${esc(t.question_id)}=${esc(t.option)}, ${esc(t.text)}
        <button data-drop="${i}" title="Remove">×</button></span>`).join("");
   document.getElementById("picked-bikes").innerHTML = PICKED_BIKES.map((b, i) =>
     `<span class="picked-tag">${esc(b.name)}
@@ -178,7 +178,7 @@ function paint(){
               <div class="tag-input-row">
                 <select id="b-question"><option value="">— choose a question —</option>
                   ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
-                    esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+                    esc(b.section)}, ${esc(b.text)}</option>`).join("")}
                 </select>
               </div>
               <div class="tag-input-row" id="b-option-row" style="display:none;margin-top:8px">
@@ -278,7 +278,7 @@ function wire(){
     const row = document.getElementById("b-option-row");
     if(!b){ row.style.display = "none"; return; }
     document.getElementById("b-option").innerHTML = b.options.map(o =>
-      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${
+      `<option value="${esc(o.label)}">${esc(o.label)}, ${esc(o.text)} — ${
         o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
     row.style.display = "";
   });

@@ -139,7 +139,7 @@ let PICKED = [];
 function branchText(qid, opt){
   const b = BRANCHES.branches.find(x => x.question_id === qid);
   const o = b && b.options.find(x => x.label === opt);
-  return b && o ? `${b.section} · ${o.text}` : `${qid}=${opt}`;
+  return b && o ? `${b.section}, ${o.text}` : `${qid}=${opt}`;
 }
 
 function bikesForPicked(){
@@ -224,7 +224,7 @@ document.addEventListener("change", (e) => {
       return;
     }
     document.getElementById("ap-option").innerHTML = branch.options.map(o =>
-      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${
+      `<option value="${esc(o.label)}">${esc(o.label)}, ${esc(o.text)} — ${
         o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
     row.style.display = "";
     updateBackfillLabel();
@@ -235,7 +235,7 @@ document.addEventListener("change", (e) => {
     const row = document.getElementById("br-option-row");
     if(!b){ row.style.display = "none"; document.getElementById("br-backfill-row").style.display = "none"; return; }
     document.getElementById("br-option").innerHTML = b.options.map(o =>
-      `<option value="${esc(o.label)}">${esc(o.label)} · ${esc(o.text)} — ${o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
+      `<option value="${esc(o.label)}">${esc(o.label)}, ${esc(o.text)} — ${o.bikes} bike${o.bikes === 1 ? "" : "s"}</option>`).join("");
     row.style.display = "";
     updateBranchBackfill();
   }
@@ -417,7 +417,7 @@ document.addEventListener("input", (e) => {
     box.innerHTML = data.bikes.length ? data.bikes.map(b => `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
         <div><div style="font-size:12.5px">${esc(b.display_name)}</div>
-          <div class="cell-dim">${esc(b.year_range || "")} · ${b.specs_filled}/${b.fields_triggered} filled</div></div>
+          <div class="cell-dim">${esc(b.year_range || "")}, ${b.specs_filled}/${b.fields_triggered} filled</div></div>
         <button class="action-btn approve" data-add-to-bike="${esc(key)}|${b.bike_id}">Add</button>
       </div>`).join("")
       : `<div class="cell-dim">No bikes match "${esc(q)}".</div>`;
@@ -580,7 +580,7 @@ function renderActivity(actions){
         <td data-label="When" class="cell-dim">${esc(fmtDate(a.created_at))}
           <div class="cell-dim">${esc((a.created_at || "").slice(11, 16))}</div></td>
         <td data-label="Action">${esc(a.summary)}
-          <div class="cell-dim">${esc(a.action)}${a.target ? " · " + esc(a.target) : ""}</div></td>
+          <div class="cell-dim">${esc(a.action)}${a.target ? ", " + esc(a.target) : ""}</div></td>
         <td data-label="By" class="cell-dim">${userLink(a.username, a.user_id)}</td>
         <td data-label="">${a.destructive ? `<span class="badge danger">destructive</span>` : ""}
           ${a.detail ? `<button class="action-btn" data-act-detail="${i}">Detail</button>` : ""}</td>
@@ -722,7 +722,7 @@ function jobsPanel(){
           <div class="field-label" style="margin-top:10px">Specs, in the order riders see them</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">${d.fields.map((f, i) => `
             <span class="badge" style="display:inline-flex;gap:6px;align-items:center;padding:4px 8px">
-              ${i ? `<button class="job-x" data-job-up="${esc(j.task_key)}|${i}" title="Move earlier" style="background:none;border:none;color:var(--text-faint);cursor:pointer">←</button>` : ""}
+              ${i ? `<button class="job-x" data-job-up="${esc(j.task_key)}|${i}" title="Move earlier" style="background:none;border:none;color:var(--text-faint);cursor:pointer">Earlier</button>` : ""}
               ${esc(f.label)} <span class="cell-dim">· ${esc(f.category)}</span>
               <button data-job-drop="${esc(j.task_key)}|${i}" title="Take it off this job" style="background:none;border:none;color:var(--text-faint);cursor:pointer">✕</button></span>`).join("")
             || `<span class="cell-dim">No specs yet: this job would show on no bike.</span>`}</div>
@@ -780,11 +780,11 @@ function managerAppRows(items){
       <td data-label="Bike">${bikeLink(a.bike_name, a.year_range, a.bike_id)}${
         a.has_manager ? ` <span class="badge amber" title="Someone else got this bike after the request came in. Approving adds a second manager.">has a manager now</span>` : ""}</td>
       <td data-label="Rider"><div>${userLink(a.username, a.user_id)}
-        <div class="cell-dim">joined ${new Date(a.member_since + "Z").toLocaleDateString()} · ${a.values_entered} value${a.values_entered !== 1 ? "s" : ""} entered${
-          a.bikes_managed ? ` · manages ${a.bikes_managed} bike${a.bikes_managed !== 1 ? "s" : ""}` : ""}</div></div></td>
+        <div class="cell-dim">joined ${new Date(a.member_since + "Z").toLocaleDateString()}, ${a.values_entered} value${a.values_entered !== 1 ? "s" : ""} entered${
+          a.bikes_managed ? `, manages ${a.bikes_managed} bike${a.bikes_managed !== 1 ? "s" : ""}` : ""}</div></div></td>
       <td data-label="What they know" class="cell-dim"><div>“${esc(a.experience)}”
-        <div style="margin-top:4px">${a.owns_one ? `<span class="badge">owns one</span> · ` : ""}${
-          a.used_to_own ? `<span class="badge">used to own one</span> · ` : ""}sent ${new Date(a.created_at + "Z").toLocaleDateString()}</div></div></td>
+        <div style="margin-top:4px">${a.owns_one ? `<span class="badge">owns one</span>, ` : ""}${
+          a.used_to_own ? `<span class="badge">used to own one</span>, ` : ""}sent ${new Date(a.created_at + "Z").toLocaleDateString()}</div></div></td>
       <td data-label="Action">
         <div class="btn-row">
           <button class="action-btn approve" data-mgr-app="${a.id}" data-status="approved">Approve &amp; assign</button>
@@ -800,12 +800,12 @@ function bikeRequestRows(items){
   return items.map((r, i) => `
     <tr>
       <td data-label="Bike"><strong>${esc(r.make)} ${esc(r.model)}</strong>
-        <div class="current-value">${esc(years(r))}${r.displacement ? ` · ${esc(r.displacement)}` : ""}${
-          r.bike_type ? ` · ${esc(r.bike_type)}` : ""}</div>
+        <div class="current-value">${esc(years(r))}${r.displacement ? `, ${esc(r.displacement)}` : ""}${
+          r.bike_type ? `, ${esc(r.bike_type)}` : ""}</div>
         ${r.maybe.length ? `<div class="cell-dim" style="margin-top:4px;color:var(--amber)">Already here? ${
           r.maybe.map(b => bikeLink(b.display_name, b.year_range, b.bike_id)).join(", ")}</div>` : ""}</td>
       <td data-label="Details" class="cell-dim">${r.reasoning ? `“${esc(r.reasoning)}”` : "—"}${
-        r.source_url ? `<div><a href="${esc(r.source_url)}" target="_blank" rel="noopener">source ↗</a></div>` : ""}
+        r.source_url ? `<div><a href="${esc(r.source_url)}" target="_blank" rel="noopener">source (opens in a new tab)</a></div>` : ""}
         <div>${new Date(r.created_at + "Z").toLocaleDateString()}</div></td>
       <td data-label="Waiting"><span class="badge amber">${r.riders} rider${r.riders !== 1 ? "s" : ""}</span>
         <div class="cell-dim" style="margin-top:4px">${r.supporters.map(u => userLink(u.username, u.user_id)).join(", ")}</div></td>
@@ -827,7 +827,7 @@ function fieldRequestRows(items, showManager){
       <td data-label="Spec"><strong>${esc(r.label)}</strong>
         <div class="current-value">${esc(r.category)}</div></td>
       <td data-label="Bike" class="cell-dim"><a href="/index.html?bike=${r.bike_id}">${esc(r.bike_name)}</a>${
-        r.year_range ? ` · ${esc(r.year_range)}` : ""}${
+        r.year_range ? `, ${esc(r.year_range)}` : ""}${
         showManager && !r.has_manager ? ` <span class="badge amber">no manager</span>` : ""}</td>
       <td data-label="Asked by"><span class="badge amber">${r.requests} rider${r.requests !== 1 ? "s" : ""}</span>
         <div class="cell-dim" style="margin-top:4px">${r.asked_by.map(a =>
@@ -931,13 +931,13 @@ function branchesHTML(f){
   if(!d.length) return `<span class="badge amber">${esc(f.trigger_list || "")}</span>`;
   return d.map(t => `
     <details class="branch">
-      <summary class="badge amber" title="${esc(t.question_id)} = ${esc(t.option)} · click for the question">${esc(t.answer)}</summary>
+      <summary class="badge amber" title="${esc(t.question_id)} = ${esc(t.option)}, click for the question">${esc(t.answer)}</summary>
       <div class="branch-q">
-        <div class="branch-sec">${esc(t.section)} · ${esc(t.question_id)}</div>
+        <div class="branch-sec">${esc(t.section)}, ${esc(t.question_id)}</div>
         <div class="branch-text">${esc(t.question)}</div>
         <ul class="branch-opts">
           ${t.options.map(o => `<li${o.l === t.option ? ' class="on"' : ""}>
-            <span class="l">${esc(o.l)}</span>${esc(o.t)}${o.l === t.option ? " <b>← this one</b>" : ""}</li>`).join("")}
+            <span class="l">${esc(o.l)}</span>${esc(o.t)}${o.l === t.option ? " <b>(this one)</b>" : ""}</li>`).join("")}
         </ul>
       </div>
     </details>`).join("");
@@ -949,7 +949,7 @@ function splitNoticeLink(n){
   try{
     const d = JSON.parse(n.detail);
     if(d && d.later && d.later.bike_id)
-      return ` · <a href="/index.html?bike=${d.later.bike_id}">open ${esc(d.later.display_name)} · ${esc(d.later.year_range || "")}</a>`;
+      return `, <a href="/index.html?bike=${d.later.bike_id}">open ${esc(d.later.display_name)}, ${esc(d.later.year_range || "")}</a>`;
   } catch(_){}
   return "";
 }
@@ -973,8 +973,8 @@ async function showMemberProfile(id, name){
   slot.dataset.open = "1";
   slot.innerHTML = `
     <div class="inline-box member-profile">
-      <div class="inline-title">@${esc(p.username)} · ${esc(p.role)}${
-        p.display_name ? ` · ${esc(p.display_name)}` : ""}</div>
+      <div class="inline-title">@${esc(p.username)}, ${esc(p.role)}${
+        p.display_name ? `, ${esc(p.display_name)}` : ""}</div>
       <div class="profile-stat-grid">
         <div class="profile-stat"><div class="profile-stat-num">${p.specs_entered}</div><div class="profile-stat-lbl">Specs Entered</div></div>
         <div class="profile-stat${p.specs_flagged ? " alert" : ""}"><div class="profile-stat-num">${p.specs_flagged}</div><div class="profile-stat-lbl">Their Specs Flagged</div></div>
@@ -1004,7 +1004,7 @@ function assignModelOptions(make){
   if(!bikes.length) return `<option value="">Every ${esc(make)} already has a manager</option>`;
   return `<option value="">Choose a model…</option>` + bikes.map(b =>
     `<option value="${b.bike_id}">${esc(b.display_name)}${
-      b.year_range ? ` · ${esc(b.year_range)}` : ""} — ${b.specs_filled}/${b.fields_triggered} filled</option>`).join("");
+      b.year_range ? `, ${esc(b.year_range)}` : ""} — ${b.specs_filled}/${b.fields_triggered} filled</option>`).join("");
 }
 
 let MEM_ROLE = "";
@@ -1020,13 +1020,13 @@ function renderMembers(list){
         <td data-label="Email">${u.email
           ? `<a href="mailto:${esc(u.email)}">${esc(u.email)}</a>`
           : `<span class="cell-dim">—</span>`}</td>
-        <td data-label="Role">${esc(u.role)}${u.tier && u.tier !== "admin" ? ` · ${esc(TIER_NAME[u.tier])}` : ""}${
-          u.retired_tier && !u.tier ? ` · retired as ${esc(TIER_NAME[u.retired_tier])}` : ""}${u.founder ? " · Founding Manager" : ""}${
+        <td data-label="Role">${esc(u.role)}${u.tier && u.tier !== "admin" ? `, ${esc(TIER_NAME[u.tier])}` : ""}${
+          u.retired_tier && !u.tier ? `, retired as ${esc(TIER_NAME[u.retired_tier])}` : ""}${u.founder ? ", Founding Manager" : ""}${
           u.bikes_managed ? `<div class="cell-dim">${u.bikes_managed} bike${u.bikes_managed === 1 ? "" : "s"}: ${
             esc((u.bikes || []).slice(0, 4).join(", "))}${(u.bikes || []).length > 4 ? ` +${u.bikes.length - 4}` : ""}</div>` : ""}</td>
         <td data-label="Joined" class="cell-dim">${esc(String(u.created_at || "").slice(0, 10))}</td>
-        <td data-label="Activity" class="cell-dim">${u.specs_entered} entered · ${
-          u.flags_submitted} flags · ${u.thumbs_up_given} votes
+        <td data-label="Activity" class="cell-dim">${u.specs_entered} entered, ${
+          u.flags_submitted} flags, ${u.thumbs_up_given} votes
           <div class="btn-row" style="margin-top:4px">
             <button class="action-btn" data-profile="${u.user_id}" data-name="${esc(u.username)}">Profile</button>
             <button class="action-btn" data-set-pw="${u.user_id}" data-name="${esc(u.username)}">Set password</button>
@@ -1178,7 +1178,7 @@ function render(){
           <select id="as-user">
             ${S.assign.candidates.map(c => `<option value="${c.id}">${
               esc(c.display_name || c.username)} — ${esc(c.role)}${
-              c.bikes ? ` · already manages ${c.bikes}` : " · no bikes yet"}</option>`).join("")}
+              c.bikes ? `, already manages ${c.bikes}` : ", no bikes yet"}</option>`).join("")}
           </select></div>
         <div class="form-row"><label for="as-spec">Specialty (optional)</label>
           <input type="text" id="as-spec" placeholder="e.g. Street / Sport"></div>
@@ -1201,7 +1201,7 @@ function render(){
             <td data-label="Specialty" class="cell-dim">${esc(a.specialty || "—")}</td>
             <td data-label="State">
               <span class="badge ${a.specs_needed ? "amber" : "good"}">${
-                a.specs_filled} filled · ${a.specs_needed} to go</span>
+                a.specs_filled} filled, ${a.specs_needed} to go</span>
               ${a.open_flags ? `<span class="badge danger">${a.open_flags} open flag${
                 a.open_flags > 1 ? "s" : ""}</span>` : ""}</td>
             <td data-label=""><button class="action-btn danger"
@@ -1330,9 +1330,9 @@ function render(){
           <div style="border-bottom:1px solid var(--line);padding:12px 0">
             <strong>${esc(d.label)}</strong>
             <div class="diverge">
-              <div><div class="lbl">${esc(d.bike_a_name)} · ${esc(d.bike_a_years || "")}</div>
+              <div><div class="lbl">${esc(d.bike_a_name)}, ${esc(d.bike_a_years || "")}</div>
                    <div class="val">${esc(d.value_a ?? "— not set —")}</div></div>
-              <div><div class="lbl">${esc(d.bike_b_name)} · ${esc(d.bike_b_years || "")}</div>
+              <div><div class="lbl">${esc(d.bike_b_name)}, ${esc(d.bike_b_years || "")}</div>
                    <div class="val">${esc(d.value_b ?? "— not set —")}</div></div>
             </div>
             <div class="form-actions" style="justify-content:flex-start">
@@ -1443,8 +1443,8 @@ function render(){
                 n.kind === "photo" ? photoThumb(n) : ""}
               <span class="notice-text">${esc(n.summary)}</span>
               <div class="cell-dim notice-meta">${esc(n.created_at)}${
-                n.bike_id ? ` · <a href="/index.html?bike=${n.bike_id}">open ${esc(n.bike_name || "the bike")}${
-                  n.year_range ? " · " + esc(n.year_range) : ""}</a>` : ""}${
+                n.bike_id ? `, <a href="/index.html?bike=${n.bike_id}">open ${esc(n.bike_name || "the bike")}${
+                  n.year_range ? ", " + esc(n.year_range) : ""}</a>` : ""}${
                 n.kind === "split" && n.detail ? splitNoticeLink(n) : ""}</div>
             </div>
             <button class="action-btn" data-notice-seen="${n.id}">Seen</button>
@@ -1653,7 +1653,7 @@ document.addEventListener("click", guard(async (e) => {
             <div><div style="font-size:12.5px">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}</div>
               <div class="cell-dim">${b.value
                 ? `<span style="color:var(--danger)">holds “${esc(b.value)}”</span>`
-                : "empty"}${b.alternates ? ` · ${b.alternates} alternate(s)` : ""}</div></div>
+                : "empty"}${b.alternates ? `, ${b.alternates} alternate(s)` : ""}</div></div>
             <button class="action-btn danger" data-unplace-go="${esc(key)}|${b.bike_id}"
                     data-force="${b.value || b.alternates ? "1" : ""}"
                     data-name="${esc(b.display_name)}">Remove</button>
@@ -1857,7 +1857,7 @@ document.addEventListener("click", guard(async (e) => {
           <select id="br-question">
             <option value="">— choose —</option>
             ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
-              esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+              esc(b.section)}, ${esc(b.text)}</option>`).join("")}
           </select></div>
         <div class="form-row" id="br-option-row" style="display:none">
           <label>Applies when the answer is</label>
@@ -2010,7 +2010,7 @@ document.addEventListener("click", guard(async (e) => {
           <select id="ap-question">
             <option value="">No branch — pick bikes instead</option>
             ${BRANCHES.branches.map(b => `<option value="${esc(b.question_id)}">${
-              esc(b.section)} · ${esc(b.text)}</option>`).join("")}
+              esc(b.section)}, ${esc(b.text)}</option>`).join("")}
           </select></div>
         <div class="form-row" id="ap-option-row" style="display:none">
           <label>Applies when the answer is</label>
