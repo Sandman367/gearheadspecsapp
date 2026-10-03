@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spec Tree Questionnaire — GearHeadSpecs</title>
+<title>Bike Questionnaire — GearHeadSpecs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
@@ -54,8 +54,8 @@
 
 <header>
   <div>
-    <div class="eyebrow">Spec Tree Platform</div>
-    <h1>Spec Tree Questionnaire</h1>
+    <div class="eyebrow">GearHeadSpecs</div>
+    <h1>Bike Questionnaire</h1>
   </div>
   <div class="manager-tag" id="who"></div>
 </header>
@@ -332,7 +332,7 @@ function renderSubmit(){
   document.getElementById("content").innerHTML = `
     <div class="qbar"><div class="qbar-fill" style="width:100%"></div></div>
     <div class="panel">
-      <div class="panel-head"><h3>Ready to build the Spec Tree</h3></div>
+      <div class="panel-head"><h3>Ready to build this bike's spec sheet</h3></div>
       <div class="panel-body">
         <p style="font-size:12.5px;color:var(--text-dim);line-height:1.6">
           ${Object.keys(answers).length} answers recorded.
@@ -342,7 +342,7 @@ function renderSubmit(){
         </p>
         <div class="form-actions">
           <button class="ghost-btn" id="q-restart">Start over</button>
-          <button class="primary-btn" id="q-submit">Build the Spec Tree</button>
+          <button class="primary-btn" id="q-submit">Build the spec sheet</button>
         </div>
       </div>
     </div>`;
@@ -355,7 +355,7 @@ function renderSubmit(){
     const r = await API.post(`/api/questionnaire/${newBikeId}/build`, { answers });
     document.getElementById("content").innerHTML = `
       <div class="panel">
-        <div class="panel-head"><h3>Spec Tree Generated</h3></div>
+        <div class="panel-head"><h3>Spec sheet built</h3></div>
         <div class="panel-body">
           <div class="stat-grid" style="margin-bottom:16px">
             <div class="stat-card"><div class="num">${r.questions_asked}</div><div class="lbl">Questions Asked</div></div>
@@ -412,7 +412,7 @@ const loadGaps = guard(async () => {
               <option value="mfr">Manufacturer spec</option>
               <option value="pending" selected>Unconfirmed source</option>
             </select>
-            <button class="action-btn approve" data-save="${esc(q.field_key)}">Save</button>
+            <button class="primary-btn" data-save="${esc(q.field_key)}">Save</button>
             <button class="action-btn" data-notsure="${esc(q.field_key)}">Not sure</button>
           </div>
         </div>`).join("")

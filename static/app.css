@@ -164,10 +164,12 @@ main.wide{ max-width: 1180px; }
 .stat-card.alert .num{ color: var(--danger); }
 .stat-card.good .num{ color: var(--good); }
 .stat-card .lbl{
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  color: var(--text-faint);
-  margin-top: 6px;
+  /* Was 10px in the faintest grey: the number read, the words under it did not. */
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+  margin-top: 8px;
 }
 
 /* ---------- stat cards that lead somewhere ----------

@@ -86,7 +86,7 @@
 
 <header>
   <div>
-    <div class="eyebrow">Spec Tree Platform</div>
+    <div class="eyebrow">GearHeadSpecs</div>
     <h1>Request a Spec</h1>
   </div>
   <div class="manager-tag" id="who"></div>
@@ -125,8 +125,8 @@ function fieldList(){
     !q || f.label.toLowerCase().includes(q) || f.category.toLowerCase().includes(q));
   if(!fields.length){
     return `<div class="none">${q
-      ? `Nothing on the Spec Tree matches “${esc(FILTER)}”. If it's genuinely not there, name it on the right.`
-      : "Nothing on the Spec Tree."}</div>`;
+      ? `Nothing in the list matches “${esc(FILTER)}”. If it's genuinely missing, name it on the right.`
+      : "Nothing to add: this bike has every spec in the list."}</div>`;
   }
   let out = "", cat = null;
   for(const f of fields){
@@ -166,8 +166,15 @@ function chosenHTML(){
       PICKED.length > 1 ? " — they go to the manager as one ask, sharing the reason you write below." : ""}</div>`;
 }
 
+// The bike's own manager (or admin) adds specs directly instead of asking
+// themselves for them.
+function iManage(){
+  return !!(ME.user && (ME.user.role === "admin" || (ME.manages || []).includes(BIKE_ID)));
+}
+
 function sendLabel(){
   if(MODE === "new") return "Send to admin as a proposal";
+  if(iManage()) return PICKED.length > 1 ? `Add these ${PICKED.length} specs to this bike` : "Add this spec to this bike";
   return PICKED.length > 1 ? `Ask for these ${PICKED.length} specs` : "Ask for this spec";
 }
 
@@ -186,9 +193,12 @@ function render(){
       <div class="panel-body">
         <div class="bike-line">${esc(BIKE.display_name)}</div>
         <div class="bike-sub">${esc(BIKE.year_range || "")} · ${BIKE.fields_triggered} fields on its sheet.
-          A spec you'd expect to see here and can't? Ask for it. The rider who maintains
-          this bike adds it (or says why not); if it's not on the Spec Tree at all, the
-          request goes to admin as a proposal.</div>
+          ${iManage()
+            ? `You look after this bike: tick the specs it's missing and they go straight onto its sheet,
+               empty and ready to fill. A spec that isn't in the list at all goes to admin as a proposal.`
+            : `A spec you'd expect to see here and can't? Ask for it. The rider who maintains
+               this bike adds it (or says why not); if it isn't in the list at all, the
+               request goes to admin as a proposal.`}</div>
         ${signedIn ? "" : `
           <div class="auth-prompt" style="margin-top:12px">
             <span>Sign in to send a request — you can still browse what's been asked for.</span>
@@ -357,6 +367,19 @@ document.addEventListener("click", guard(async (e) => {
                value_type: document.getElementById("new-vt").value || "text", reasoning };
     } else {
       if(!PICKED.length){ toast("Tick a spec in the list, or name one on the right.", "error"); return; }
+      if(iManage()){
+        let added = 0; const failed = [];
+        for(const key of PICKED){
+          try { await API.post(`/api/bikes/${BIKE_ID}/specs/${key}`); added++; }
+          catch(err){ failed.push(err.message); }
+        }
+        toast(added ? `Added ${added} spec${added !== 1 ? "s" : ""} to this bike. They're on its sheet, ready to fill.`
+                      + (failed.length ? ` ${failed.length} couldn't be added: ${failed[0]}` : "")
+                    : `Couldn't add that: ${failed[0]}`, added ? "ok" : "error");
+        PICKED = []; MODE = "list";
+        await load();
+        return;
+      }
       body = { field_keys: PICKED, reasoning };
     }
     const r = await API.post(`/api/bikes/${BIKE_ID}/field-requests`, body);

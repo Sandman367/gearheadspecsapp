@@ -381,8 +381,8 @@
     border: 1px solid var(--line); background: var(--panel-2);
     padding: 12px 14px; display: grid; gap: 14px; width: 100%; margin-top: 10px;
   }
-  .fp-label{ font-size: 10px; letter-spacing: 0.02em;
-             color: var(--text-faint); margin-bottom: 7px; }
+  .fp-label{ font-size: 12px; letter-spacing: 0.01em; font-weight: 500;
+             color: var(--text-dim); margin-bottom: 8px; }
   .fp-label em{ font-style: normal; text-transform: none; letter-spacing: 0; }
   .fp-sub{ font-size: 9.5px; letter-spacing: 0.02em;
            color: var(--text-faint); margin: 10px 0 5px; }
@@ -394,15 +394,18 @@
   .fp-sys.on{ border-color: var(--amber); color: var(--amber); }
   .fp-grades{ display: flex; flex-wrap: wrap; gap: 6px; }
   .fp-grade{
-    display: grid; gap: 2px; text-align: left; cursor: pointer;
-    padding: 7px 10px; min-width: 118px; background: var(--panel);
+    display: grid; gap: 3px; text-align: left; cursor: pointer;
+    padding: 9px 12px; min-width: 118px; background: var(--panel);
     border: 1px solid var(--line); color: var(--text);
   }
   .fp-grade:hover{ border-color: var(--text-faint); }
   .fp-grade.on{ border-color: var(--amber); background: rgba(217,154,43,0.1); }
   .fp-grade.rare{ opacity: .8; }
-  .fp-num{ font-family: var(--mono); font-size: 15px; font-weight: 600; }
-  .fp-name{ font-size: 10.5px; color: var(--text-dim); }
+  .fp-num{ font-family: var(--mono); font-size: 19px; font-weight: 700; color: var(--text); }
+  .fp-grade.on .fp-num{ color: var(--amber); }
+  .fp-name{ font-size: 11.5px; color: var(--text-dim); }
+  .fuel-open-q{ font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+  .fuel-open .fuel-picker{ margin-top: 6px; }
   .fp-eq{ font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
   .fp-eq.formula::after{ content: " est."; }
   .fp-note{ font-size: 11px; color: var(--text-faint); line-height: 1.5; }
@@ -1306,7 +1309,7 @@ function jobCard(j){
           : `<span class="cell-dim">No tools listed yet.</span>`}</div>
         <div class="job-add">
           <input type="text" maxlength="80" placeholder="Add a tool, e.g. 17mm socket" id="job-tool-${esc(j.task_key)}">
-          <button class="action-btn" data-job-add-tool="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
+          <button class="primary-btn" data-job-add-tool="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
         </div>
 
         <div class="job-sub">Helpful links</div>
@@ -1324,7 +1327,7 @@ function jobCard(j){
           <select id="job-link-type-${esc(j.task_key)}"><option value="yt">YouTube</option><option value="forum">Forum</option><option value="doc">Manual / PDF</option><option value="other">Other</option></select>
           <input type="url" maxlength="500" placeholder="Paste the link" id="job-link-url-${esc(j.task_key)}">
           <input type="text" maxlength="140" placeholder="What is it? e.g. Full oil change walkthrough" id="job-link-title-${esc(j.task_key)}">
-          <button class="action-btn" data-job-add-link="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
+          <button class="primary-btn" data-job-add-link="${esc(j.task_key)}" data-auth-kind="value"${authAttr()}>Add</button>
         </div>
       </div>
     </div>`;
@@ -1748,11 +1751,32 @@ function renderCategory(cat){
   const seen = new Set();
   const uniq = echoes.filter(s => !seen.has(s.field_key) && seen.add(s.field_key));
   const gaps = cat.specs.filter(s => s.value === null || s.value === "").length;
+  const parts = groups.map(g => ({ key: g[0].field_key,
+                                   html: g.length === 1 ? renderSpec(g[0]) : renderSpecGroup(g) }));
+  // Fuel grade and ethanol limit are read together: wherever one sits, the
+  // other sits directly under it, octane first -- pulled up out of "Also
+  // shown here" when it is only mirrored in this section.
+  let rest = uniq;
+  const OCT = "fuel_octane_grade", ETH = "max_ethanol";
+  const at = k => parts.findIndex(p => p.key === k);
+  if(at(OCT) >= 0 && at(ETH) >= 0){
+    const [e] = parts.splice(at(ETH), 1);
+    parts.splice(at(OCT) + 1, 0, e);
+  } else if(at(OCT) >= 0 || at(ETH) >= 0){
+    const want = at(OCT) >= 0 ? ETH : OCT;
+    const echo = uniq.find(s => s.field_key === want);
+    if(echo){
+      rest = uniq.filter(s => s !== echo);
+      const item = { key: want, html: renderEcho(echo, cat.name) };
+      if(want === ETH) parts.splice(at(OCT) + 1, 0, item);
+      else parts.splice(at(ETH), 0, item);
+    }
+  }
   return catSection(cat.name, `${cat.specs.length}${gaps ? ` · ${gaps} gap${gaps > 1 ? "s" : ""}` : ""}${
       uniq.length ? ` · +${uniq.length} also` : ""}`,
-    groups.map(g => g.length === 1 ? renderSpec(g[0]) : renderSpecGroup(g)).join("") +
-    (uniq.length ? `<div class="echo-head">Also shown here</div>` +
-      uniq.map(s => renderEcho(s, cat.name)).join("") : ""));
+    parts.map(p => p.html).join("") +
+    (rest.length ? `<div class="echo-head">Also shown here</div>` +
+      rest.map(s => renderEcho(s, cat.name)).join("") : ""));
 }
 
 /* A heading that folds. Closed when the bike is opened, so the sheet reads as
@@ -1866,6 +1890,32 @@ function valueLine(opts){
     </div>`;
 }
 
+/* The options a fuel spec lists: every ethanol limit; the octane grades in
+   the scale the stock value is in (US unless the manual used RON), common
+   ones first, then by number. */
+function fuelOptionKeys(s){
+  if(s.value_type === "ethanol") return FUEL.ethanol.map(e => e.key);
+  const stock = FUEL.byKey[String(s.value || "").trim().toUpperCase()];
+  const sys = stock ? stock.system : "AKI";
+  return FUEL.grades.filter(g => g.system === sys)
+    .sort((a, b) => (b.is_common - a.is_common) || (a.value - b.value)).map(g => g.key);
+}
+
+/* An option nobody has picked yet on this bike: the same row as an Alt, at
+   zero, and the thumbs-up both lists it and counts the vote. */
+function optionLine(s, key){
+  return `
+    <div class="value-line">
+      <span class="value-actions">
+        <button class="icon-btn thumb" data-run-option="${s.id}|${esc(key)}" data-auth-kind="vote"${authAttr()}
+                title="I run this">${THUMB_SVG}<span class="badge-n">0</span></button>
+        <button class="icon-btn flag muted" disabled aria-hidden="true">${FLAG_SVG}<span class="badge-n">0</span></button>
+      </span>
+      <span class="value-source">Alt</span>
+      <span class="value-text">${s.value_type === "fuel_octane" ? octaneValueHTML(key, { alt: true }) : ethanolValueHTML(key, { alt: true })}</span>
+    </div>`;
+}
+
 // The Max Ethanol row on this bike, so setting the octane can set it too.
 function ethanolSibling(){
   return allSpecs().find(x => x.value_type === "ethanol");
@@ -1901,7 +1951,28 @@ function renderSpec(s, opts = {}){
     voteAction: `spec:${s.id}`, flagAction: `spec:${s.id}`, stockId: s.id,
     wire: isWire, wireId: `s${s.id}`, vtype: s.value_type,
   });
-  if(top) lines += valueLine({
+  // Fuel grade and ethanol limit are a closed set of a few options, so all
+  // of them are listed, each with its count -- even at none -- and a rider
+  // just gives a thumbs-up to the one they run. Nothing to type or submit.
+  const isFuel = (s.value_type === "fuel_octane" || s.value_type === "ethanol") && FUEL && canAlt;
+  if(isFuel){
+    const norm = t => String(t || "").trim().toUpperCase();
+    const stockKey = norm(s.value);
+    const byText = new Map(alts.map(a => [norm(a.text), a]));
+    const options = fuelOptionKeys(s);
+    const altLine = a => valueLine({
+      label: "Alt", text: a.text, votes: a.votes, flags: a.flags,
+      myVote: a.my_vote, myFlag: a.my_flag, confirmedFit: a.confirmed_fit,
+      voteAction: `alt:${a.id}`, flagAction: `alt:${a.id}`, altId: a.id, vtype: s.value_type,
+    });
+    options.filter(k => k !== stockKey).forEach(k => {
+      const a = byText.get(k);
+      lines += a ? altLine(a) : optionLine(s, k);
+    });
+    // anything riders entered before the list existed, outside it
+    alts.filter(a => !options.includes(norm(a.text)) && norm(a.text) !== stockKey).forEach(a => { lines += altLine(a); });
+  }
+  if(top && !isFuel) lines += valueLine({
     label: "Alt", text: top.text, votes: top.votes, flags: top.flags,
     myVote: top.my_vote, myFlag: top.my_flag, confirmedFit: top.confirmed_fit,
     voteAction: `alt:${top.id}`, flagAction: `alt:${top.id}`, altId: top.id,
@@ -1909,7 +1980,7 @@ function renderSpec(s, opts = {}){
   });
   // Only the best-supported alternate is shown; the rest collapse. A spec with
   // six competing suggestions otherwise buries the manual's value in noise.
-  rest.forEach(a => { lines += valueLine({
+  if(!isFuel) rest.forEach(a => { lines += valueLine({
     label: "Alt", text: a.text, votes: a.votes, flags: a.flags,
     myVote: a.my_vote, myFlag: a.my_flag, confirmedFit: a.confirmed_fit,
     voteAction: `alt:${a.id}`, flagAction: `alt:${a.id}`, hidden: true, altId: a.id,
@@ -1922,7 +1993,7 @@ function renderSpec(s, opts = {}){
         ${inGroup ? "" : `<span class="spec-label-strong">${esc(s.label)}</span>`}
         ${confidenceBadge(s.confidence)}
         ${typeBadge(s.spec_type)}
-        ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, not inherited from the Spec Tree">set for this bike</span>` : ""}
+        ${s.type_overridden && !locked ? `<span class="cell-dim" title="Set on this bike by its manager, instead of the site's default">set for this bike</span>` : ""}
         ${valueSource(s)}
         ${iManage ? `<button class="action-btn tag-toggle${locked ? " on" : ""}"
             data-set-type="${s.id}" data-to="${locked ? "" : "fixed"}"
@@ -1996,7 +2067,7 @@ function renderSpec(s, opts = {}){
         iManage ? " by you" : " by this bike's manager"} — one correct value.
         ${iManage ? "Only you set it." : "Closed to community values; flag it if you think it's wrong."}</div>` : ""}
       ${lines}
-      ${rest.length ? `<button class="show-more" data-toggle-more="${s.id}">
+      ${rest.length && !isFuel ? `<button class="show-more" data-toggle-more="${s.id}">
           +${rest.length} more submitted <span class="arrow">▾</span></button>` : ""}
       ${archived.length ? `<div class="archived-alts">
           <span class="who">Hidden from riders — only you see these</span>
@@ -2016,7 +2087,8 @@ function renderSpec(s, opts = {}){
                   title="The factory figure or part number for this bike, as the manual or parts list gives it. Shows as Unsourced until the bike's manager confirms it.">+ Add the stock value</button>
           <span class="row-cap">what the manual gives — the value this spec is missing</span>
         </div>` : ""}
-      ${canAlt ? `
+      ${isFuel ? `<div class="alt-cap">Give a thumbs-up to the one you run.</div>` : ""}
+      ${canAlt && !isFuel ? `
         <div class="alt-cap">${hasValue
           ? "Run something else? Suggest an alternative — it lists under the stock value as an <b>Alt</b> for riders to vote on, and never replaces it."
           : "Run something else? An alternative lists under the stock value as an <b>Alt</b> for riders to vote on. It is not the manual's value — that goes above."}</div>` : ""}
@@ -2032,18 +2104,11 @@ function renderSpec(s, opts = {}){
                   data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock fuses, for riders to vote on.">+ Suggest a different fuse</button>
           <div id="fuse-alt-${s.id}"></div>
-        </div>` : (s.value_type === "fuel_octane" || s.value_type === "ethanol") ? `
-        <div class="propose-row wire-propose">
-          <button class="action-btn" data-open-fuel="${s.id}" data-vtype="${esc(s.value_type)}"
-                  data-auth-kind="value"${authAttr()}
-                  title="Listed as an Alt under the stock value, for riders to vote on.">${
-            s.value_type === "fuel_octane" ? "+ I run a different grade" : "+ Suggest a different ethanol limit"}</button>
-          <div id="fuel-alt-${s.id}"></div>
-        </div>` : `
+        </div>` : (s.value_type === "fuel_octane" || s.value_type === "ethanol") ? "" : `
         <div class="propose-row">
           <input type="text" class="propose-input" id="propose-${s.id}"
                  placeholder="${s.example ? esc("Alternative you run instead — e.g. " + s.example) : "Alternative part number or value you run instead…"}" maxlength="200" autocomplete="off">
-          <button class="action-btn" data-save-alt="${s.id}" data-auth-kind="value"${authAttr()}
+          <button class="primary-btn" data-save-alt="${s.id}" data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock value, for riders to vote on. Never replaces the stock value.">Suggest alternative</button>
         </div>`) : ""}
       ${s.value_type === "wire_color" ? wireDiagramsHTML() : ""}
@@ -3055,7 +3120,7 @@ document.addEventListener("click", guard(async (e) => {
       ${octane ? fuelPickerHTML(`alt${id}`, "", {}) : fuelPickerEthanolOnlyHTML(`alt${id}`, "")}
       <div class="form-actions">
         <button class="ghost-btn" data-close-fuel="${id}">Cancel</button>
-        <button class="action-btn" data-save-alt="${id}"
+        <button class="primary-btn" data-save-alt="${id}"
                 data-fuel-alt="alt${id}" data-vtype="${esc(openFuel.dataset.vtype)}">Submit</button>
       </div>`;
     slot.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -3080,7 +3145,7 @@ document.addEventListener("click", guard(async (e) => {
       ${fusePickerHTML(`alt${id}`, "")}
       <div class="form-actions">
         <button class="ghost-btn" data-close-fuse="${id}">Cancel</button>
-        <button class="action-btn" data-save-alt="${id}"
+        <button class="primary-btn" data-save-alt="${id}"
                 data-fuse-alt="alt${id}">Submit this fuse</button>
       </div>`;
     openFuse.textContent = "− Cancel";
@@ -3109,7 +3174,7 @@ document.addEventListener("click", guard(async (e) => {
       ${wirePickerHTML(openWire.dataset.slot, "")}
       <div class="form-actions">
         <button class="ghost-btn" data-close-wire="${id}">Cancel</button>
-        <button class="action-btn" data-save-alt="${id}"
+        <button class="primary-btn" data-save-alt="${id}"
                 data-wire="${esc(openWire.dataset.slot)}">Submit this wire colour</button>
       </div>`;
     openWire.textContent = "− Cancel";
@@ -3123,6 +3188,14 @@ document.addEventListener("click", guard(async (e) => {
     byId(`wire-alt-${id}`).innerHTML = "";
     const opener = scopeOne(`[data-open-wire="${id}"]`);
     if(opener) opener.textContent = "+ Propose a wire colour";
+    return;
+  }
+
+  const runOpt = e.target.closest("[data-run-option]");
+  if(runOpt && signedIn()){
+    const [id, key] = runOpt.dataset.runOption.split("|");
+    await API.post(`/api/specs/${id}/run-option`, { text: key });
+    await refreshSpecs();
     return;
   }
 

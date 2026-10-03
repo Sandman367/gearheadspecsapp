@@ -115,14 +115,14 @@ function fuelPickerHTML(id, current, opts = {}){
             </button>`).join("")}
         </div>
       </div>` : ""}
-      <div class="fp-note">The stored value is what the manual says, in the scale
+      ${opts.compact ? "" : `<div class="fp-note">The stored value is what the manual says, in the scale
         it says it in. The other scale is shown as an equivalence — a published
-        pairing where one exists, otherwise an estimate and marked as one.</div>
+        pairing where one exists, otherwise an estimate and marked as one.</div>`}
     </div>`;
 }
 
 /* Ethanol on its own, for the Max Ethanol row and its alternates. */
-function fuelPickerEthanolOnlyHTML(id, current){
+function fuelPickerEthanolOnlyHTML(id, current, opts = {}){
   const cur = String(current || "").toUpperCase();
   return `
     <div class="fuel-picker" id="fp-${id}" data-value="" data-system="" data-ethanol="${esc(cur)}">
@@ -137,8 +137,8 @@ function fuelPickerEthanolOnlyHTML(id, current){
             </button>`).join("")}
         </div>
       </div>
-      <div class="fp-note">A ceiling, not a target: E0 means ethanol-free fuel
-        only, usually because the lines and carb parts are original rubber.</div>
+      ${opts.compact ? "" : `<div class="fp-note">A ceiling, not a target: E0 means ethanol-free fuel
+        only, usually because the lines and carb parts are original rubber.</div>`}
     </div>`;
 }
 
@@ -159,7 +159,8 @@ document.addEventListener("click", (e) => {
     // Switching scale clears the grade: 91 AKI and 91 RON are different fuels.
     const withEth = !!box.querySelector(".fp-ethanol");
     box.outerHTML = fuelPickerHTML(sys.dataset.fuelSys, "", {
-      defaultSystem: sys.dataset.key, withEthanol: withEth, ethanol: box.dataset.ethanol });
+      defaultSystem: sys.dataset.key, withEthanol: withEth, ethanol: box.dataset.ethanol,
+      compact: !box.querySelector(".fp-note") });
     return;
   }
   const pick = e.target.closest("[data-fuel-pick]");
@@ -168,7 +169,7 @@ document.addEventListener("click", (e) => {
     if(!box) return;
     const withEth = !!box.querySelector(".fp-ethanol");
     box.outerHTML = fuelPickerHTML(pick.dataset.fuelPick, pick.dataset.key, {
-      withEthanol: withEth, ethanol: box.dataset.ethanol });
+      withEthanol: withEth, ethanol: box.dataset.ethanol, compact: !box.querySelector(".fp-note") });
     return;
   }
   const eth = e.target.closest("[data-fuel-eth]");
@@ -177,9 +178,10 @@ document.addEventListener("click", (e) => {
     if(!box) return;
     const next = box.dataset.ethanol === eth.dataset.key ? "" : eth.dataset.key;
     // An ethanol-only picker has no grade scale; redraw it as itself.
+    const compact = !box.querySelector(".fp-note");
     box.outerHTML = box.dataset.system
       ? fuelPickerHTML(eth.dataset.fuelEth, box.dataset.value, {
-          defaultSystem: box.dataset.system, withEthanol: true, ethanol: next })
-      : fuelPickerEthanolOnlyHTML(eth.dataset.fuelEth, next);
+          defaultSystem: box.dataset.system, withEthanol: true, ethanol: next, compact })
+      : fuelPickerEthanolOnlyHTML(eth.dataset.fuelEth, next, { compact });
   }
 });

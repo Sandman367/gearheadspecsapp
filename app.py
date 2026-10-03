@@ -898,6 +898,46 @@ def add_alternate(ctx):
     return {"id": cur.lastrowid}
 
 
+@route("POST", r"/api/specs/(\d+)/run-option", role="user")
+def run_option(ctx):
+    """"I run this one" on a closed-set spec (fuel octane, ethanol limit),
+    where every option is listed on the page whether anyone has picked it or
+    not. The first thumbs-up makes the option an alternate, with that vote;
+    after that it is an ordinary alternate and this just toggles the vote.
+    One alternate per option, so two riders never create two copies."""
+    spec_id = int(ctx.params[0])
+    refuse_if_paused(ctx.conn, ctx.user, spec_id)
+    spec = one(ctx.conn.execute(
+        "SELECT s.id, s.value, f.value_type, COALESCE(s.spec_type, f.spec_type) AS spec_type"
+        " FROM specs s JOIN spec_fields f ON f.field_key=s.field_key WHERE s.id=?", (spec_id,)))
+    if not spec:
+        raise HttpError(404, "spec not found")
+    if spec["value_type"] not in ("fuel_octane", "ethanol"):
+        raise HttpError(400, "options are listed only for fuel grade and ethanol")
+    if spec["spec_type"] == "fixed":
+        raise HttpError(400, "this field has a single correct value")
+    text = check_value(ctx.conn, spec_id, ctx.field("text"))
+    if (spec["value"] or "").strip().upper() == text.strip().upper():
+        raise HttpError(400, "that's the stock value -- give the stock line a thumbs-up instead")
+    alt = one(ctx.conn.execute(
+        "SELECT id, paused FROM spec_alternates WHERE spec_id=? AND UPPER(TRIM(text))=UPPER(TRIM(?))"
+        " ORDER BY id LIMIT 1", (spec_id, text)))
+    if alt and alt["paused"]:
+        raise HttpError(409, "the bike's manager has taken that option down")
+    alt_id = alt["id"] if alt else ctx.conn.execute(
+        "INSERT INTO spec_alternates (spec_id, text, submitted_by) VALUES (?,?,?)",
+        (spec_id, text, ctx.user["id"])).lastrowid
+    had = ctx.conn.execute("DELETE FROM alternate_votes WHERE alternate_id=? AND user_id=?",
+                           (alt_id, ctx.user["id"])).rowcount
+    if not had:
+        ctx.conn.execute("INSERT INTO alternate_votes (alternate_id, user_id) VALUES (?,?)",
+                         (alt_id, ctx.user["id"]))
+    ctx.conn.commit()
+    votes = ctx.conn.execute("SELECT votes FROM alternate_vote_counts WHERE alternate_id=?",
+                             (alt_id,)).fetchone()[0]
+    return {"alternate_id": alt_id, "voted": not had, "votes": votes}
+
+
 @route("POST", r"/api/specs/(\d+)/value", role="user")
 def submit_spec_value(ctx):
     """Anyone signed in can fill an EMPTY spec.

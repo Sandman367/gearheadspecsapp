@@ -36,7 +36,7 @@
 
 <header>
   <div>
-    <div class="eyebrow">Spec Tree Platform</div>
+    <div class="eyebrow">GearHeadSpecs</div>
     <h1>Manage a Bike</h1>
   </div>
   <div class="manager-tag" id="who"></div>
@@ -100,7 +100,8 @@ function render(){
     <div class="panel"><div class="panel-body">
       <div><span class="bike-name">${esc(b.display_name)}</span>${b.year_range ? `<span class="bike-years">${esc(b.year_range)}</span>` : ""}</div>
       <div class="lede">
-        ${DATA.you_manage ? `<strong>You already look after this bike.</strong> Thanks for keeping it right.`
+        ${DATA.you_manage ? `<strong>You already look after this bike.</strong> Thanks for keeping it right.
+             New to it? <a href="/manager-help.html">Read the Bike Manager's Guide</a>.`
           : DATA.has_manager ? `Someone's already looking after this bike, so it isn't looking for a manager right now.
                If a spec is missing, you can <a href="/request-spec.html?bike=${b.bike_id}">ask for it</a>, and if a
                number looks wrong, flag it on the bike's page. The manager will see it.`

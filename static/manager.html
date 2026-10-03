@@ -25,18 +25,39 @@
 
 <header>
   <div>
-    <div class="eyebrow">Spec Tree Platform</div>
+    <div class="eyebrow">GearHeadSpecs</div>
     <h1>Bike Manager Dashboard</h1>
   </div>
   <div class="manager-tag" id="who"></div>
 </header>
 
 <main>
+  <p style="font-size:12px;color:var(--text-dim);margin:0 0 12px">New to managing a bike?
+    <a href="/manager-help.html">Read the Bike Manager's Guide</a>: editing, taking things offline, flags, and good habits.</p>
   <div id="content"><div class="loading">Loading…</div></div>
 </main>
 
 <script src="/api.js"></script>
 <script>
+// A dashboard figure you can act on: the card is a button that jumps to its
+// panel, as on Admin. `alert` reddens the number when something is waiting.
+function statCard(num, label, dest, alert){
+  return `<button class="stat-card${alert ? " alert" : ""}" data-jump="${esc(dest)}"
+    aria-label="${esc(label)}: ${esc(String(num))}. Jumps to that section.">
+    <div class="num">${esc(String(num))}</div>
+    <div class="lbl">${esc(label)}</div>
+  </button>`;
+}
+document.addEventListener("click", (e) => {
+  const jump = e.target.closest("[data-jump]");
+  if(!jump) return;
+  const target = document.getElementById(jump.dataset.jump);
+  if(!target){ toast("That section has nothing in it right now.", "ok"); return; }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.classList.remove("panel-flash"); void target.offsetWidth; target.classList.add("panel-flash");
+  target.setAttribute("tabindex", "-1"); target.focus({ preventScroll: true });
+});
+
 const REASON_LABEL = { irrelevant: "Irrelevant", incorrect: "Incorrect",
                        inappropriate: "Inappropriate", other: "Other" };
 
@@ -75,21 +96,21 @@ function render(){
   const s = STATE.summary;
   document.getElementById("content").innerHTML = `
     <div class="stat-grid">
-      <div class="stat-card"><div class="num">${s.bikes_managed}</div><div class="lbl">Bikes Managed</div></div>
-      <div class="stat-card"><div class="num">${s.specs_filled}</div><div class="lbl">Specs Filled</div></div>
-      <div class="stat-card${s.specs_needed ? " alert" : ""}"><div class="num">${s.specs_needed}</div><div class="lbl">Specs Needing Values</div></div>
-      <div class="stat-card${s.open_flags ? " alert" : ""}"><div class="num">${s.open_flags}</div><div class="lbl">Flags on My Specs</div></div>
-      <div class="stat-card"><div class="num">${s.not_sure_pending}</div><div class="lbl">"Not Sure" Pending Admin</div></div>
-      <div class="stat-card"><div class="num">${s.proposals}</div><div class="lbl">My Branch Proposals</div></div>
-      <div class="stat-card${s.submissions ? " alert" : ""}"><div class="num">${s.submissions}</div><div class="lbl">Community Values to Review</div></div>
-      <div class="stat-card${s.requested_gaps ? " alert" : ""}"><div class="num">${s.requested_gaps}</div><div class="lbl">Gaps Riders Asked For</div></div>
-      <div class="stat-card${s.field_requests ? " alert" : ""}"><div class="num">${s.field_requests || 0}</div><div class="lbl">Specs Riders Want Added</div></div>
+      ${statCard(s.bikes_managed, "Bikes Managed", "p-bikes", 0)}
+      ${statCard(s.specs_filled, "Specs Filled", "p-bikes", 0)}
+      ${statCard(s.specs_needed, "Specs Needing Values", "p-bikes", s.specs_needed)}
+      ${statCard(s.open_flags, "Flags on My Specs", "p-flags", s.open_flags)}
+      ${statCard(s.not_sure_pending, "\"Not Sure\" Pending Admin", "p-not-sure", 0)}
+      ${statCard(s.proposals, "My Branch Proposals", "p-proposals", 0)}
+      ${statCard(s.submissions, "Community Values to Review", "p-submissions", s.submissions)}
+      ${statCard(s.requested_gaps, "Gaps Riders Asked For", "p-gaps", s.requested_gaps)}
+      ${statCard(s.field_requests || 0, "Specs Riders Want Added", "p-field-requests", s.field_requests)}
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-field-requests">
       <div class="panel-head">
         <div><h3>Specs Riders Want Added</h3>
-          <p>Fields on the Spec Tree that your bikes don't list, asked for by
+          <p>Specs your bikes don't have on their sheet yet, asked for by
              riders. "Add to bike" puts the empty row on the sheet — the same as
              answering the questionnaire would — and closes every request for
              it. Decline if the machine simply doesn't have that part.</p></div>
@@ -102,7 +123,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-gaps">
       <div class="panel-head">
         <div><h3>Gaps Riders Asked For</h3>
           <p>Empty fields on your bikes, ranked by how many people clicked
@@ -127,7 +148,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-submissions">
       <div class="panel-head">
         <div><h3>Community Values to Review</h3>
           <p>Gaps a rider filled in on your bikes. They're live on the page
@@ -155,7 +176,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-bikes">
       <div class="panel-head"><h3>My Bikes</h3></div>
       ${STATE.bikes.length ? STATE.bikes.map(b => {
         const pct = b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0;
@@ -179,7 +200,7 @@ function render(){
       : `<div class="empty">No bikes assigned to you yet.</div>`}
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-flags">
       <div class="panel-head">
         <div><h3>Flags on My Specs</h3>
           <p>When someone flags a spec as irrelevant, incorrect, or inappropriate,
@@ -194,7 +215,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-resolved">
       <div class="panel-head">
         <div><h3>Recently Resolved</h3>
           <p>Tracked separately so it's clear which flags led to a real fix
@@ -216,7 +237,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-not-sure">
       <div class="panel-head">
         <div><h3>My "Not Sure" Answers</h3>
           <p>Questions you couldn't confidently answer during setup — sent to
@@ -237,7 +258,7 @@ function render(){
       </table>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="p-proposals">
       <div class="panel-head">
         <div><h3>My Branch Proposals</h3>
           <p>Think a spec is missing from the tree entirely? Propose it — admin

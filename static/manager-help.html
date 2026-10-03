@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bike Manager's Guide — GearHeadSpecs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .guide{ display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 900px){ .guide{ grid-template-columns: 1fr; } .toc{ position: static !important; } }
+  .toc{ position: sticky; top: 18px; border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; }
+  .toc .t{ font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); text-transform: uppercase; margin-bottom: 8px; }
+  .toc a{ display: block; font-size: 12.5px; color: var(--text-dim); text-decoration: none; padding: 5px 0 5px 8px; border-left: 2px solid transparent; }
+  .toc a:hover{ color: var(--amber); border-left-color: var(--amber); }
+  .doc section{ border: 1px solid var(--line); background: var(--panel); padding: 20px 24px; margin-bottom: 18px; scroll-margin-top: 16px; }
+  .doc h2{ font-family: var(--display); font-size: 22px; letter-spacing: 0.01em; margin: 0 0 4px; color: var(--amber); }
+  .doc h3{ font-family: var(--display); font-size: 16px; letter-spacing: 0.01em; margin: 20px 0 6px; }
+  .doc p, .doc li{ font-size: 13px; line-height: 1.7; color: var(--text); }
+  .doc p.lede{ color: var(--text-dim); margin-top: 0; }
+  .doc ul, .doc ol{ padding-left: 20px; margin: 6px 0 10px; }
+  .doc li{ margin-bottom: 4px; }
+  .k{ display: inline-block; font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--line); background: var(--panel-2);
+      padding: 0 6px; color: var(--text); white-space: nowrap; }
+  .tip{ border-left: 3px solid var(--amber); background: rgba(217,154,43,0.07); padding: 10px 14px; margin: 12px 0; font-size: 12.5px; line-height: 1.6; }
+  .warn{ border-left: 3px solid var(--danger); background: rgba(181,80,46,0.08); padding: 10px 14px; margin: 12px 0; font-size: 12.5px; line-height: 1.6; }
+  .check{ list-style: none; padding-left: 0; }
+  .check li{ padding-left: 26px; position: relative; }
+  .check li::before{ content: "☐"; position: absolute; left: 0; color: var(--amber); }
+  .cmp{ width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0 4px; }
+  .cmp th, .cmp td{ text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .cmp th{ font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); font-weight: 500; letter-spacing: 0.04em; }
+  .hero-note{ font-size: 13px; color: var(--text-dim); line-height: 1.7; max-width: 760px; margin: 0 0 18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="eyebrow">GearHeadSpecs</div>
+    <h1>Bike Manager's Guide</h1>
+  </div>
+  <div class="manager-tag" id="who"></div>
+</header>
+
+<main style="max-width:1180px">
+  <p class="hero-note">Welcome aboard. You look after a bike now, which means riders trust the numbers on its page
+    because you checked them. This guide walks through everything you can do, where to find it, and the habits
+    that make a good manager. Read the first two sections today; come back to the rest when you need it.</p>
+
+  <div class="guide">
+    <nav class="toc" aria-label="Guide contents">
+      <div class="t">In this guide</div>
+      <a href="#role">What a manager does</a>
+      <a href="#first-day">Your first day</a>
+      <a href="#where">Where things are</a>
+      <a href="#values">Adding and correcting values</a>
+      <a href="#offline">Offline, hidden and archived</a>
+      <a href="#flags">Answering flags</a>
+      <a href="#riders">What riders send you</a>
+      <a href="#sheet">Shaping the spec sheet</a>
+      <a href="#years">When something changed by year</a>
+      <a href="#extras">Photos, diagrams, guides and jobs</a>
+      <a href="#questionnaire">The questionnaire</a>
+      <a href="#talk">Talking to other managers</a>
+      <a href="#standing">Your tier and badges</a>
+      <a href="#habits">Good habits</a>
+      <a href="#help">Getting help</a>
+    </nav>
+
+    <div class="doc">
+
+      <section id="role">
+        <h2>What a manager does</h2>
+        <p class="lede">You're the person closest to this machine on the site.</p>
+        <ul>
+          <li><b>You keep its specs right.</b> Riders add numbers; you check them against the manual and confirm or correct them.</li>
+          <li><b>You answer flags.</b> When a rider thinks a value is wrong, it comes straight to you, not to a moderation queue.</li>
+          <li><b>You decide what belongs on the sheet.</b> Fields this bike doesn't have can go; fields it's missing can be added.</li>
+          <li><b>You're a rider, not staff.</b> Your word is about one machine. Admin handles the site itself.</li>
+        </ul>
+        <div class="tip"><b>The one rule:</b> a wrong value is worse than a gap. If you're not sure, leave it empty or take
+          it offline while you check. A blank honestly says "nobody knows yet"; a wrong number gets someone's engine hurt.</div>
+      </section>
+
+      <section id="first-day">
+        <h2>Your first day</h2>
+        <p class="lede">A short checklist to get your bike in shape.</p>
+        <ul class="check">
+          <li>Open <span class="k">My Bikes</span> in the menu. Your bike is listed there with how full its sheet is.</li>
+          <li>Open the bike's page and look at the <b>years</b> under its name. If the span is wrong, or it says
+            <span class="k">year span unconfirmed</span>, see <a href="#years">When something changed by year</a>.</li>
+          <li>Run the questionnaire from <span class="k">My Bikes</span> → <span class="k">Fill gaps</span> if the sheet
+            has specs your bike doesn't have, or is missing ones it does. See <a href="#questionnaire">The questionnaire</a>.</li>
+          <li>Add the main photo: <span class="k">Add the main photo</span> on the bike's page.</li>
+          <li>Fill in the specs you know from the manual, starting with the ones in the header at the top.</li>
+          <li>Check <span class="k">My Bikes</span> for anything waiting: flags, values riders sent in, and gaps riders asked for.</li>
+        </ul>
+      </section>
+
+      <section id="where">
+        <h2>Where things are</h2>
+        <table class="cmp">
+          <tr><th>Place</th><th>What it's for</th></tr>
+          <tr><td><span class="k">My Bikes</span></td><td>Your dashboard. Everything waiting on you: <b>Flags on My Specs</b>,
+            <b>Community Values to Review</b>, <b>Gaps Riders Asked For</b>, <b>Specs Riders Want Added</b>, your
+            <b>"Not Sure" answers</b>, your <b>branch proposals</b>, and <b>Recently Resolved</b>.</td></tr>
+          <tr><td>The bike's page</td><td>Where you edit. Every manager control sits on the spec rows themselves, only visible to you.</td></tr>
+          <tr><td><span class="k">Board</span></td><td>Threads with the other managers and admin.</td></tr>
+          <tr><td><span class="k">Messages</span></td><td>Private conversations with another manager or admin.</td></tr>
+        </table>
+      </section>
+
+      <section id="values">
+        <h2>Adding and correcting values</h2>
+        <h3>Adding a value</h3>
+        <p>On a gap, click <span class="k">+ Add the stock value</span>, type it the way the manual gives it, and
+          <span class="k">Save stock value</span>. Some specs have a picker instead of a text box: wire colours, fuses and fuel grade.</p>
+        <h3>How sure a value is</h3>
+        <table class="cmp">
+          <tr><th>Badge</th><th>Means</th></tr>
+          <tr><td><span class="k">Pending source</span></td><td>Somebody entered it, nobody has checked it yet.</td></tr>
+          <tr><td><span class="k">Mfr-sourced</span></td><td>You checked it against the maker's information.</td></tr>
+          <tr><td><span class="k">Manual-confirmed</span></td><td>You checked it against the service manual yourself. The strongest you can give.</td></tr>
+        </table>
+        <h3>Confirming or correcting what riders entered</h3>
+        <p>Values riders type into gaps arrive as <b>Pending</b> and show up under <b>Community Values to Review</b> on
+          <span class="k">My Bikes</span>. Confirm the ones that match the manual, correct the ones that don't. Correcting
+          keeps who entered the original, so nobody's history is erased.</p>
+        <h3>Notes</h3>
+        <p><span class="k">+ Add a note</span> puts one sentence beside a value: "measure cold", "1978 on uses the longer bolt".
+          Notes are the cheapest way to stop the same question coming back.</p>
+        <h3>Alternatives</h3>
+        <p>Riders can't overwrite the stock value. What they run instead goes in as an <b>alternative</b> underneath it, and
+          other riders vote. The stock line stays what the factory called for.</p>
+        <h3>Tag a spec Fixed</h3>
+        <p><span class="k">+ Tag Fixed</span> says there's one right answer and you set it: torque figures, part numbers,
+          clearances. It closes the spec to alternatives and rider values. <span class="k">✓ Fixed spec</span> opens it again.</p>
+      </section>
+
+      <section id="offline">
+        <h2>Offline, hidden and archived</h2>
+        <p class="lede">None of these delete anything. Each one is a button to undo.</p>
+        <table class="cmp">
+          <tr><th>Button</th><th>Use it when</th><th>Riders see</th></tr>
+          <tr><td><span class="k">❙❙ Take offline</span></td><td>A value <b>might</b> be wrong and you're checking it, often after a flag.</td>
+            <td>The field, not the value. Votes and flags pause.</td></tr>
+          <tr><td><span class="k">Hide</span> on an alternative</td><td>Somebody's alternative is wrong for this bike.</td><td>Nothing; you still see it, to put back.</td></tr>
+          <tr><td><span class="k">⤓ Archive value</span></td><td>The spec belongs on the bike but the <b>number</b> in it is wrong.</td>
+            <td>A gap again, so someone can fill it properly.</td></tr>
+          <tr><td><span class="k">⤓ Archive</span></td><td>The bike simply doesn't have this part (coolant on an air-cooled engine).</td>
+            <td>Nothing. It's off your sheet too.</td></tr>
+        </table>
+        <p>Everything you've put away sits in the <span class="k">Archive (n)</span> button at the top of the Full spec sheet,
+          with <span class="k">Put back on the sheet</span> and <span class="k">Put the value back</span>. A put-back never
+          overwrites a value someone sourced since.</p>
+        <p><span class="k">▶ Put back online</span> brings an offline spec back as it was.</p>
+        <div class="tip">Taking a whole bike off the site is admin's job. If a bike shouldn't be listed at all, message admin.</div>
+      </section>
+
+      <section id="flags">
+        <h2>Answering flags</h2>
+        <p class="lede">Flags come to you on <span class="k">My Bikes</span> → <b>Flags on My Specs</b>.</p>
+        <ul>
+          <li><span class="k">Fix Value</span> sets the right value straight away. Use it when the manual says so.</li>
+          <li><span class="k">❙❙ Take offline</span> stops the value being read as fact while you find the manual.
+            <span class="k">▶ Put online</span> brings it back.</li>
+          <li><span class="k">Remove alternate</span> when the flag is about somebody's alternative, not the stock value.</li>
+          <li><span class="k">Remove from this bike</span> when the flag says the field doesn't belong on this bike at all.</li>
+          <li><span class="k">Dismiss</span> when the value is right. Say why: the rider sees your answer.</li>
+          <li><span class="k">Contact</span> messages the rider who flagged it, when you need more from them.</li>
+        </ul>
+        <div class="tip">Answer within a few days, even if it's "checking, will confirm by the weekend." Fast, fair answers
+          are what move you up the tiers.</div>
+      </section>
+
+      <section id="riders">
+        <h2>What riders send you</h2>
+        <ul>
+          <li><b>Gaps Riders Asked For</b>: empty specs riders want filled, most-asked first. Start at the top.</li>
+          <li><b>Specs Riders Want Added</b>: specs riders want on your bike's sheet. Add the spec, or decline with a reason.</li>
+          <li><b>Community Values to Review</b>: values riders typed into gaps. Confirm or correct.</li>
+          <li><b>Votes</b> on alternatives show you what riders actually run. They never change the stock value.</li>
+        </ul>
+      </section>
+
+      <section id="sheet">
+        <h2>Shaping the spec sheet</h2>
+        <h3>Adding or removing a field</h3>
+        <p>Missing a spec? Under the Full spec sheet, click <span class="k">Ask for one this bike doesn't list</span>.
+          Because you look after the bike, ticking specs there adds them straight to its sheet, empty and ready to fill.
+          A spec that isn't in that list at all goes to admin as a proposal. A spec your bike doesn't have comes off with
+          <span class="k">⤓ Archive</span>. Nothing you do here changes any other bike.</p>
+        <h3>The header</h3>
+        <p>The top of the page shows the General specs plus anything you pin. <span class="k">+ Pin to header</span> puts a spec
+          up there for this bike; <span class="k">✓ In header</span> on a General spec takes it out of this bike's header only.</p>
+        <h3>Showing a spec under another heading</h3>
+        <p>The headings button on each spec (it reads <span class="k">✓ Also in …</span> once used) shows it under more than one
+          heading, say the spark plug under Electrical as well as Engine. It's the same value in both places.</p>
+        <h3>The name riders see</h3>
+        <p><span class="k">Rename</span> changes the name riders see, and <span class="k">+ Another name</span> adds names the bike
+          is sold under in other markets. Search finds all of them.</p>
+      </section>
+
+      <section id="years">
+        <h2>When something changed by year</h2>
+        <p class="lede">Two very different tools. Pick the smaller one whenever you can.</p>
+        <table class="cmp">
+          <tr><th>Button</th><th>Use it when</th></tr>
+          <tr><td><span class="k">⋮ Changed in a later year</span> on one spec</td><td>One value changed partway through (a bigger tank from 1978).
+            The bike stays one bike; that spec gets a value per range. <span class="k">Merge back into one value</span> undoes it.</td></tr>
+          <tr><td><span class="k">Split at a year</span> on the bike</td><td>From a year on it's really a different machine: new engine, new frame.
+            The later years become their own bike with a copy of the sheet, and you manage both.</td></tr>
+        </table>
+        <div class="warn">Splitting a bike is big and hard to undo. Check the years with a source first, and if the bike
+          already has a separate record for the other years, message admin instead of splitting.</div>
+      </section>
+
+      <section id="extras">
+        <h2>Photos, diagrams, guides and jobs</h2>
+        <ul>
+          <li><b>Photos.</b> <span class="k">Add the main photo</span>, or a photo for one model year. Whoever adds the main photo
+            can replace it; other managers add year photos.</li>
+          <li><b>Wiring diagram.</b> <span class="k">+ Add the wiring diagram</span> on any wire-colour spec. It shows on every wire it explains.</li>
+          <li><b>Guides.</b> <span class="k">⚒ Guides</span> on a spec opens its tools and helpful links. Riders add them and vote;
+            you can hide a dead link without losing its votes.</li>
+          <li><b>Jobs.</b> Cards like <b>Oil change</b> near the top of the page gather a job's specs, tools and videos. Fill the specs
+            and they fill the card; hide any tool or link that's wrong with its ✕.</li>
+        </ul>
+      </section>
+
+      <section id="questionnaire">
+        <h2>The questionnaire</h2>
+        <p>The questionnaire asks plain questions about your bike (does it have a battery? carbs or injection? chain or belt?)
+          and puts exactly the right fields on it. Open it from <span class="k">My Bikes</span> → <span class="k">Fill gaps</span>.</p>
+        <ul>
+          <li>Re-running it only <b>adds</b> fields. Anything that no longer fits is listed for you to remove deliberately.</li>
+          <li>Not sure of an answer? Choose <b>Not sure</b>. It goes to admin rather than guessing. You'll see it under
+            <b>My "Not Sure" Answers</b>.</li>
+          <li>A field that doesn't exist anywhere yet can be proposed to admin as a <b>branch proposal</b>.</li>
+        </ul>
+      </section>
+
+      <section id="talk">
+        <h2>Talking to other managers</h2>
+        <p>The <span class="k">Board</span> is for comparing notes: a wiring quirk shared across a family of bikes, a good parts
+          source, how someone handled a tricky flag. <span class="k">Messages</span> is for a private word with one person or with admin.</p>
+      </section>
+
+      <section id="standing">
+        <h2>Your tier and badges</h2>
+        <p>Your tier is worked out from your record and shown beside your name. It changes how you're shown, never what you can do.</p>
+        <table class="cmp">
+          <tr><th>Tier</th><th>What it takes</th></tr>
+          <tr><td><b>Bronze</b></td><td>Where everyone starts.</td></tr>
+          <tr><td><b>Silver</b></td><td>100 values entered, 60% of them confirmed, 10 flags resolved, a typical answer within a week.</td></tr>
+          <tr><td><b>Gold</b></td><td>400 values, 85% confirmed, 50 flags resolved, a typical answer within 3 days, and admin's say-so.</td></tr>
+        </table>
+        <p>If more than 5% of your values get overturned after a flag, you stay Bronze until that comes down. Badges like
+          <b>First Hundred</b>, <b>Manual Hunter</b>, <b>Quick Draw</b>, <b>Clean Sheet</b> and <b>Wire Wizard</b> mark milestones on your profile.</p>
+      </section>
+
+      <section id="habits">
+        <h2>Good habits</h2>
+        <ul>
+          <li><b>Source everything.</b> The service manual first, then the maker's parts fiche. Mark it Manual-confirmed when you checked the book.</li>
+          <li><b>Never guess a year or a number.</b> A gap is fine. A guess isn't.</li>
+          <li><b>Take it offline, then fix it.</b> When a flag looks right, take the value offline first so nobody uses it while you check.</li>
+          <li><b>Write it the way the next rider expects.</b> "10W-40", "3.8 L with filter", the part number exactly as printed.</li>
+          <li><b>Leave a note</b> when there's a catch: cold or hot, early or late bikes, with or without the filter.</li>
+          <li><b>Keep the stock line stock.</b> What you run yourself goes in as an alternative, like everyone else's.</li>
+          <li><b>Check your dashboard regularly.</b> Riders notice when their flags get answered.</li>
+        </ul>
+      </section>
+
+      <section id="help">
+        <h2>Getting help</h2>
+        <p>Stuck, or something on the site looks wrong? Send admin a message from <span class="k">Messages</span>, or post on the
+          <span class="k">Board</span> where the other managers can chip in too. Questions about the site itself:
+          <a href="mailto:developer@gearheadspecs.com">developer@gearheadspecs.com</a>.</p>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="/api.js"></script>
+<script>
+(async () => { await initChrome("/manager-help.html"); })();
+</script>
+</body>
+</html>

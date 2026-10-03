@@ -6987,6 +6987,34 @@ class ApiTest(unittest.TestCase):
             "SELECT sort_order FROM spec_fields WHERE field_key='idle_speed'").fetchone()[0], moved)
         con.close()
 
+    def test_99y_a_rider_thumbs_up_the_fuel_option_they_run(self):
+        """Every ethanol limit / octane grade is listed; the first thumbs-up
+        on an unpicked option makes it an alternate with that vote, a second
+        rider's adds to the same one, and clicking again takes yours back."""
+        con = sqlite3.connect(self.db)
+        sid = con.execute("SELECT s.id FROM specs s JOIN spec_fields f ON f.field_key=s.field_key"
+                          " WHERE f.value_type='ethanol' AND s.bike_id=?", (self.cb919,)).fetchone()
+        con.close()
+        if not sid:
+            self.skipTest("seed has no ethanol spec on the CB919")
+        sid = sid[0]
+        rider, tina = self.as_("sohc_sam"), self.as_("two_stroke_tina")
+        self.assertEqual(self.anon().post(f"/api/specs/{sid}/run-option", {"text": "E15"})[0], 401)
+        self.assertEqual(rider.post(f"/api/specs/{sid}/run-option", {"text": "E99"})[0], 400)
+        s, a = rider.post(f"/api/specs/{sid}/run-option", {"text": "e15"})
+        self.assertEqual((s, a["voted"], a["votes"]), (200, True, 1), a)
+        s, b = tina.post(f"/api/specs/{sid}/run-option", {"text": "E15"})
+        self.assertEqual((b["alternate_id"], b["votes"]), (a["alternate_id"], 2))   # same alternate
+        s, c = rider.post(f"/api/specs/{sid}/run-option", {"text": "E15"})
+        self.assertEqual((c["voted"], c["votes"]), (False, 1))
+        con = sqlite3.connect(self.db)
+        self.assertEqual(con.execute("SELECT COUNT(*) FROM spec_alternates WHERE spec_id=? AND UPPER(text)='E15'",
+                                     (sid,)).fetchone()[0], 1)
+        stock = con.execute("SELECT value FROM specs WHERE id=?", (sid,)).fetchone()[0]
+        con.close()
+        if stock:
+            self.assertEqual(rider.post(f"/api/specs/{sid}/run-option", {"text": stock})[0], 400)
+
     def test_99u_electric_bikes_go_offline_once_and_only_once(self):
         """The migration takes the electric bikes offline when it adds the
         column, and never again -- a bike admin puts back online stays up."""

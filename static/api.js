@@ -160,9 +160,10 @@ let ME = { user: null, manages: [] };
 const NAV = [
   { href: "/index.html",         label: "Browse",         role: "anon" },
   { href: "/manager.html",       label: "My Bikes",       role: "manager" },
-  { href: "/spec-tree.html",     label: "Spec Tree",      role: "manager" },
+  { href: "/spec-tree.html",     label: "Spec Tree",      role: "admin" },
   { href: "/board.html",         label: "Board",          role: "manager", count: "board" },
   { href: "/messages.html",      label: "Messages",       role: "manager", count: "messages" },
+  { href: "/manager-help.html",  label: "Guide",          role: "manager" },
   { href: "/questionnaire.html", label: "Add a Bike",     role: "admin" },
   { href: "/add-spec.html",      label: "Add a Spec",     role: "admin" },
   { href: "/admin.html",         label: "Admin",          role: "admin" },
