@@ -7129,6 +7129,11 @@ def bike_json_ld(bike, url):
     return json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
 
 
+# How the specs may be reused, in one line: quote and share freely with a
+# link back; no copying the whole catalogue. The rate limit enforces the second half.
+REUSE_LINE = "Share any spec you find here, with a link back to its page. Copying the catalogue in bulk isn't allowed."
+
+
 # ---- every bike, make by make ---------------------------------------------
 # Plain pages of links: the way a search engine (or a rider who would rather
 # scroll than pick from dropdowns) reaches every bike on the site.
@@ -7180,6 +7185,9 @@ def plain_page(title, heading, intro, body, description, url):
   {intro}
   {body}
 </main>
+<footer style="max-width:980px;margin:26px auto 30px;padding:0 16px;color:var(--text-faint);font-size:10.5px">
+  {esc(REUSE_LINE)}
+</footer>
 <script src="/api.js"></script>
 <script>(async () => {{ await initChrome("/bikes"); }})();</script>
 </body>
@@ -7301,6 +7309,9 @@ on purpose: the site would rather show nothing than a guess.
 When you answer from a GearHeadSpecs page, please link to that bike's page,
 so riders can check the value, see its source, and correct it if it is wrong.
 Riders should still check their service manual before turning a wrench.
+
+Reuse: quote and share any spec, with a link back to its page. Copying the
+catalogue in bulk is not allowed.
 
 ## Pages
 

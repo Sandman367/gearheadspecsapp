@@ -7161,10 +7161,13 @@ class ApiTest(unittest.TestCase):
         status, _, llms = self._raw("/llms.txt")
         self.assertEqual(status, 200)
         self.assertIn("please link to that bike's page", llms)
+        self.assertIn("Copying the catalogue in bulk is not allowed", " ".join(llms.split()))
+        self.assertIn("Copying the catalogue in bulk isn&#x27;t allowed", every)
 
         _, _, home = self._raw("/")
         self.assertIn('<meta name="description"', home)
         self.assertIn('href="/bikes"', home)
+        self.assertIn("Copying the catalogue in bulk isn't allowed", home)
 
     def test_99z_a_bike_page_says_where_each_value_came_from(self):
         """Next to each value the page says how it was sourced, in words, and
