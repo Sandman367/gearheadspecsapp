@@ -112,7 +112,8 @@ nav.mainnav .nav-right{ margin-left: auto; display: flex; align-items: center; g
   padding: 10px 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.02);
   font-size: 12px;
 }
-.credit .lbl{ font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+.credit .lbl{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+.credit .lbl::after{ content: ":"; }
 .credit .person{ display: inline-flex; align-items: center; font-weight: 500; }
 .credit .fill{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); display: inline-flex; align-items: center; gap: 8px; }
 .credit .fill b{ color: var(--text); font-weight: 500; }

@@ -259,7 +259,7 @@ async function initChrome(activeHref){
     .join("");
 
   const right = ME.user
-    ? `<span>${esc(ME.user.display_name || ME.user.username)} · ${esc(ME.user.role)}</span>
+    ? `<span>Signed in as ${esc(ME.user.display_name || ME.user.username)}</span>
        <a href="/password.html" class="action-btn" style="text-decoration:none" title="Change your password">Password</a>
        <button class="action-btn" id="logout-btn">Sign out</button>`
     : `<a href="/login.html?next=${encodeURIComponent(location.pathname)}">Sign in</a>`;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GearHeadSpecs — Specs. Exactly what you need.</title>
+<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/app.css">
@@ -76,7 +76,9 @@
     color: var(--text-faint); padding: 0 4px 8px;
   }
   .cat-nav-item{
-    display: flex; justify-content: space-between; align-items: center; width: 100%;
+    /* the name, with its count in small type underneath: plain words fit the
+       sidebar on two lines where "24 · 8 gaps" squeezed onto one */
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
     background: none; border: none; border-left: 3px solid transparent;
     color: var(--text-dim); font-family: var(--mono); font-size: 12.5px;
     padding: 9px 10px; cursor: pointer; text-align: left;
@@ -475,9 +477,10 @@
   #bs-preview{ margin-top: 4px; font-family: var(--mono); font-size: 11.5px; }
   /* Pinned by this bike's manager, as opposed to General, which every bike
      shows. Marked so the hero does not imply the two are the same decision. */
-  .quicklist .ql-only span::after{ content: " · header only"; }
-  .quicklist .ql-pinned span::after{
-    content: " · pinned";
+  /* "pinned" means something to the bike's manager, not to a rider */
+  .quicklist .ql-mine.ql-only span::after{ content: " (header only)"; }
+  .quicklist .ql-mine.ql-pinned:not(.ql-only) span::after{
+    content: " (pinned)";
     color: var(--text-faint);
     font-size: 9px;
     letter-spacing: 0.04em;
@@ -862,7 +865,7 @@
            no top-level landmark for anyone navigating by heading. -->
       <h1 class="brand-h1"><a class="brand-link" href="/" title="GearHeadSpecs home"><img class="brand-logo"
           src="/img/brand-logo.png" alt="GearHeadSpecs"></a></h1>
-      <div class="eyebrow">Motorcycles — Specs. Exactly what you need.</div>
+      <div class="eyebrow">Stock motorcycle specs, checked by riders.</div>
       <div class="subhead" id="total-count">Loading…</div>
     </div>
 
@@ -893,14 +896,14 @@
       <!-- Not a 2-stroke: just the link, as it was. -->
       <div class="cat-nav-tools" id="side-calc-link" hidden>
         <a class="cat-nav-item cat-nav-tool" href="/calculator.html" target="_blank" rel="noopener">
-          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</span>
-          <span class="cat-nav-count">opens ↗</span>
+          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix ratio calculator</span>
+          <span class="cat-nav-count">opens in a new tab</span>
         </a>
       </div>
       <!-- A 2-stroke: the calculator itself, open. -->
       <div class="cat-nav-tools side-calc" id="side-calc" hidden>
         <div class="side-calc-head">
-          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</span>
+          <span class="calc-name"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix ratio calculator</span>
           <a href="/calculator.html" target="_blank" rel="noopener" title="Open the calculator in a new tab">open ↗</a>
         </div>
         <iframe id="mix-calc-side" title="Mix Ratio Calculator" loading="lazy"></iframe>
@@ -920,14 +923,14 @@
             <select id="year-select" autocomplete="off"><option value="">All Years</option></select>
           </div>
           <div>
-            <span class="field-label">Model (ordered by CC)</span>
+            <span class="field-label">Model (smallest engine first)</span>
             <select id="model-select" autocomplete="off"><option value="">All Models</option></select>
           </div>
         </div>
         <div class="form-actions" style="justify-content:flex-start;margin-top:12px;gap:14px">
           <button class="ghost-btn" id="clear-filters">Clear filters</button>
           <a href="/request-bike.html" style="font-size:11.5px;color:var(--text-dim)"
-             title="Ask for a bike the catalogue doesn't have">Can't find your bike? Ask for it →</a>
+             title="Ask for a bike the catalogue doesn't have">Can't find your bike? Request it</a>
         </div>
       </div>
 
@@ -939,7 +942,7 @@
            and a redraw must not reload the calculator and wipe what was typed. -->
       <section class="panel mix-calc" id="mix-calc" hidden>
         <div class="panel-head">
-          <div><h3 class="calc-name" style="font-size:inherit"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix Ratio Calculator</h3>
+          <div><h3 class="calc-name" style="font-size:inherit"><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7.5h8.5L18 12v8a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 5 20z"/><path d="M7 7.5V4.5h5v3"/><path d="M15.5 9.5 18 7l1.5 1.5"/><path d="M8.5 12.5l5.5 6M14 12.5l-5.5 6"/></svg><svg class="gas-can" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4.5h11.5l-1 15.5a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5L4.6 6z"/><path d="M4 4.5 2.8 3.3"/><path d="M15.2 8.5h2.3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2.8"/><path d="M7 9h3M7 12.5h4.5M7 16h3"/></svg>Mix ratio calculator</h3>
             <p>How much 2-stroke oil to add to your gas.</p></div>
           <a class="ghost-btn" style="text-decoration:none" href="/calculator.html" target="_blank" rel="noopener">Open in a new tab ↗</a>
         </div>
@@ -984,8 +987,8 @@
 </main>
 
 <footer>
-  <p class="footer-line">GearHeadSpecs. Checked by riders. Still, crack the manual
-    before you put a wrench on it.</p>
+  <p class="footer-line">Specs here are checked by riders, not the manufacturer.
+    Check your service manual before you turn a wrench.</p>
   <!-- What the site actually does, in the site's own terms. It promises no
        checking, by us or by anyone later: "pending verification" is a promise
        that something will be verified, and nothing here ever is. A manager
@@ -1490,9 +1493,9 @@ function renderHero(){
       <div id="photo-block">${renderPhotoBlock()}</div>
       <div class="bike-meta">
         <h1 class="hero-title">${esc(bike.display_name)}</h1>
-        <div class="alt-name">${esc(bike.year_range || "years unknown")}${
+        <div class="alt-name">${esc(madeLine(bike))}${
           alsoKnown.length
-            ? " · Also sold as " + alsoKnown.map(n =>
+            ? " Also sold as " + alsoKnown.map(n =>
                 esc(n.name) + (n.market ? ` (${esc(n.market)})` : "")).join(", ")
             : ""}</div>
         ${MANAGES_THIS_BIKE ? `
@@ -1506,13 +1509,13 @@ function renderHero(){
         <div id="bike-form"></div>` : ""}
         <div class="chip-row">
           ${chips.map((c, i) => `<span class="chip${i === 0 ? " type" : ""}">${esc(c)}</span>`).join("")}
-          <span class="chip">${bike.specs_filled}/${bike.fields_triggered} specs filled</span>
+          <span class="chip">${bike.specs_filled} of ${bike.fields_triggered} specs filled in</span>
           ${bike.years_verified ? "" : `<span class="chip warn">year span unconfirmed</span>`}
         </div>
         ${heroSpecs.length ? `
           <div class="quicklist">
             ${heroSpecs.map(s => `
-              <div${s.in_header ? ' class="ql-pinned' + (s.header_only ? " ql-only" : "") + '"' : ""}><span>${esc(s.label)}</span>${
+              <div${s.in_header ? ' class="ql-pinned' + (s.header_only ? " ql-only" : "") + (MANAGES_THIS_BIKE ? " ql-mine" : "") + '"' : ""}><span>${esc(s.label)}</span>${
                 s.value ? esc(s.value)
                   // Only this bike's manager ever sees a paused spec, and for
                   // them "not yet sourced" would misreport a value that exists
@@ -1557,7 +1560,7 @@ function renderHero(){
             !bike.managers.length && !(ME.user && ME.user.role === "admin")
             ? `<a class="primary-btn" style="text-decoration:none" href="/manager-apply.html?bike=${bike.bike_id}"
                   title="Nobody's looking after this bike yet">Know this bike well? Offer to look after it →</a>` : ""}
-          <span class="fill"><span><b>${bike.specs_filled}</b> / ${bike.fields_triggered} specs filled</span>
+          <span class="fill"><span><b>${bike.specs_filled}</b> of ${bike.fields_triggered} specs filled in</span>
             <span class="bar"><i style="width:${bike.fields_triggered ? Math.round(100 * bike.specs_filled / bike.fields_triggered) : 0}%"></i></span></span>
           ${ME.user && ME.user.role === "admin" && !bike.offline
             ? `<button class="ghost-btn" data-bike-offline="1" title="Hide this whole bike from riders. Nothing on it is deleted.">Take this bike offline</button>` : ""}
@@ -1619,12 +1622,21 @@ function renderPhotoBlock(){
 }
 let PHOTO_UPLOAD_YEAR = null;
 
+/* "Made 2002–2007", "Made since 2016", "Made in 1985" -- the years in a
+   sentence a rider reads at a glance. */
+function madeLine(bike){
+  const a = bike.year_start, b = bike.year_end;
+  if(!a) return "Years unknown.";
+  if(!b) return `Made since ${a}.`;
+  return a === b ? `Made in ${a}.` : `Made ${a}–${b}.`;
+}
+
 /* Where this value came from, and when. A rider's name when somebody typed
    it; the catalogue import when nobody did. Never blank beside a number --
    an unattributed figure reads as the site's own, which is the one thing
    this site must not imply. */
 function valueSource(s){
-  const when = s.value_at ? ` · ${esc(String(s.value_at).slice(0, 10))}` : "";
+  const when = s.value_at ? ` on ${esc(String(s.value_at).slice(0, 10))}` : "";
   if(s.entered_by_username){
     return `<span class="cell-dim">entered by ${memberName(s.entered_by, s.entered_by_username,
       s.entered_by_role, s.entered_by_retired, s.entered_by_founder)}${when}</span>`;
@@ -1670,10 +1682,10 @@ function archiveBarHTML(){
   if(!n) return "";
   return `<div class="archive-bar">
       <button class="action-btn" data-archive-open="1">
-        Archive (${n})
+        Put away (${n})
       </button>
-      <span class="cell-dim">${n} thing${n === 1 ? "" : "s"} you have taken off this sheet —
-        specs, or single alternatives. Nothing was deleted.</span>
+      <span class="cell-dim">You've put away ${n} spec${n === 1 ? "" : "s"} or alternative${n === 1 ? "" : "s"}.
+        Nothing is deleted; open this to bring ${n === 1 ? "it" : "them"} back.</span>
     </div>
     <div id="archive-panel"></div>`;
 }
@@ -1687,11 +1699,10 @@ function renderDetail(){
     <div class="panel">
       <div class="panel-head">
         <div><h3>Full spec sheet</h3>
-          <p>Every field this bike has, including the General values summarised
-             above. Add the stock value to a gap, suggest an alternative you run
-             instead, or flag, vote and request any of them here.
-             Missing a spec altogether?
-             <a id="request-spec-link" href="/request-spec.html?bike=${bike.bike_id}">Ask for one this bike doesn't list</a>.</p>
+          <p>Every spec for this bike, including the ones shown above. Fill in a
+             missing stock value, add an alternative you run, or vote on and flag
+             any value. Need a spec that isn't listed?
+             <a id="request-spec-link" href="/request-spec.html?bike=${bike.bike_id}">Request a new spec</a>.</p>
           ${archiveBarHTML()}</div>
         <div class="btn-row">
           <span class="field-label" style="margin:0 6px 0 0;align-self:center">Year</span>
@@ -1724,7 +1735,7 @@ function renderUnplaced(){
     else groups.push([s]);
   });
   const invisible = groups.filter(g => !(g[0].in_header || (g[0].category === "General" && !g[0].header_hidden)));
-  return catSection("No heading", `${groups.length} · only you see this`,
+  return catSection("Uncategorized", `${groups.length} spec${groups.length !== 1 ? "s" : ""}, only visible to you`,
     `<div class="inline-sub" style="margin:8px 0 12px">Only you see this section.
       These show in the header if pinned there (or General), and under no heading
       below.${invisible.length ? ` <b>${invisible.length} of them ${invisible.length === 1 ? "is" : "are"} not
@@ -1772,8 +1783,8 @@ function renderCategory(cat){
       else parts.splice(at(ETH), 0, item);
     }
   }
-  return catSection(cat.name, `${cat.specs.length}${gaps ? ` · ${gaps} gap${gaps > 1 ? "s" : ""}` : ""}${
-      uniq.length ? ` · +${uniq.length} also` : ""}`,
+  return catSection(cat.name, `${cat.specs.length} spec${cat.specs.length !== 1 ? "s" : ""}${
+      gaps ? `, ${gaps} missing` : ""}${uniq.length ? `, ${uniq.length} shared from another section` : ""}`,
     parts.map(p => p.html).join("") +
     (rest.length ? `<div class="echo-head">Also shown here</div>` +
       rest.map(s => renderEcho(s, cat.name)).join("") : ""));
@@ -2182,8 +2193,8 @@ function renderCatNav(){
     const also = new Set((c.echoes || []).map(s => s.field_key)).size;
     return `<button class="cat-nav-item" data-jump="${esc(id)}">
         <span>${esc(c.name)}</span>
-        <span class="cat-nav-count">${c.specs.length}${gaps ? ` · ${gaps} gap${gaps > 1 ? "s" : ""}` : ""}${
-          also ? ` · +${also} also` : ""}</span>
+        <span class="cat-nav-count">${c.specs.length} spec${c.specs.length !== 1 ? "s" : ""}${
+          gaps ? `, ${gaps} missing` : ""}</span>
       </button>`;
   }).join("");
   side.classList.add("visible");
@@ -2235,7 +2246,7 @@ function renderGarage(){
     countEl.textContent = "";
     list.innerHTML = `<div class="garage-empty">Sign in to keep your bikes and
       service history here.</div>`;
-    addBtn.textContent = BIKE ? `+ Add ${BIKE.display_name}` : "Select a bike";
+    addBtn.textContent = BIKE ? `Add ${BIKE.display_name} to your garage` : "Select a bike";
     addBtn.disabled = false;
     addBtn.dataset.authKind = "garage";
     addBtn.setAttribute("data-needs-auth", "");
@@ -2243,7 +2254,7 @@ function renderGarage(){
   }
 
   addBtn.removeAttribute("data-needs-auth");
-  countEl.textContent = GARAGE.length ? `${GARAGE.length} bike${GARAGE.length === 1 ? "" : "s"}` : "";
+  countEl.textContent = GARAGE.length ? `${GARAGE.length} bike${GARAGE.length === 1 ? "" : "s"} in your garage` : "";
   list.innerHTML = GARAGE.length
     ? GARAGE.map(g => `
         <div class="garage-item${BIKE && g.bike_id === BIKE.bike_id ? " current" : ""}">
@@ -2255,7 +2266,7 @@ function renderGarage(){
     : `<div class="garage-empty">No bikes yet. Open one below and add it.</div>`;
 
   addBtn.disabled = !BIKE;
-  addBtn.textContent = BIKE ? `+ Add ${BIKE.display_name}` : "Select a bike";
+  addBtn.textContent = BIKE ? `Add ${BIKE.display_name} to your garage` : "Select a bike";
 }
 
 /* ------------------------------------------------------------ service log */
@@ -2274,8 +2285,8 @@ const renderServiceLog = guard(async () => {
     <div class="panel">
       <div class="panel-head">
         <div><h3>Service Log</h3>
-          <p>Intervals are read from this bike's spec sheet, so correcting a
-             spec moves your next-due mileage with it.</p></div>
+          <p>Service intervals come from this bike's spec sheet. When a spec is
+             corrected, your next-due mileage updates with it.</p></div>
       </div>
       ${mine.map((g, i) => renderInstance(g, blocks[i].tasks)).join("")}
     </div>`;
@@ -2287,11 +2298,11 @@ function renderInstance(g, tasks){
       <div class="svc-inst-head">
         <div>
           <div class="result-name">${esc(g.nickname || `${g.year} ${g.display_name}`)}</div>
-          <div class="result-meta">${g.year} · ${esc(g.display_name)}</div>
+          <div class="result-meta">${g.year} ${esc(g.display_name)}</div>
         </div>
         <div class="btn-row">
-          <span class="field-label" style="margin:0 4px 0 0;align-self:center">Odometer</span>
-          <input class="odo" type="number" value="${g.mileage ?? ""}" placeholder="miles" data-odo="${g.id}">
+          <span class="field-label" style="margin:0 4px 0 0;align-self:center">Current mileage</span>
+          <input class="odo" type="number" value="${g.mileage ?? ""}" placeholder="miles" data-odo="${g.id}" aria-label="Current mileage">
         </div>
       </div>
       ${tasks.length ? tasks.map(t => {
@@ -2301,7 +2312,7 @@ function renderInstance(g, tasks){
           soon:    `<span class="badge status-soon">Due in ${t.due_in_miles} mi</span>`,
           ok:      `<span class="badge status-ok">Due in ${t.due_in_miles} mi</span>`,
           logged:  `<span class="badge">Logged</span>`,
-          never:   `<span class="badge amber">Never logged</span>`,
+          never:   `<span class="badge amber">Not logged yet</span>`,
         }[t.status] || "";
         return `
           <div class="svc-task">
@@ -2318,7 +2329,7 @@ function renderInstance(g, tasks){
               </div>
               <div class="btn-row">
                 ${badge}
-                <button class="action-btn open" data-log="${g.id}|${esc(t.task_key)}">Log</button>
+                <button class="action-btn open" data-log="${g.id}|${esc(t.task_key)}">Log service</button>
               </div>
             </div>
             <div id="svcform-${g.id}-${esc(t.task_key)}"></div>
@@ -3349,7 +3360,7 @@ document.addEventListener("change", guard(async (e) => {
   const odo = e.target.closest("[data-odo]");
   if(odo){
     await API.patch(`/api/garage/${odo.dataset.odo}`, { mileage: Number(odo.value) || null });
-    toast("Odometer updated.", "ok");
+    toast("Mileage updated.", "ok");
     await loadGarage();
     renderServiceLog();
   }
@@ -3417,8 +3428,7 @@ function renderHowCta(){
   await search();
   const st = await API.get("/api/stats");
   byId("total-count").textContent =
-    `${st.bikes.toLocaleString()} bikes · ${st.specs.toLocaleString()} specs · ${
-      st.values.toLocaleString()} values in the database`;
+    `${st.bikes.toLocaleString()} bikes so far, with ${st.values.toLocaleString()} specs filled in.`;
 
   // Arrived with a bike named — from My Bikes, a shared link, a bookmark.
   const wanted = Number(new URLSearchParams(location.search).get("bike"));
