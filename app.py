@@ -19,6 +19,7 @@ import os
 import re
 import sqlite3
 import hashlib
+import html
 import hmac
 import secrets
 import mimetypes
@@ -511,7 +512,7 @@ def catalog_filters(ctx):
         elif code.lower() in label.lower() or len(label) + len(code) > 52:
             m["label"] = label
         else:
-            m["label"] = f"{label} · {code}"
+            m["label"] = f"{label} ({code})"
 
     return {
         "makes":  distinct("b.make", "b.make"),
@@ -6963,6 +6964,138 @@ def list_users(ctx):
 
 
 # ===========================================================================
+# Bike pages at their own address
+# ===========================================================================
+# A bike's page is /bike/<id>/<name-in-the-address>, e.g.
+# /bike/1446/suzuki-dr650se. The page itself is still index.html filled in by
+# the browser, but the server writes the bike into it first: its own title,
+# a description, the preview a shared link shows, and a plain list of the
+# specs. Before this, every bike arrived as the same page, so a search engine
+# or a link preview saw the home page and never the bike.
+BIKE_PATH = re.compile(r"^/bike/(\d+)(?:/([^/]*))?/?$")
+# These are stored in a form only the page's own code knows how to show.
+SUMMARY_SKIPS = ("wire_color", "fuse")
+# The address search engines are told is the real one. The bare domain
+# redirects to www, and a page must not name a redirect as its own address.
+PUBLIC_URL = SITE_URL.replace("://gearheadspecs.com", "://www.gearheadspecs.com")
+
+
+def bike_slug(display_name):
+    """The readable part of a bike's address: 'Suzuki DR650SE' is
+    'suzuki-dr650se'. Only the number finds the bike; this part is for people
+    and search engines, so a renamed bike just redirects to its new one."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (display_name or "").lower()).strip("-")
+    if len(slug) > 70:
+        slug = slug[:70].rsplit("-", 1)[0]
+    return slug or "bike"
+
+
+def bike_path(bike_id, display_name):
+    return f"/bike/{bike_id}/{bike_slug(display_name)}"
+
+
+def years_words(year_range):
+    """'1996-2023' reads as '1996 to 2023'; '2001-present' as 'since 2001'."""
+    if not year_range:
+        return ""
+    start, _, end = year_range.partition("-")
+    if not end or end == start:
+        return start
+    return f"since {start}" if end == "present" else f"{start} to {end}"
+
+
+def public_bike(conn, bike_id):
+    """The bike as a rider who is not signed in sees it, or None when there
+    is nothing for them: no such bike, or one taken offline."""
+    bike = one(conn.execute(
+        "SELECT d.bike_id, d.display_name, d.make, d.bike_type, d.year_range,"
+        "       p.fields_triggered_public AS fields_triggered,"
+        "       p.specs_filled_public AS specs_filled"
+        " FROM bike_display d JOIN bikes b ON b.id = d.bike_id"
+        " JOIN bike_spec_progress p ON p.bike_id = d.bike_id"
+        " WHERE d.bike_id = ? AND b.offline = 0", (bike_id,)))
+    if not bike:
+        return None
+    bike["specs"] = rows(conn.execute(
+        "SELECT f.label, f.category, s.value FROM specs s"
+        " JOIN spec_fields f ON f.field_key = s.field_key"
+        " WHERE s.bike_id = ? AND s.paused = 0 AND s.archived = 0"
+        "   AND s.value IS NOT NULL AND TRIM(s.value) <> ''"
+        f"  AND f.value_type NOT IN ({','.join('?' * len(SUMMARY_SKIPS))})"
+        " ORDER BY f.sort_order, f.label", (bike_id, *SUMMARY_SKIPS)))
+    bike["photo"] = photo_of(conn, bike_id)[0]
+    return bike
+
+
+def bike_description(bike):
+    """The line a search result or a shared link shows under the title."""
+    name, years = bike["display_name"], years_words(bike["year_range"])
+    of = f"the {name}" + (f", {years}" if years else "")
+    if not bike["specs"]:
+        return (f"Nobody has added specs for {of} yet. "
+                "Know this bike? Add one you're sure of and help every rider who owns one.")
+    shown, text = [], f"Stock specs for {of}: "
+    for s in bike["specs"]:
+        piece = f"{s['label']}: {s['value']}"
+        if shown and len(text) + len("; ".join(shown + [piece])) > 150:
+            break
+        shown.append(piece)
+    text += "; ".join(shown) + "."
+    if bike["specs_filled"] < 10:
+        text += " Know this bike? Add a spec you're sure of."
+    else:
+        text += " Checked by riders."
+    return text
+
+
+def bike_page_html(template, bike):
+    """index.html with this bike written into it."""
+    esc = lambda s: html.escape(str(s), quote=True)
+    name, years = bike["display_name"], years_words(bike["year_range"])
+    url = PUBLIC_URL + bike_path(bike["bike_id"], name)
+    title = f"{name} stock specs" + (f", {years}" if years else "") + " | GearHeadSpecs"
+    desc = bike_description(bike)
+    image = PUBLIC_URL + (bike["photo"]["url"] if bike["photo"] else "/img/brand-logo.png")
+    head = "\n".join([
+        f'<meta name="description" content="{esc(desc)}">',
+        f'<link rel="canonical" href="{esc(url)}">',
+        '<meta property="og:site_name" content="GearHeadSpecs">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:title" content="{esc(title)}">',
+        f'<meta property="og:description" content="{esc(desc)}">',
+        f'<meta property="og:url" content="{esc(url)}">',
+        f'<meta property="og:image" content="{esc(image)}">',
+        '<meta name="twitter:card" content="summary_large_image">',
+    ])
+    # The specs as plain text, inside the box the spec sheet is drawn in, so
+    # the page's own code replaces it the moment it has the full sheet.
+    filled, needed = bike["specs_filled"], bike["fields_triggered"]
+    items = "".join(f"<li>{esc(s['label'])}: {esc(s['value'])}</li>" for s in bike["specs"])
+    summary = (
+        f'<div class="panel" id="bike-summary"><div class="panel-body">'
+        f"<h2>{esc(name)}</h2>"
+        f"<p>{esc(', '.join(x for x in (years, bike['bike_type']) if x))}</p>"
+        f"<p>{filled} of {needed} specs filled in. This sheet is built by riders: "
+        "if you know a spec for this bike and you're sure of it, add it.</p>"
+        + (f"<ul>{items}</ul>" if items else "")
+        + "</div></div>")
+    page = template.replace(
+        "<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>",
+        f"<title>{esc(title)}</title>\n{head}", 1)
+    return page.replace('<div id="detail-container"></div>',
+                        f'<div id="detail-container">{summary}</div>', 1)
+
+
+def not_found_page_html(template):
+    """The bike page for a bike that is not there: the page still loads, so
+    a rider can search for another, but search engines are told to drop it."""
+    return template.replace(
+        "<title>GearHeadSpecs: stock motorcycle specs, checked by riders</title>",
+        "<title>Bike not found | GearHeadSpecs</title>\n"
+        '<meta name="robots" content="noindex">', 1)
+
+
+# ===========================================================================
 # HTTP plumbing
 # ===========================================================================
 class Handler(BaseHTTPRequestHandler):
@@ -7047,6 +7180,8 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
 
         if not path.startswith("/api/"):
+            if path in ("/", "/index.html") or BIKE_PATH.match(path):
+                return self._serve_bike_page(path, parse_qs(parsed.query))
             return self._serve_static(path)
 
         conn = db()
@@ -7103,6 +7238,52 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": f"{type(e).__name__}: {e}"})
         finally:
             conn.close()
+
+    def _send_html(self, status, page):
+        data = page.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _redirect(self, location):
+        # 301: the old address is gone for good, so search engines and
+        # browsers move what they know about it to the new one.
+        self.send_response(301)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _serve_bike_page(self, path, query):
+        """The home page, and every bike's page at its own address. An old
+        ?bike= link goes to the bike's address; a bike that is not there (or
+        is offline) still gets the page, so admin and its manager can open it,
+        but with 'not found' for everyone else's browser and search engines."""
+        m = BIKE_PATH.match(path)
+        old = (query.get("bike") or [""])[0]
+        if not m and not old.isdigit():
+            return self._serve_static(path)
+        bike_id = int(m.group(1) if m else old)
+        with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as f:
+            template = f.read()
+        conn = db()
+        try:
+            bike = public_bike(conn, bike_id)
+            name = None if bike else one(conn.execute(
+                "SELECT display_name FROM bike_display WHERE bike_id=?", (bike_id,)))
+        finally:
+            conn.close()
+        if not bike:
+            if not m and name:
+                # an offline bike keeps its new address for the people who
+                # can still open it
+                return self._redirect(bike_path(bike_id, name["display_name"]))
+            return self._send_html(404, not_found_page_html(template))
+        want = bike_path(bike_id, bike["display_name"])
+        if path != want:
+            return self._redirect(want)
+        return self._send_html(200, bike_page_html(template, bike))
 
     def _serve_static(self, path):
         rel = path.lstrip("/") or "index.html"

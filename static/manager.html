@@ -184,9 +184,9 @@ function render(){
         <div class="bike-card">
           <div>
             <div class="bike-name">${esc(b.display_name)}</div>
-            <div class="bike-meta">${esc(b.specialty || b.bike_type || "—")} ·
-              ${b.fields_triggered} fields triggered, ${b.specs_filled} filled ·
-              <span class="needed-count">${b.specs_needed} still need a value</span></div>
+            <div class="bike-meta">${b.specialty || b.bike_type ? `${esc(b.specialty || b.bike_type)}. ` : ""}${
+              b.specs_filled} of ${b.fields_triggered} specs filled in,
+              <span class="needed-count">${b.specs_needed} still missing</span>.</div>
           </div>
           <div class="bike-right">
             <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>

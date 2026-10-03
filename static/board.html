@@ -163,7 +163,7 @@ function newFormHTML(){
           <input type="text" id="nt-title" maxlength="120" autocomplete="off" value="${esc(draft.title)}" placeholder="e.g. Anyone have the 2004 CB919 wiring diagram scanned?"></div>
         <div class="row"><label for="nt-bike">About a bike (optional)</label>
           ${NEW_BIKE
-            ? `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px"><span>${esc(NEW_BIKE.display_name)} <span class="cell-dim">· ${esc(NEW_BIKE.year_range || "")}</span></span>
+            ? `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px"><span>${esc(NEW_BIKE.display_name)} <span class="cell-dim">, ${esc(NEW_BIKE.year_range || "")}</span></span>
                  <button class="ghost-btn" id="nt-bike-clear">×</button></div>`
             : `<input type="text" id="nt-bike" autocomplete="off" placeholder="Search the catalogue, e.g. XT600"><div class="bike-hits" id="nt-bike-hits"></div>`}</div>
         <div class="row"><label for="nt-body">Post</label>
@@ -287,7 +287,7 @@ function hookBikeSearch(){
     if(v.length < 2){ box.innerHTML = ""; return; }
     bt = setTimeout(guard(async () => {
       const data = await API.get("/api/bikes?limit=6&q=" + encodeURIComponent(v));
-      box.innerHTML = data.bikes.map(b => `<button type="button" data-nt-bike="${b.bike_id}" data-name="${esc(b.display_name)}" data-years="${esc(b.year_range || "")}">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></button>`).join("")
+      box.innerHTML = data.bikes.map(b => `<button type="button" data-nt-bike="${b.bike_id}" data-name="${esc(b.display_name)}" data-years="${esc(b.year_range || "")}">${esc(b.display_name)} <span class="cell-dim">, ${esc(b.year_range || "")}</span></button>`).join("")
         || `<div class="cell-dim" style="padding:6px 4px">No bike matches.</div>`;
     }), 250);
   });

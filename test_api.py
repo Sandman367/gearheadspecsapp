@@ -4,6 +4,7 @@ data.db, so nothing here can damage the working database.
 
 Run:  py test_api.py
 """
+import html
 import json
 import os
 import shutil
@@ -5923,7 +5924,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(s, 200, b)
         s, f = self.anon().get("/api/catalog/filters?make=Harley-Davidson")
         opt = next(m for m in f["models"] if m["model_code"] == "FLFBS TEST")
-        self.assertEqual(opt["label"], "Fat Boy 114 · FLFBS TEST")
+        self.assertEqual(opt["label"], "Fat Boy 114 (FLFBS TEST)")
         # a name that already carries the code is the label on its own
         s, b2 = adm.post("/api/bikes", {"make": "Honda", "model_code": "CB919 TEST", "year_start": 2002})
         s, f = self.anon().get("/api/catalog/filters?make=Honda")
@@ -7035,6 +7036,63 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(con.execute("SELECT offline FROM bikes WHERE model_code='SX-E'").fetchone()[0], 0)
         con.close()
 
+
+    def test_99z_every_bike_has_its_own_address(self):
+        """A bike's page lives at /bike/<id>/<its-name>, and arrives already
+        naming the bike: its own title, a description, a link preview and its
+        specs. Old ?bike= links move there for good; a bike that isn't there
+        says not found."""
+        import http.client
+        def raw(path):
+            c = http.client.HTTPConnection("127.0.0.1", self.port)
+            c.request("GET", path)
+            r = c.getresponse()
+            out = (r.status, r.getheader("Location"), r.read().decode("utf-8"))
+            c.close()
+            return out
+        self.assertEqual(app.bike_slug("Suzuki DR650SE"), "suzuki-dr650se")
+        self.assertEqual(app.bike_slug("MV Agusta 1000 Corona / 1000 Ago"),
+                         "mv-agusta-1000-corona-1000-ago")
+        self.assertEqual(app.years_words("1996-2023"), "1996 to 2023")
+        self.assertEqual(app.years_words("2001-present"), "since 2001")
+        con = sqlite3.connect(self.db)
+        name = con.execute("SELECT display_name FROM bike_display WHERE bike_id=?",
+                           (self.cb919,)).fetchone()[0]
+        value, label = con.execute(
+            "SELECT s.value, f.label FROM specs s JOIN spec_fields f ON f.field_key=s.field_key"
+            " WHERE s.bike_id=? AND s.paused=0 AND s.archived=0 AND TRIM(COALESCE(s.value,''))<>''"
+            " AND f.value_type='text' ORDER BY f.sort_order LIMIT 1", (self.cb919,)).fetchone()
+        con.close()
+        home = f"/bike/{self.cb919}/{app.bike_slug(name)}"
+        for old in (f"/?bike={self.cb919}", f"/index.html?bike={self.cb919}",
+                    f"/bike/{self.cb919}", f"/bike/{self.cb919}/an-old-name"):
+            self.assertEqual(raw(old)[:2], (301, home), old)
+        status, _, page = raw(home)
+        self.assertEqual(status, 200)
+        self.assertIn(f"<title>{html.escape(name)} stock specs", page)
+        self.assertIn('<meta name="description"', page)
+        self.assertIn('<meta property="og:title"', page)
+        self.assertIn(f'rel="canonical" href="{app.PUBLIC_URL}{home}"', page)
+        self.assertIn(f"<li>{html.escape(label)}: {html.escape(value)}</li>", page)
+        self.assertIn("if you know a spec for this bike", page)
+        # the catalog itself is untouched
+        status, _, page = raw("/")
+        self.assertEqual(status, 200)
+        self.assertIn("<title>GearHeadSpecs: stock motorcycle specs", page)
+        # no such bike
+        status, _, page = raw("/bike/999999/nothing")
+        self.assertEqual(status, 404)
+        self.assertIn('content="noindex"', page)
+        self.assertEqual(raw("/?bike=999999")[0], 404)
+        # an offline bike is not found for riders, but its address stays
+        con = sqlite3.connect(self.db)
+        con.execute("UPDATE bikes SET offline=1 WHERE id=?", (self.cb919,)); con.commit()
+        try:
+            self.assertEqual(raw(home)[0], 404)
+            self.assertEqual(raw(f"/?bike={self.cb919}")[:2], (301, home))
+        finally:
+            con.execute("UPDATE bikes SET offline=0 WHERE id=?", (self.cb919,)); con.commit()
+            con.close()
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

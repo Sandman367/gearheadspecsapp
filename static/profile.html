@@ -120,13 +120,13 @@ const load = guard(async () => {
           <div class="panel-head"><div><h3>Badges</h3></div>
             <span class="count-tag">${st.badges.filter(b => b.earned).length} of ${st.badges.length}</span></div>
           <div class="panel-body badges">
-            ${st.badges.map(b => `<span class="badge-chip${b.earned ? "" : " locked"}" title="${esc(b.rule)}"><span class="dot"></span>${esc(b.name)}${b.earned ? "" : ` <small>· ${esc(b.rule)}</small>`}</span>`).join("")}
+            ${st.badges.map(b => `<span class="badge-chip${b.earned ? "" : " locked"}" title="${esc(b.rule)}"><span class="dot"></span>${esc(b.name)}${b.earned ? "" : ` <small>(${esc(b.rule)})</small>`}</span>`).join("")}
           </div>
         </div>
         <div class="panel">
           <div class="panel-head"><div><h3>Bikes</h3></div></div>
           <div class="panel-body">
-            ${st.bikes.map(b => `<div class="bikes-row"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}${b.lead ? ` <span class="cell-dim">· lead</span>` : ""}</a>
+            ${st.bikes.map(b => `<div class="bikes-row"><a href="/index.html?bike=${b.bike_id}">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">, ${esc(b.year_range)}</span>` : ""}${b.lead ? ` <span class="cell-dim">, lead manager</span>` : ""}</a>
               <span class="cell-dim">${b.specs_filled} / ${b.fields_triggered}<span class="bar"><i style="width:${b.fields_triggered ? Math.round(100 * b.specs_filled / b.fields_triggered) : 0}%"></i></span></span></div>`).join("")}
           </div>
         </div>

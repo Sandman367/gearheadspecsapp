@@ -374,7 +374,7 @@ document.addEventListener("input", (e) => {
     const data = await API.get("/api/bikes?limit=8&q=" + encodeURIComponent(q));
     box.innerHTML = data.bikes.length ? data.bikes.map(b => `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
-        <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></div>
+        <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">, ${esc(b.year_range || "")}</span></div>
         <button class="action-btn approve" data-bike-req-match-go="${rid}|${b.bike_id}">This one</button>
       </div>`).join("")
       : `<div class="cell-dim">No bikes match "${esc(q)}".</div>`;
@@ -723,7 +723,7 @@ function jobsPanel(){
           <div style="display:flex;flex-wrap:wrap;gap:6px">${d.fields.map((f, i) => `
             <span class="badge" style="display:inline-flex;gap:6px;align-items:center;padding:4px 8px">
               ${i ? `<button class="job-x" data-job-up="${esc(j.task_key)}|${i}" title="Move earlier" style="background:none;border:none;color:var(--text-faint);cursor:pointer">Earlier</button>` : ""}
-              ${esc(f.label)} <span class="cell-dim">· ${esc(f.category)}</span>
+              ${esc(f.label)} <span class="cell-dim">, ${esc(f.category)}</span>
               <button data-job-drop="${esc(j.task_key)}|${i}" title="Take it off this job" style="background:none;border:none;color:var(--text-faint);cursor:pointer">✕</button></span>`).join("")
             || `<span class="cell-dim">No specs yet: this job would show on no bike.</span>`}</div>
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
@@ -856,7 +856,7 @@ function userLink(name, id){
 }
 function bikeLink(name, years, id){
   if(!name) return "";
-  const label = esc(name) + (years ? ` <span class="cell-dim">· ${esc(years)}</span>` : "");
+  const label = esc(name) + (years ? ` <span class="cell-dim">, ${esc(years)}</span>` : "");
   return id ? `<a href="/index.html?bike=${id}">${label}</a>` : label;
 }
 
@@ -1650,7 +1650,7 @@ document.addEventListener("click", guard(async (e) => {
           removing those destroys the value and anything hanging off it.</div>
         ${usage.bikes.map(b => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
-            <div><div style="font-size:12.5px">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">· ${esc(b.year_range)}</span>` : ""}</div>
+            <div><div style="font-size:12.5px">${esc(b.display_name)}${b.year_range ? ` <span class="cell-dim">, ${esc(b.year_range)}</span>` : ""}</div>
               <div class="cell-dim">${b.value
                 ? `<span style="color:var(--danger)">holds “${esc(b.value)}”</span>`
                 : "empty"}${b.alternates ? `, ${b.alternates} alternate(s)` : ""}</div></div>
@@ -2233,7 +2233,7 @@ document.addEventListener("click", guard(async (e) => {
                value="${esc(r.model)}" data-req="${r.id}">
         <div id="br-results" style="margin-top:8px">${r.maybe.map(b => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
-            <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">· ${esc(b.year_range || "")}</span></div>
+            <div style="font-size:12.5px">${esc(b.display_name)} <span class="cell-dim">, ${esc(b.year_range || "")}</span></div>
             <button class="action-btn approve" data-bike-req-match-go="${r.id}|${b.bike_id}">This one</button>
           </div>`).join("") || `<div class="cell-dim">Type to search.</div>`}</div>
         <div class="form-actions"><button class="ghost-btn" data-close="${brMatch.dataset.slot}">Cancel</button></div>

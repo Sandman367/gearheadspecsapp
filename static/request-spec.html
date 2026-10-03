@@ -278,12 +278,12 @@ function render(){
       <div class="panel-body">
         ${asked.map(f => `
           <div class="asked-row">
-            <span>${esc(f.label)} <span class="who">· ${esc(f.category)}</span></span>
+            <span>${esc(f.label)} <span class="who">, in ${esc(f.category)}</span></span>
             <span class="who">${f.requests} rider${f.requests !== 1 ? "s" : ""}${f.mine ? ", including you" : ""}</span>
           </div>`).join("")}
         ${DATA.proposals.map(p => `
           <div class="asked-row">
-            <span>${esc(p.field_name)} <span class="who">· ${esc(p.category)}${
+            <span>${esc(p.field_name)} <span class="who">, in ${esc(p.category)}${
               p.value_type && p.value_type !== "text" ? `, ${esc(p.value_type.replace("_", " "))}` : ""}, not on the list yet</span></span>
             <span class="who">with admin${p.mine ? ", yours" : ""}</span>
           </div>`).join("")}
