@@ -141,7 +141,7 @@ function render(){
             <td data-label="Requests"><span class="badge amber">${r.requests} rider${
               r.requests !== 1 ? "s" : ""}</span></td>
             <td data-label="Action">
-              <a class="action-btn approve" href="/questionnaire.html?bike=${r.bike_id}">Fill it in</a>
+              <a class="action-btn open" href="/questionnaire.html?bike=${r.bike_id}">Fill it in</a>
             </td>
           </tr>`).join("")
           : `<tr class="empty-row"><td colspan="4">Nobody has requested a specific gap yet.</td></tr>`}</tbody>
@@ -339,7 +339,7 @@ function renderFlagRow(f, i){
           // "Fix Value" writes the stock value, which was never what a flag
           // against somebody's alternate was about. The action that fits is
           // taking the alternate down.
-          ? `<button class="action-btn approve" data-drop-alt="${f.id}" data-slot="f${i}"
+          ? `<button class="action-btn danger" data-drop-alt="${f.id}" data-slot="f${i}"
                      data-alt="${esc(f.alt_text || "")}">Remove alternate</button>`
           : `<button class="action-btn approve" data-fix="${f.id}" data-slot="f${i}">Fix Value</button>`}
         ${!f.alternate_id && (f.current_value === null || f.current_value === "")
@@ -353,7 +353,7 @@ function renderFlagRow(f, i){
                   : "Hide it from riders while you check. The flag stays open."}">${
                 f.spec_offline ? "▶ Put online" : "❙❙ Take offline"}</button>
         <button class="action-btn" data-dismiss="${f.id}" data-slot="f${i}">Dismiss</button>
-        <button class="action-btn contact" data-contact="${f.id}" data-slot="f${i}"
+        <button class="action-btn" data-contact="${f.id}" data-slot="f${i}"
                 data-name="${esc(f.flagged_by)}">Contact</button>
       </div></td>
     </tr>
@@ -379,7 +379,7 @@ function fieldRequestRows(items, showManager){
         <div class="btn-row">
           <button class="action-btn approve" data-field-req="added" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
                   title="Puts an empty ${esc(r.label)} row on the bike's sheet, for a value to be sourced.">Add to bike</button>
-          <button class="action-btn" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+          <button class="action-btn danger" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
                   title="Closes the request without adding the field.">Decline</button>
         </div>
       </td>

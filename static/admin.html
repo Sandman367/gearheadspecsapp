@@ -788,7 +788,7 @@ function managerAppRows(items){
       <td data-label="Action">
         <div class="btn-row">
           <button class="action-btn approve" data-mgr-app="${a.id}" data-status="approved">Approve &amp; assign</button>
-          <button class="action-btn" data-mgr-app="${a.id}" data-status="declined">Decline</button>
+          <button class="action-btn danger" data-mgr-app="${a.id}" data-status="declined">Decline</button>
         </div>
       </td>
     </tr>`).join("");
@@ -811,9 +811,9 @@ function bikeRequestRows(items){
         <div class="cell-dim" style="margin-top:4px">${r.supporters.map(u => userLink(u.username, u.user_id)).join(", ")}</div></td>
       <td data-label="Action">
         <div class="btn-row">
-          <button class="action-btn approve" data-bike-req-add="${r.id}" data-slot="br${i}">Add as a new bike</button>
-          <button class="action-btn" data-bike-req-match="${r.id}" data-slot="br${i}">Match to a bike here</button>
-          <button class="action-btn" data-bike-req-decline="${r.id}" data-slot="br${i}">Decline</button>
+          <button class="action-btn open" data-bike-req-add="${r.id}" data-slot="br${i}">Add as a new bike</button>
+          <button class="action-btn open" data-bike-req-match="${r.id}" data-slot="br${i}">Match to a bike here</button>
+          <button class="action-btn danger" data-bike-req-decline="${r.id}" data-slot="br${i}">Decline</button>
         </div>
       </td>
     </tr>
@@ -836,7 +836,7 @@ function fieldRequestRows(items, showManager){
         <div class="btn-row">
           <button class="action-btn approve" data-field-req="added" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
                   title="Puts an empty ${esc(r.label)} row on the bike's sheet, for a value to be sourced.">Add to bike</button>
-          <button class="action-btn" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
+          <button class="action-btn danger" data-field-req="declined" data-bike="${r.bike_id}" data-key="${esc(r.field_key)}"
                   title="Closes the request without adding the field.">Decline</button>
         </div>
       </td>
@@ -1042,7 +1042,7 @@ function renderMembers(list){
               : u.gold_confirmed
                 ? `<button class="action-btn" data-gold="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Withdraw Gold</button>` : ""}
             ${u.role !== "admin" && !u.suspended && u.user_id !== ME.user.id
-              ? `<button class="action-btn approve" data-sign-in-as="${u.user_id}" data-name="${esc(u.username)}" data-role="${esc(u.role)}"
+              ? `<button class="action-btn" data-sign-in-as="${u.user_id}" data-name="${esc(u.username)}" data-role="${esc(u.role)}"
                          title="Open the site as this member, to see what they see. One click brings you back.">Sign in as</button>` : ""}
             ${u.user_id === ME.user.id ? "" : u.suspended
               ? `<button class="action-btn" data-suspend="${u.user_id}" data-on="0" data-name="${esc(u.username)}">Reinstate</button>`
@@ -1377,7 +1377,7 @@ function render(){
       </div>
       <div class="panel-body">
         <div class="btn-row">
-          <a class="action-btn approve" style="text-decoration:none" href="/api/admin/backup">Download database</a>
+          <a class="action-btn" style="text-decoration:none" href="/api/admin/backup">Download database</a>
           <a class="action-btn" style="text-decoration:none" href="/api/admin/backup-photos">Download photos (zip)</a>
         </div>
         <div class="btn-row" style="margin-top:14px;align-items:center">
@@ -1863,7 +1863,7 @@ document.addEventListener("click", guard(async (e) => {
           <label>Applies when the answer is</label>
           <div class="tag-input-row">
             <select id="br-option"></select>
-            <button type="button" class="action-btn approve" data-pick="br">+ Add branch</button>
+            <button type="button" class="action-btn open" data-pick="br">+ Add branch</button>
           </div>
         </div>
         <div class="form-row"><div class="branch-chips" id="br-picked"></div></div>
@@ -2016,7 +2016,7 @@ document.addEventListener("click", guard(async (e) => {
           <label>Applies when the answer is</label>
           <div class="tag-input-row">
             <select id="ap-option"></select>
-            <button type="button" class="action-btn approve" data-pick="ap">+ Add branch</button>
+            <button type="button" class="action-btn open" data-pick="ap">+ Add branch</button>
           </div>
           <div class="field-hint">Add as many as apply — chain <em>or</em> belt,
             for instance. The field appears on a bike matching any of them.</div>

@@ -1497,8 +1497,8 @@ function renderHero(){
             : ""}</div>
         ${MANAGES_THIS_BIKE ? `
         <div class="hero-tools">
-          <button class="action-btn" data-bike-rename title="Change the name riders see, and the other names it was sold under">Rename</button>
-          <button class="action-btn" data-bike-split title="Make the later model years their own bike">Split at a year</button>
+          <button class="action-btn open" data-bike-rename title="Change the name riders see, and the other names it was sold under">Rename</button>
+          <button class="action-btn open" data-bike-split title="Make the later model years their own bike">Split at a year</button>
           ${BIKE.split_from_bike_id ? `<span class="hero-note">Split from
             <a href="?bike=${BIKE.split_from_bike_id}" data-open-bike="${BIKE.split_from_bike_id}">the earlier ${esc(bike.display_name)}</a>
             at ${esc(String(BIKE.split_at_year))}</span>` : ""}
@@ -1589,11 +1589,11 @@ function renderPhotoBlock(){
   let tools = "";
   if(MANAGES_THIS_BIKE){
     const b = [];
-    if(!bike.photo) b.push(`<button class="action-btn" data-photo-pick="" title="JPEG, PNG or WebP, up to 5 MB">Add the main photo</button>`);
-    else if(canTouch(bike.photo)) b.push(`<button class="action-btn" data-photo-pick="" title="The main photo stands for every year without one of its own">Change main photo</button>`);
+    if(!bike.photo) b.push(`<button class="action-btn open" data-photo-pick="" title="JPEG, PNG or WebP, up to 5 MB">Add the main photo</button>`);
+    else if(canTouch(bike.photo)) b.push(`<button class="action-btn open" data-photo-pick="" title="The main photo stands for every year without one of its own">Change main photo</button>`);
     if(year){
-      if(yp && canTouch(yp)) b.push(`<button class="action-btn" data-photo-pick="${year}">Change ${year} photo</button>`);
-      else if(!yp && (isAdmin || !myYear)) b.push(`<button class="action-btn" data-photo-pick="${year}" title="A photo of a ${year} bike, shown when someone looks at ${year}">Add ${year} photo</button>`);
+      if(yp && canTouch(yp)) b.push(`<button class="action-btn open" data-photo-pick="${year}">Change ${year} photo</button>`);
+      else if(!yp && (isAdmin || !myYear)) b.push(`<button class="action-btn open" data-photo-pick="${year}" title="A photo of a ${year} bike, shown when someone looks at ${year}">Add ${year} photo</button>`);
       else if(!yp && myYear) b.push(`<span class="cell-dim" style="align-self:center">You hold the ${myYear.year} photo — one year each</span>`);
     }
     if(shown && canTouch(shown)) b.push(`<button class="action-btn danger" data-photo-remove="${shown.year || ""}">Remove${shown.year ? " " + shown.year : ""}</button>`);
@@ -1644,7 +1644,7 @@ function wireDiagramsHTML(){
   if(!list.length){
     return iManage ? `<div class="wire-diagrams">
         <span class="who">Wiring diagram</span>
-        <button class="action-btn" data-add-diagram="1"
+        <button class="action-btn open" data-add-diagram="1"
           title="Add the diagram for this bike. It shows on every wire colour on the sheet.">+ Add the wiring diagram</button>
       </div>` : "";
   }
@@ -1658,7 +1658,7 @@ function wireDiagramsHTML(){
         ${iManage ? `<button class="action-btn" data-diagram-pause="${d.id}"
             >${d.paused ? "Put back" : "Hide"}</button>` : ""}
       </div>`).join("")}
-      ${iManage ? `<button class="action-btn" data-add-diagram="1">+ Add another</button>` : ""}
+      ${iManage ? `<button class="action-btn open" data-add-diagram="1">+ Add another</button>` : ""}
     </div>`;
 }
 
@@ -2083,7 +2083,7 @@ function renderSpec(s, opts = {}){
       ${s.tools ? `<div class="spec-tools">⚒ <b>Tools required</b> ${esc(s.tools)}</div>` : ""}
       ${!hasValue && canAddValue ? `
         <div class="stock-row">
-          <button class="action-btn approve" data-add-value="${s.id}" data-auth-kind="value"${authAttr()}
+          <button class="action-btn open" data-add-value="${s.id}" data-auth-kind="value"${authAttr()}
                   title="The factory figure or part number for this bike, as the manual or parts list gives it. Shows as Unsourced until the bike's manager confirms it.">+ Add the stock value</button>
           <span class="row-cap">what the manual gives — the value this spec is missing</span>
         </div>` : ""}
@@ -2094,13 +2094,13 @@ function renderSpec(s, opts = {}){
           : "Run something else? An alternative lists under the stock value as an <b>Alt</b> for riders to vote on. It is not the manual's value — that goes above."}</div>` : ""}
       ${canAlt ? (isWire ? `
         <div class="propose-row wire-propose">
-          <button class="action-btn" data-open-wire="${s.id}" data-slot="alt${s.id}"
+          <button class="action-btn open" data-open-wire="${s.id}" data-slot="alt${s.id}"
                   data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock colour, for riders to vote on.">+ Suggest a different wire colour</button>
           <div id="wire-alt-${s.id}"></div>
         </div>` : s.value_type === "fuse" ? `
         <div class="propose-row wire-propose">
-          <button class="action-btn" data-open-fuse="${s.id}"
+          <button class="action-btn open" data-open-fuse="${s.id}"
                   data-auth-kind="value"${authAttr()}
                   title="Listed as an Alt under the stock fuses, for riders to vote on.">+ Suggest a different fuse</button>
           <div id="fuse-alt-${s.id}"></div>
@@ -2115,7 +2115,7 @@ function renderSpec(s, opts = {}){
       <div class="spec-foot">
         <a class="action-btn" href="/enrich.html?bike=${BIKE.bike_id}&field=${encodeURIComponent(s.field_key)}"
            title="Tools and links for this spec">⚒ Guides</a>
-        ${iManage && !s.note ? `<button class="action-btn" data-note="${s.id}" data-key="${esc(s.field_key)}" data-body=""
+        ${iManage && !s.note ? `<button class="action-btn open" data-note="${s.id}" data-key="${esc(s.field_key)}" data-body=""
             title="A sentence beside the value on this bike — how it is measured, what changed, what to watch for.">+ Add a note</button>` : ""}
       </div>
       <div id="spec-form-${s.id}"></div>
@@ -2318,7 +2318,7 @@ function renderInstance(g, tasks){
               </div>
               <div class="btn-row">
                 ${badge}
-                <button class="action-btn approve" data-log="${g.id}|${esc(t.task_key)}">Log</button>
+                <button class="action-btn open" data-log="${g.id}|${esc(t.task_key)}">Log</button>
               </div>
             </div>
             <div id="svcform-${g.id}-${esc(t.task_key)}"></div>

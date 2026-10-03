@@ -460,7 +460,7 @@ const renderManagerLanding = guard(async () => {
                 ${b.specialty ? " · " + esc(b.specialty) : ""}</div></div>
             <span class="badge ${b.specs_needed ? "amber" : "good"}">${
               b.specs_filled} of ${b.fields_triggered} filled</span>
-            <a class="action-btn approve" href="/questionnaire.html?bike=${b.bike_id}">Fill in values</a>
+            <a class="action-btn open" href="/questionnaire.html?bike=${b.bike_id}">Fill in values</a>
           </div>
         </div>`).join("")
       : `<div class="empty">No bikes assigned to you yet. An admin assigns them.</div>`}

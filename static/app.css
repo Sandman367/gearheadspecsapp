@@ -297,10 +297,16 @@ button{ font-family: var(--mono); }
   white-space: nowrap;
 }
 .action-btn:hover{ color: var(--text); border-color: var(--text-dim); }
-.action-btn.approve{ border-color: var(--good); color: var(--good); }
-.action-btn.approve:hover{ background: rgba(111,138,78,0.12); }
-.action-btn.contact{ border-color: var(--blue); color: var(--blue); }
-.action-btn.contact:hover{ background: rgba(74,143,217,0.12); }
+/* Button roles, one rule everywhere: colour says what it does, size says
+   where it sits (action-btn small, in rows; primary/ghost regular, in forms).
+     filled amber  -- does it: approve, confirm, save, add, send (approve, go)
+     amber outline -- opens or starts something: a form, a picker (open)
+     grey outline  -- back out, move, show/hide, reversible tools (default)
+     red outline   -- removes or refuses: delete, decline, remove (danger) */
+.action-btn.approve, .action-btn.go{ background: var(--amber); border-color: var(--amber); color: #1a1710; font-weight: 600; }
+.action-btn.approve:hover, .action-btn.go:hover{ background: #e8ac47; border-color: #e8ac47; color: #1a1710; }
+.action-btn.open{ border-color: var(--amber-dim); color: var(--amber); }
+.action-btn.open:hover{ border-color: var(--amber); background: rgba(217,154,43,0.08); color: var(--amber); }
 .action-btn.danger{ border-color: var(--danger); color: var(--danger); }
 .action-btn.danger:hover{ background: rgba(181,80,46,0.12); }
 .action-btn[disabled]{ opacity: 0.45; cursor: default; }
